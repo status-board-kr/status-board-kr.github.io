@@ -1,0 +1,58 @@
+name: APK 만들기
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 소스 가져오기
+        uses: actions/checkout@v4
+
+      - name: Node 설치
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 자바 설치
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: 안드로이드 SDK 준비
+        uses: android-actions/setup-android@v3
+
+      - name: 패키지 설치
+        working-directory: status-board-app
+        run: npm install
+
+      - name: 안드로이드 프로젝트 만들기
+        working-directory: status-board-app
+        run: npx cap add android
+
+      - name: 권한 설정
+        working-directory: status-board-app
+        run: node scripts/setup-android.js
+
+      - name: 앱 아이콘 생성
+        working-directory: status-board-app
+        run: npx @capacitor/assets generate --android
+
+      - name: 화면 파일 반영
+        working-directory: status-board-app
+        run: npx cap sync android
+
+      - name: APK 빌드
+        working-directory: status-board-app/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      - name: APK 올리기
+        uses: actions/upload-artifact@v4
+        with:
+          name: status-board-apk
+          path: status-board-app/android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
