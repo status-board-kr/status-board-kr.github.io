@@ -1,0 +1,11 @@
+{
+  "appId": "com.jangsung.fleet",
+  "appName": "현황판",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "useLegacyBridge": true
+  }
+}

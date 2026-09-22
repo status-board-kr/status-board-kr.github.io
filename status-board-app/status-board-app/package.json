@@ -1,0 +1,23 @@
+{
+  "name": "status-board-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "현황판 - 안드로이드 앱 (백그라운드 위치 공유 포함)",
+  "scripts": {
+    "setup": "npx cap add android && node scripts/setup-android.js && npx @capacitor/assets generate --android && npx cap sync android",
+    "sync": "npx cap sync android",
+    "open": "npx cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/local-notifications": "^7.0.0",
+    "@capacitor-community/background-geolocation": "^1.2.25",
+    "@capacitor/filesystem": "^7.0.0",
+    "@capacitor/share": "^7.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^7.0.0"
+  }
+}
