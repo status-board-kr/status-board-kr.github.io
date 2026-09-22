@@ -1,0 +1,3649 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>현황판</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#0f172a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="현황판" id="appleTitleMeta">
+<script>
+  // ══════════════════════════════════════════════════════════════
+  // ▼▼▼ 새 고객(업체)에 맞게 바꿀 때는 이 블록만 고치면 됩니다 ▼▼▼
+  // (일부러 module 스크립트가 아니라 이 평범한 스크립트에 둡니다 - module은
+  //  항상 나중에 실행되기 때문에, 아래쪽 코드가 이 값을 못 찾는 문제가 생겨서요)
+  // ══════════════════════════════════════════════════════════════
+  window.APP_CONFIG = {
+    appTitle: '현황판',   // 브라우저 탭 제목, 헤더에 뜨는 이름
+    shortName: '현황판',              // 홈화면 아이콘 밑에 뜨는 짧은 이름
+    homeBranch: '장성',                   // 기본 지점 이름 (차량 추가 시 기본값, 목록 그룹 이름)
+    longTermBranch: '장기',               // "장기렌트"용 특수 지점/구분 이름 (이 지점은 목록에서 따로 묶임)
+    kakaoMapKey: 'f41df3bf1a6d192adb070ca02219d9f4'      // 직원 위치(📍) 지도용. developers.kakao.com에서 발급받은 JavaScript 키
+  };
+  document.title = window.APP_CONFIG.appTitle;
+  // ══════════════════════════════════════════════════════════════
+  // ▲▲▲ 여기까지만 고치면 됩니다 ▲▲▲
+  // ══════════════════════════════════════════════════════════════
+</script>
+<script>
+  // 카카오톡 등 인앱브라우저에서 열렸으면 외부 브라우저(크롬/사파리)로 자동 이탈
+  (function(){
+    var ua = navigator.userAgent || '';
+    var isKakao = /KAKAOTALK/i.test(ua);
+    var isNaver = /NAVER\(inapp/i.test(ua);
+    var isInApp = isKakao || isNaver;
+    if(!isInApp) return;
+
+    var currentUrl = location.href;
+
+    if(isKakao){
+      // 카카오 공식 외부브라우저 오픈 스킴
+      location.href = 'kakaotalk://web/openExternal?url=' + encodeURIComponent(currentUrl);
+      return;
+    }
+    if(isNaver){
+      // 네이버 인앱은 URL에 openExternalBrowser=1을 붙이면 외부로 열림
+      var sep = currentUrl.indexOf('?') > -1 ? '&' : '?';
+      location.href = currentUrl + sep + 'openExternalBrowser=1';
+      return;
+    }
+  })();
+</script>
+<script src="fleet-auth.js"></script>
+<script type="module">
+  // APP_CONFIG는 이 파일 맨 위 첫 번째 <script>에서 이미 설정했습니다.
+  // (module 스크립트는 항상 나중에 실행되므로, 값 자체는 그 앞쪽 스크립트에 둡니다)
+  const APP_CONFIG = window.APP_CONFIG;
+  // ▼▼▼ Firebase 콘솔(console.firebase.google.com)에서 프로젝트 생성 후
+  //     '프로젝트 설정 > 일반 > 내 앱 > SDK 설정 및 구성'에서 이 값들을 그대로 복붙하세요.
+  //     Realtime Database도 만들고 '테스트 모드'로 시작하면 됩니다.
+  const firebaseConfig = {
+    apiKey: "AIzaSyB0snoSwJ0wTOxI8vRf2GU27VF05zN0c7k",
+    authDomain: "fleet-board-f2345.firebaseapp.com",
+    databaseURL: "https://fleet-board-f2345-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "fleet-board-f2345",
+    storageBucket: "fleet-board-f2345.firebasestorage.app",
+    messagingSenderId: "613571323567",
+    appId: "1:613571323567:web:0003a663f5891364ef565a"
+  };
+  // ══════════════════════════════════════════════════════════════
+  // ▲▲▲ 위 firebaseConfig만 고치면 됩니다 (업체명 등은 파일 맨 위 APP_CONFIG 참고) ▲▲▲
+  // ══════════════════════════════════════════════════════════════
+  // 화면에 업체명 반영 (요소가 없을 수도 있으니 안전하게 확인 후 설정)
+  (function(){
+    const t = document.getElementById('appTitle');
+    if(t) t.textContent = '🚗 ' + APP_CONFIG.appTitle;
+    const m = document.getElementById('appleTitleMeta');
+    if(m) m.setAttribute('content', APP_CONFIG.shortName);
+  })();
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+  import { getDatabase, ref, get, set, update, onValue, push, remove, runTransaction } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const auth = getAuth(app);
+  window._fb = { ref, get, set, update, onValue, push, remove, runTransaction, db };
+  window._fbConfig = firebaseConfig; // 앱(백그라운드) 위치 전송용
+  window._auth = { auth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged };
+  // 이메일/비밀번호로 로그인하고, 소속 업체(companies/{id})를 찾는 일은
+  // FleetAuth 모듈(fleet-auth.js)이 담당합니다. 업체 확인까지 끝나면 onReady가 불립니다.
+  FleetAuth.init({
+    fb: window._fb,
+    auth: window._auth,
+    onReady: function(){ startApp(); }
+  });
+</script>
+<style>
+  :root{
+    --bg:#0f172a;
+    --panel:#16213a;
+    --panel2:#1c2947;
+    --line:#2a3757;
+    --text:#e8ecf7;
+    --sub:#8b96b8;
+    --amber:#f5a623;
+    --green:#34d399;
+    --blue:#5b9dff;
+    --purple:#c084fc;
+    --red:#f87171;
+    --gray:#64748b;
+    --pink:#f472b6;
+    --cyan:#22d3ee;
+    --indigo:#818cf8;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  button{touch-action:manipulation;cursor:pointer;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Pretendard","Apple SD Gothic Neo",sans-serif;
+    padding-bottom:40px;
+  }
+  .plate{font-family:"SFMono-Regular",Consolas,monospace;letter-spacing:0.5px;}
+
+  header{
+    position:sticky;top:0;z-index:20;
+    background:linear-gradient(180deg,#0f172a 0%,#0f172a 85%,transparent 100%);
+    padding:10px 14px 7px;
+    border-bottom:1px solid var(--line);
+  }
+  header .title-row{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;}
+  header .title-row .title-actions{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+  header h1{font-size:17px;margin:0;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  header .date{font-size:11px;color:var(--sub);}
+  .chat-badge{
+    position:absolute;top:-4px;right:-4px;background:var(--red);color:#fff;
+    font-size:10px;font-weight:700;min-width:16px;height:16px;border-radius:8px;
+    display:flex;align-items:center;justify-content:center;padding:0 4px;
+  }
+  .chat-msg{margin-bottom:12px;display:flex;flex-direction:column;}
+  .chat-msg .meta{font-size:11px;color:var(--sub);margin-bottom:3px;}
+  .chat-msg .bubble{
+    background:var(--panel2);border:1px solid var(--line);border-radius:12px;
+    padding:9px 12px;font-size:14px;line-height:1.5;white-space:pre-wrap;
+    word-break:break-word;align-self:flex-start;max-width:85%;
+  }
+  .chat-msg.mine{align-items:flex-end;}
+  .chat-msg.mine .bubble{background:rgba(245,166,35,.16);border-color:var(--amber);align-self:flex-end;}
+  .chat-msg .del-msg{
+    background:none;border:none;color:var(--red);font-size:11px;
+    padding:2px 4px;cursor:pointer;align-self:flex-end;margin-top:2px;
+  }
+  .chat-msg.system{align-items:center;}
+  .chat-msg .sysbubble{
+    background:rgba(52,211,153,.10);border-color:var(--green);color:var(--text);
+    align-self:center;font-size:13px;max-width:92%;
+  }
+  .chat-daysep{
+    text-align:center;color:var(--sub);font-size:11px;margin:14px 0 10px;
+    position:relative;
+  }
+  .history-btn{
+    background:var(--panel2);border:1px solid var(--line);color:var(--blue);
+    border-radius:8px;width:32px;height:32px;font-size:15px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .refresh-btn{
+    background:var(--panel2);border:1px solid var(--line);color:var(--amber);
+    border-radius:8px;padding:8px 6px;font-size:12px;font-weight:600;
+    width:100%;text-align:center;
+  }
+  .header-actions{
+    display:grid;grid-template-columns:repeat(auto-fit,minmax(84px,1fr));gap:6px;margin-top:8px;
+  }
+  .link-btn{
+    background:var(--panel2);border:1px solid var(--line);color:var(--text);
+    border-radius:8px;padding:8px 6px;font-size:12px;font-weight:600;
+    text-decoration:none;display:flex;align-items:center;justify-content:center;gap:4px;
+    white-space:nowrap;width:100%;
+  }
+  .link-btn.telegram{color:var(--blue);}
+  .link-btn.app{color:var(--green);}
+  .link-btn.kakao{color:#FEE500;}
+
+  .stats{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;margin-top:8px;}
+  .stat{
+    background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:6px 2px;text-align:center;min-width:0;
+    cursor:pointer;user-select:none;transition:border-color .15s,background .15s;
+  }
+  .stat b{display:block;font-size:13.5px;line-height:1.15;white-space:nowrap;}
+  .stat span{font-size:9px;color:var(--sub);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .stat.amber b{color:var(--amber);}
+  .stat.blue b{color:var(--blue);}
+  .stat.purple b{color:var(--purple);}
+  .stat.green b{color:var(--green);}
+  .stat.active{background:var(--panel2);border-color:currentColor;}
+  .stat.amber.active{color:var(--amber);}
+  .stat.blue.active{color:var(--blue);}
+  .stat.green.active{color:var(--green);}
+
+  .search-row{display:flex;gap:8px;margin-top:8px;}
+  .search-row input{
+    flex:1;background:var(--panel);border:1px solid var(--line);color:var(--text);
+    border-radius:9px;padding:9px 12px;font-size:14px;
+  }
+
+  main{padding:10px 12px 12px;}
+  .section-title{
+    font-size:13px;font-weight:700;color:var(--sub);margin:14px 4px 8px;
+    display:flex;justify-content:space-between;
+  }
+  .section-title:first-child{margin-top:3px;}
+
+  .card{
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:11px 12px;margin-bottom:8px;display:flex;gap:10px;align-items:center;
+    border-left:4px solid var(--gray);
+    position:relative;overflow:hidden;
+    -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+    touch-action:manipulation;
+  }
+  .press-fill{
+    position:absolute;left:0;top:0;bottom:0;width:0;
+    background:rgba(245,166,35,.22);z-index:0;pointer-events:none;
+  }
+  .card .cbody{position:relative;z-index:1;}
+  .card .amount{position:relative;z-index:1;}
+  .card.st-idle{border-left-color:var(--gray);}
+  .card.st-prep{border-left-color:var(--indigo);}
+  .card.st-dispatch{border-left-color:var(--cyan);}
+  .card.st-running{border-left-color:var(--green);}
+  .card .cbody{flex:1;min-width:0;}
+  .row1{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .plate-tag{font-size:15px;font-weight:700;}
+  .badge{
+    font-size:10.5px;padding:2px 7px;border-radius:20px;font-weight:700;
+    background:var(--panel2);color:var(--sub);
+  }
+  .badge.st-idle{background:rgba(100,116,139,.2);color:var(--gray);}
+  .badge.st-prep{background:rgba(129,140,248,.18);color:var(--indigo);}
+  .badge.st-dispatch{background:rgba(34,211,238,.16);color:var(--cyan);}
+  .badge.st-running{background:rgba(52,211,153,.15);color:var(--green);}
+  .type-badge{
+    font-size:10px;padding:2px 7px;border-radius:6px;font-weight:700;
+    background:var(--panel2);color:var(--sub);
+  }
+  .type-badge.tp-보험{background:rgba(91,157,255,.15);color:var(--blue);}
+  .type-badge.tp-일반{background:rgba(244,114,182,.16);color:var(--pink);}
+  .type-badge.tp-서비스{background:rgba(245,166,35,.15);color:var(--amber);}
+  .type-badge.tp-장기{background:rgba(192,132,252,.15);color:var(--purple);}
+  .model{font-size:12.5px;color:var(--sub);margin-top:2px;}
+  .note{font-size:12.5px;color:var(--text);margin-top:3px;opacity:.9;}
+  .extra{font-size:10.5px;color:var(--sub);margin-top:2px;}
+  .return-due{
+    color:var(--red);font-weight:700;
+    animation:blinkText 1s ease-in-out infinite;
+  }
+  .badge.return-due{background:rgba(248,113,113,.18);}
+  @keyframes blinkText{
+    0%,100%{opacity:1;}
+    50%{opacity:.35;}
+  }
+  .card.return-alert{
+    border-left-color:var(--red);
+    animation:blinkCard 1.4s ease-in-out infinite;
+  }
+  @keyframes blinkCard{
+    0%,100%{box-shadow:0 0 0 0 rgba(248,113,113,0);}
+    50%{box-shadow:0 0 0 3px rgba(248,113,113,.35);}
+  }
+  .amount{font-size:11px;color:var(--sub);white-space:nowrap;}
+  .return-soon{color:var(--amber);font-weight:700;}
+  .badge.return-soon{background:rgba(245,166,35,.18);}
+  .badge.unpaid{background:rgba(248,113,113,.18);color:var(--red);}
+  .badge.paid{background:rgba(52,211,153,.15);color:var(--green);}
+  .card.return-soon-alert{border-left-color:var(--amber);}
+  .empty{text-align:center;color:var(--sub);font-size:13px;padding:30px 0;}
+
+  .lock-screen{
+    position:fixed;inset:0;background:var(--bg);z-index:999;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    padding:24px;gap:14px;text-align:center;
+  }
+  .lock-screen .lock-icon{font-size:34px;}
+  .lock-screen h2{margin:0;font-size:17px;}
+  .lock-screen p{margin:0;color:var(--sub);font-size:12.5px;}
+  .lock-screen input{
+    width:220px;max-width:80%;text-align:center;letter-spacing:6px;font-size:18px;
+    background:var(--panel);border:1px solid var(--line);color:var(--text);
+    border-radius:10px;padding:12px;margin-top:6px;
+  }
+  .lock-screen button{
+    width:220px;max-width:80%;padding:12px;border-radius:10px;border:none;
+    background:var(--amber);color:#1a1300;font-weight:700;font-size:14px;
+  }
+  .lock-screen .lock-err{color:var(--red);font-size:12px;min-height:16px;}
+
+  .modal-bg{
+    position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50;
+    display:none;align-items:flex-end;justify-content:center;
+  }
+  .modal-bg.open{display:flex;}
+  .modal{
+    background:var(--panel);width:100%;max-width:480px;border-radius:16px 16px 0 0;
+    padding:18px 16px calc(18px + env(safe-area-inset-bottom));border:1px solid var(--line);border-bottom:none;
+    max-height:94vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+    box-sizing:border-box;
+  }
+  .modal h3{margin:0 0 2px;font-size:16px;}
+  .modal .sub{color:var(--sub);font-size:12px;margin-bottom:14px;}
+  .sched-modal-shell{
+    background:var(--panel);width:100%;max-width:480px;border-radius:16px 16px 0 0;
+    border:1px solid var(--line);border-bottom:none;
+    max-height:94vh;display:flex;flex-direction:column;overflow:hidden;
+  }
+  .sched-modal-scroll{
+    overflow-y:auto;-webkit-overflow-scrolling:touch;padding:18px 16px 14px;
+  }
+  .sched-modal-scroll h3{margin:0 0 2px;font-size:16px;}
+  .sched-modal-scroll .sub{color:var(--sub);font-size:12px;margin-bottom:14px;}
+  .modal-footer-inflow{
+    flex:0 0 auto;background:var(--panel);border-top:1px solid var(--line);
+    padding:10px 16px calc(10px + env(safe-area-inset-bottom));
+  }
+  .modal-footer-inflow .btn-cancel{
+    width:100%;max-width:480px;padding:15px;font-size:15px;font-weight:700;border-radius:12px;
+    touch-action:manipulation;-webkit-tap-highlight-color:transparent;cursor:pointer;
+  }
+  .modal-footer-inflow .btn-cancel:active{ background:var(--line); }
+  .field{margin-bottom:12px;}
+  .field label{display:block;font-size:12px;color:var(--sub);margin-bottom:5px;}
+  .field input{
+    width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);
+    border-radius:9px;padding:10px 12px;font-size:14px;
+  }
+  .field input:disabled{opacity:.55;}
+  .accordion-header{
+    display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none;
+    background:rgba(245,166,35,.10);border:1px solid var(--line);border-left:4px solid var(--amber);
+    border-radius:9px;
+    padding:13px 14px;margin:20px 0 14px;font-size:14.5px;font-weight:800;color:var(--amber);
+  }
+  .accordion-header:first-child{margin-top:2px;}
+  .accordion-icon{margin-left:auto;color:var(--amber);font-size:13px;transition:transform .15s;}
+  .accordion-icon.open{transform:rotate(90deg);}
+  .accordion-badge{
+    font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;
+    background:rgba(245,166,35,.18);color:var(--amber);
+  }
+  .accordion-badge.due{background:rgba(248,113,113,.18);color:var(--red);}
+  .field select{
+    width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--text);
+    border-radius:9px;padding:10px 12px;font-size:14px;
+  }
+  .quick-opts{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px;}
+  .quick-opts button{
+    background:var(--panel2);border:1px solid var(--line);color:var(--text);
+    border-radius:20px;padding:5px 11px;font-size:12px;
+  }
+  .modal-actions{display:flex;gap:8px;margin-top:16px;}
+  .modal-actions button{flex:1;padding:12px;border-radius:10px;border:none;font-size:14px;font-weight:700;}
+  .btn-cancel{background:var(--panel2);color:var(--sub);}
+  .btn-save{background:var(--amber);color:#1a1a1a;}
+
+  .toast{
+    position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+    background:var(--panel2);border:1px solid var(--line);color:var(--text);
+    padding:9px 16px;border-radius:20px;font-size:12.5px;z-index:60;opacity:0;
+    transition:opacity .25s;pointer-events:none;
+  }
+  .toast.show{opacity:1;}
+
+  .fab{
+    position:fixed;right:18px;bottom:24px;z-index:40;
+    width:52px;height:52px;border-radius:50%;border:none;
+    background:var(--amber);color:#1a1a1a;font-size:26px;font-weight:700;
+    box-shadow:0 6px 16px rgba(0,0,0,.4);line-height:1;
+  }
+
+  .sched-banner{
+    display:flex; flex-direction:column; gap:6px; margin-top:10px;
+  }
+  .sched-item{
+    display:flex; align-items:center; gap:8px; border-radius:9px; padding:8px 12px;
+    font-size:12.5px; line-height:1.4;
+  }
+  .sched-item.today{ background:rgba(245,166,35,.14); border:1px solid var(--amber); color:var(--amber); cursor:pointer; }
+  .sched-item.tomorrow{ background:rgba(91,157,255,.12); border:1px solid var(--blue); color:var(--blue); cursor:pointer; }
+  .sched-item.unbilled{ background:rgba(248,113,113,.14); border:1px solid var(--red); color:var(--red); cursor:pointer; }
+  .sched-item.unbilled .sched-tag{ background:var(--red); color:#2a0d0d; }
+  .sched-item .sched-tag{
+    font-size:10px; font-weight:700; padding:2px 7px; border-radius:20px; flex-shrink:0;
+  }
+  .sched-item.today .sched-tag{ background:var(--amber); color:#241c0a; }
+  .sched-item.tomorrow .sched-tag{ background:var(--blue); color:#0a1a33; }
+  .sched-item .sched-title{ color:var(--text); font-weight:600; flex:1; }
+
+  .sched-list-row{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
+    background:var(--panel2); border:1px solid var(--line); border-radius:9px;
+    padding:10px 12px; margin-bottom:8px;
+  }
+  .sched-list-row .d{ font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12px; color:var(--amber); white-space:nowrap; }
+  .sched-list-row .t{ font-size:13px; font-weight:600; margin-top:2px; }
+  .sched-list-row .m{ font-size:12px; color:var(--sub); margin-top:2px; }
+  .sched-list-row .del{ background:none; border:none; color:var(--red); font-size:12px; padding:2px 4px; flex-shrink:0; }
+  .sched-list-row.done{ opacity:.5; }
+  .sched-list-row.done .t{ text-decoration:line-through; }
+  .sched-list-row .actions{ display:flex; flex-direction:column; align-items:flex-end; gap:8px; }
+  .done-switch{ display:flex; align-items:center; gap:6px; }
+  .done-switch .lbl{ font-size:10.5px; color:var(--sub); }
+  .done-switch.on .lbl{ color:var(--green,#34d399); font-weight:700; }
+  .toggle{ position:relative; display:inline-block; width:34px; height:20px; flex-shrink:0; cursor:pointer; }
+  .toggle input{ opacity:0; width:0; height:0; position:absolute; }
+  .toggle .slider{
+    position:absolute; inset:0; background:var(--line); border-radius:20px; transition:background .15s;
+  }
+  .toggle .slider::before{
+    content:""; position:absolute; height:14px; width:14px; left:3px; top:3px;
+    background:var(--sub); border-radius:50%; transition:transform .15s, background .15s;
+  }
+  .toggle input:checked + .slider{ background:rgba(52,211,153,.35); }
+  .toggle input:checked + .slider::before{ transform:translateX(14px); background:var(--green,#34d399); }
+  .toggle input:disabled + .slider{ opacity:.35; cursor:default; }
+  .sched-empty{ text-align:center; color:var(--sub); font-size:12.5px; padding:20px 0; }
+  .sched-repeat-tag{ font-size:10px; color:var(--sub); background:var(--panel); border:1px solid var(--line); border-radius:20px; padding:1px 6px; margin-left:6px; }
+
+  .cal-head{
+    display:flex; align-items:center; justify-content:space-between; margin:14px 0 8px;
+  }
+  .cal-head button{
+    background:var(--panel2); border:1px solid var(--line); color:var(--text); border-radius:7px;
+    width:30px; height:30px; font-size:15px; cursor:pointer;
+  }
+  .cal-head .cal-title{ font-size:14px; font-weight:700; }
+  .cal-grid{
+    display:grid; grid-template-columns:repeat(7,1fr); gap:3px; margin-bottom:6px;
+  }
+  .cal-dow{ text-align:center; font-size:10.5px; color:var(--sub); padding:4px 0; }
+  .cal-cell{
+    position:relative; height:32px; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    border-radius:8px; font-size:12px; color:var(--text); cursor:pointer; background:var(--panel2);
+    border:1px solid transparent;
+  }
+  .cal-cell.blank{ background:none; cursor:default; }
+  .cal-cell.today{ border-color:var(--amber); color:var(--amber); font-weight:700; }
+  .cal-cell.selected{ background:var(--amber); color:#241c0a; font-weight:700; }
+  .cal-cell .dot{
+    width:4px; height:4px; border-radius:50%; background:var(--blue); margin-top:2px;
+  }
+  .cal-cell.selected .dot{ background:#241c0a; }
+  .cal-toolbar{
+    display:flex; align-items:center; justify-content:space-between; margin:16px 0 8px;
+  }
+  .cal-toolbar .sub{ margin:0; }
+  .cal-toolbar button{
+    background:none; border:none; color:var(--blue); font-size:12px; cursor:pointer; padding:2px 4px;
+  }
+
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════
+     업체 가입/로그인 화면 (FleetAuth 모듈과 세트)
+     이 블록을 <body> 바로 다음에 붙여넣으세요.
+     ═══════════════════════════════════════════════════ -->
+<style>
+  .auth-screen{
+    position:fixed;inset:0;background:var(--bg);z-index:1000;
+    display:none;flex-direction:column;align-items:center;justify-content:center;
+    padding:24px;overflow-y:auto;
+  }
+  .auth-box{width:100%;max-width:360px;display:none;flex-direction:column;gap:12px;text-align:center;}
+  .auth-screen .auth-logo{font-size:38px;margin-bottom:2px;}
+  .auth-screen h2{margin:0;font-size:19px;color:var(--text);}
+  .auth-screen .auth-sub{color:var(--sub);font-size:13px;margin-bottom:6px;line-height:1.5;}
+  .auth-screen input{
+    width:100%;padding:14px;border-radius:10px;border:1px solid var(--line);
+    background:var(--panel2);color:var(--text);font-size:15px;box-sizing:border-box;
+  }
+  .auth-screen input::placeholder{color:var(--sub);}
+  .auth-btn{
+    width:100%;padding:15px;border-radius:10px;border:none;
+    background:var(--amber);color:#1a1a1a;font-size:15px;font-weight:700;cursor:pointer;
+  }
+  .auth-btn:disabled{opacity:.5;}
+  .auth-btn.sub{background:var(--panel2);color:var(--text);border:1px solid var(--line);}
+  .auth-link{
+    background:none;border:none;color:var(--blue);font-size:13px;cursor:pointer;
+    padding:6px;text-decoration:underline;
+  }
+  .auth-err{color:var(--red);font-size:13px;min-height:18px;line-height:1.4;}
+  .auth-divider{color:var(--sub);font-size:12px;margin:2px 0;}
+</style>
+
+<div class="auth-screen" id="authScreen">
+
+  <!-- 로그인 -->
+  <div class="auth-box" id="authLogin">
+    <div class="auth-logo">🚗</div>
+    <h2>차량 현황판</h2>
+    <div class="auth-sub">이메일로 로그인해주세요</div>
+    <input type="email" id="authLoginEmail" placeholder="이메일" autocomplete="username"
+           onkeydown="if(event.key==='Enter')document.getElementById('authLoginPw').focus()">
+    <input type="password" id="authLoginPw" placeholder="비밀번호" autocomplete="current-password"
+           onkeydown="if(event.key==='Enter')FleetAuth.doLogin()">
+    <button class="auth-btn" id="authLoginBtn" onclick="FleetAuth.doLogin()">로그인</button>
+    <div class="auth-err" id="authErr"></div>
+    <div class="auth-divider">— 처음 오셨나요? —</div>
+    <button class="auth-btn sub" onclick="FleetAuth.showPanel('authSignup')">새 업체로 시작하기</button>
+    <button class="auth-link" onclick="FleetAuth.showPanel('authJoin')">초대코드를 받았어요</button>
+  </div>
+
+  <!-- 업체 새로 만들기 -->
+  <div class="auth-box" id="authSignup">
+    <div class="auth-logo">🏢</div>
+    <h2>새 업체 등록</h2>
+    <div class="auth-sub">업체를 등록하면 관리자가 됩니다.<br>직원은 초대코드로 추가할 수 있어요.</div>
+    <input type="text" id="authCompanyName" placeholder="업체명 (예: OO렌트카)">
+    <input type="email" id="authSignupEmail" placeholder="이메일" autocomplete="username">
+    <input type="password" id="authSignupPw" placeholder="비밀번호 (6자 이상)" autocomplete="new-password"
+           onkeydown="if(event.key==='Enter')FleetAuth.doSignupCompany()">
+    <button class="auth-btn" id="authSignupBtn" onclick="FleetAuth.doSignupCompany()">업체 등록하고 시작</button>
+    <div class="auth-err" id="authErr2"></div>
+    <button class="auth-link" onclick="FleetAuth.showPanel('authLogin')">← 로그인으로 돌아가기</button>
+  </div>
+
+  <!-- 초대코드로 참여 -->
+  <div class="auth-box" id="authJoin">
+    <div class="auth-logo">🎟️</div>
+    <h2>초대코드로 참여</h2>
+    <div class="auth-sub">업체 관리자에게 받은 6자리 코드를 입력하세요.</div>
+    <input type="text" id="authJoinCode" placeholder="초대코드 (예: K7M2QX)" autocapitalize="characters"
+           style="text-transform:uppercase;letter-spacing:2px;text-align:center;font-weight:700;">
+    <input type="email" id="authJoinEmail" placeholder="이메일" autocomplete="username">
+    <input type="password" id="authJoinPw" placeholder="비밀번호 (6자 이상)" autocomplete="new-password"
+           onkeydown="if(event.key==='Enter')FleetAuth.doJoinWithCode()">
+    <button class="auth-btn" id="authJoinBtn" onclick="FleetAuth.doJoinWithCode()">참여하기</button>
+    <div class="auth-err" id="authErr3"></div>
+    <button class="auth-link" onclick="FleetAuth.showPanel('authLogin')">← 로그인으로 돌아가기</button>
+  </div>
+
+  <!-- 로그인은 됐지만 소속 업체가 없을 때 -->
+  <div class="auth-box" id="authChoose">
+    <div class="auth-logo">👋</div>
+    <h2>거의 다 됐어요</h2>
+    <div class="auth-sub">아직 소속된 업체가 없습니다.<br>새 업체를 만들거나, 초대코드로 참여해주세요.</div>
+    <button class="auth-btn" onclick="FleetAuth.showPanel('authSignup')">새 업체 등록하기</button>
+    <button class="auth-btn sub" onclick="FleetAuth.showPanel('authJoin')">초대코드로 참여하기</button>
+    <div class="auth-err" id="authErr4"></div>
+    <button class="auth-link" onclick="FleetAuth.doLogout()">다른 계정으로 로그인</button>
+  </div>
+
+</div>
+
+
+<header>
+  <div class="title-row">
+    <div></div>
+    <div style="min-width:0;max-width:100%;text-align:center;">
+      <h1 id="appTitle">🚗 현황판</h1>
+      <div class="date" id="dateLine"></div>
+    </div>
+    <div class="title-actions" style="justify-self:end;">
+      <button class="history-btn" onclick="openHistoryModal()" title="변경기록">🕒</button>
+      <button class="history-btn" onclick="openStaffModal()" title="직원 관리">👥</button>
+    </div>
+  </div>
+  <div class="header-actions">
+    <button class="link-btn telegram" onclick="openChatModal()" style="position:relative;">💬 메신저<span class="chat-badge" id="chatBadge" style="display:none;top:-6px;right:-6px;">0</span></button>
+    <button class="link-btn" style="color:var(--pink,#f472b6);border:none;background:var(--panel2);position:relative;" onclick="openLocModal()">📍 동료위치보기<span class="chat-badge" id="locBadge" style="display:none;top:-6px;right:-6px;">0</span></button>
+    <a class="link-btn" style="color:var(--blue);" href="intent://t.me/+zgPlZTwlkk8wYWVl#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=https%3A%2F%2Ft.me%2F%2BzgPlZTwlkk8wYWVl;end">📱 텔레그램방</a>
+    <a class="link-btn kakao" href="intent://#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=com.kakao.talk;S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.kakao.talk;end">💬 카카오톡</a>
+    <a class="link-btn app" href="intent://#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=com.Rentcar.heaven819.gcmpush;S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.Rentcar.heaven819.gcmpush;end">🚗 팡팡렌트카</a>
+    <button class="link-btn" style="color:var(--purple);border:none;background:var(--panel2);" onclick="openSchedModal()">📅 일정</button>
+    <a class="link-btn" style="color:var(--amber);" href="payment.html">💳 결제일 알림</a>
+    <button class="refresh-btn" onclick="reload(true)">↻ 새로고침</button>
+  </div>
+  <div class="stats" id="statsRow"></div>
+  <div class="sched-banner" id="schedBanner"></div>
+  <div class="search-row">
+    <input id="searchInput" placeholder="차량번호 / 담당자 / 메모 검색" oninput="render()">
+    <select id="sortSelect" onchange="render()" style="background:var(--panel);border:1px solid var(--line);color:var(--text);border-radius:9px;padding:7px 10px;font-size:13px;">
+      <option value="default">기본순</option>
+      <option value="plate">차량번호순</option>
+      <option value="status" selected>상태순</option>
+    </select>
+  </div>
+</header>
+
+<button class="fab" id="fabAdd" onclick="openAddModal()">+</button>
+
+<main id="main"></main>
+
+<div style="text-align:center;padding:8px 20px 36px;">
+  <button class="link-btn" style="color:var(--sub);background:var(--panel2);border:1px solid var(--line);" onclick="logoutApp()">🚪 로그아웃</button>
+</div>
+
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <h3 class="plate" id="mPlate"></h3>
+    <div class="sub" id="mModel"></div>
+    <div id="mMainFields">
+    <div class="field">
+      <label>구분</label>
+      <select id="mType" onchange="toggleAmountField('m')">
+        <option value="">선택 안함</option>
+        <option value="보험">보험</option>
+        <option value="일반">일반</option>
+        <option value="서비스">서비스</option>
+        <option value="장기">장기</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>대여일 (입력하면 그날부터 자동으로 일수 카운팅)</label>
+      <input id="mStartDate" type="date">
+    </div>
+    <div class="field" id="mReturnDateField" style="display:none;">
+      <label>반납일자</label>
+      <input id="mReturnDate" type="date">
+    </div>
+    <div class="field">
+      <label>상태 (자동 일수 카운팅 중이 아닐 때 사용)</label>
+      <input id="mStatus" placeholder="운행중">
+      <div class="quick-opts">
+        <button type="button" onclick="setStatus('')">운행중</button>
+        <button type="button" onclick="setStatus('대기')">대기</button>
+        <button type="button" onclick="setStatus('준비중')">준비중</button>
+        <button type="button" onclick="setStatus('차고지')">차고지</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>비고 (담당자 / 반납예정일 등)</label>
+      <input id="mNote" placeholder="예: 윤상 그랜저">
+    </div>
+    <div class="field">
+      <label style="display:flex;justify-content:space-between;align-items:center;">
+        <span>추가정보 (자차 / 연령 / 특약 등)</span>
+        <button type="button" id="mExtraToggle" onclick="toggleExtraEdit()" style="background:var(--panel2);border:1px solid var(--line);color:var(--amber);border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;">✎ 수정</button>
+      </label>
+      <input id="mExtra" placeholder="예: 자차:o·26세·IMS관제" disabled>
+    </div>
+    </div>
+    <div class="field" id="mDepositField" style="display:none;">
+      <label style="display:flex;align-items:center;gap:7px;">
+        <input type="checkbox" id="mDepositPaid" style="width:auto;" onchange="syncDepositUI('m')">
+        <span id="mDepositLabel" style="font-size:13px;color:var(--text);">입금완료 (체크 안 하면 미입금 상태로 표시돼요)</span>
+      </label>
+    </div>
+    <div class="accordion-header" onclick="toggleDocsSection()">
+      <span>📋 보험 · 검사 · 차령 관리</span>
+      <span id="mDocsBadge" class="accordion-badge" style="display:none;"></span>
+      <span id="mDocsToggleIcon" class="accordion-icon">▸</span>
+    </div>
+    <div id="mDocsSection" style="display:none;">
+      <div class="field">
+        <label>최초등록일 (전부 이 날짜 기준 자동계산)</label>
+        <input id="mRegDate" type="date" onchange="autoCalcAgeExpire_m(true)">
+        <div id="mAgeInfo" style="font-size:10.5px;color:var(--sub);margin-top:4px;"></div>
+      </div>
+      <div class="field">
+        <label style="display:flex;justify-content:space-between;align-items:center;">
+          <span>차령 만료일</span>
+          <button type="button" onclick="autoCalcAgeExpire_m()" style="background:var(--panel2);border:1px solid var(--line);color:var(--amber);border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;">⚙ 재계산</button>
+        </label>
+        <input id="mAgeExpireDate" type="date">
+        <div id="mAgeExtendInfo" style="font-size:10.5px;color:var(--sub);margin-top:4px;"></div>
+      </div>
+      <div class="field">
+        <label style="display:flex;justify-content:space-between;align-items:center;">
+          <span>A/S 기간 (년)</span>
+          <button type="button" onclick="ackAsExpireInModal()"
+            style="background:var(--panel2);border:1px solid var(--line);color:var(--green);border-radius:20px;padding:3px 10px;font-size:10.5px;font-weight:700;">✓ 만료 확인</button>
+        </label>
+        <input id="mAsYears" type="number" min="1" max="10" placeholder="예: 3" value="3" onchange="updateAgeInfo('m')">
+        <div id="mAsInfo" style="font-size:10.5px;color:var(--sub);margin-top:4px;">💡 대부분 3년/6만km이지만 5년짜리 등 다른 차량은 여기서 직접 바꿔주세요. 주행거리는 추적하지 않아 연식 기준으로만 임박 알림을 드려요. 만료(임박) 상태를 확인했으면 위 '만료 확인' 버튼을 누르면 현황판에서 숨겨져요 (저장 필요).</div>
+      </div>
+      <div class="field">
+        <label style="display:flex;justify-content:space-between;align-items:center;">
+          <span>보험 갱신일자</span>
+          <button type="button" onclick="completeInsuranceInModal()"
+            style="background:var(--panel2);border:1px solid var(--line);color:var(--green);border-radius:20px;padding:3px 10px;font-size:10.5px;font-weight:700;">✓ 갱신 완료</button>
+        </label>
+        <input id="mInsuranceDate" type="date" onchange="updateInsuranceInfo()">
+        <div id="mInsuranceInfo" style="font-size:10.5px;color:var(--sub);margin-top:4px;"></div>
+        <div style="font-size:10.5px;color:var(--sub);margin-top:4px;">💡 최초등록일 입력 시 비어있으면 1년 뒤 날짜로 자동입력돼요. 실제 갱신했으면 위 '갱신 완료' 버튼을 누르면 다음 갱신일로 자동 변경돼요 (저장 필요). 다른 날짜로 바꾸려면 직접 수정하세요.</div>
+      </div>
+      <div class="field">
+        <label>검사종류</label>
+        <select id="mInspectionType">
+          <option value="일반">일반검사</option>
+          <option value="연장">차령연장검사</option>
+        </select>
+      </div>
+      <div class="field">
+        <label style="display:flex;justify-content:space-between;align-items:center;">
+          <span>검사일자</span>
+          <div class="done-switch" id="mInspectionDoneWrap">
+            <span class="lbl">완료</span>
+            <label class="toggle"><input type="checkbox" id="mInspectionDone" onchange="syncInspectionDoneUI()"><span class="slider"></span></label>
+          </div>
+        </label>
+        <input id="mInspectionDate" type="date" onchange="autoSetInspectionType('m')">
+        <div style="font-size:10.5px;color:var(--sub);margin-top:4px;">💡 완료 토글을 켜면 이 날짜가 자동으로 1년 뒤 다음 검사 예정일로 바뀌고 토글은 다시 꺼져요.</div>
+      </div>
+    </div>
+    <div id="mMainFields2">
+    <div class="field" id="mAmountField" style="display:none;">
+      <label>금액 (만원)</label>
+      <input id="mAmount" type="number" placeholder="예: 110">
+    </div>
+    <div class="field" id="mPayDayField" style="display:none;">
+      <label>결제일 (매월 며칠)</label>
+      <input id="mPayDay" type="number" min="1" max="31" placeholder="예: 5">
+    </div>
+    <div class="field" id="mCustomerField" style="display:none;">
+      <label>고객명</label>
+      <input id="mCustomer" placeholder="예: 이동훈">
+    </div>
+    <div class="field" id="mCustomerPhoneField" style="display:none;">
+      <label>고객 전화번호</label>
+      <input id="mCustomerPhone" placeholder="010-1234-5678">
+    </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeModal()">취소</button>
+      <button class="btn-save" onclick="saveModal()">저장</button>
+    </div>
+    <div class="modal-actions" style="margin-top:8px;">
+      <button id="deleteBtn"
+        onpointerdown="startDeletePress()" onpointerup="cancelDeletePress()"
+        onpointerleave="cancelDeletePress()" onpointercancel="cancelDeletePress()"
+        style="position:relative;overflow:hidden;flex:1;padding:10px;border-radius:10px;border:1px solid var(--red);background:transparent;color:var(--red);font-size:13px;font-weight:700;">
+        <span id="deleteFill" style="position:absolute;left:0;top:0;bottom:0;width:0;background:var(--red);opacity:.4;z-index:0;"></span>
+        <span style="position:relative;z-index:1;">🗑 길게 눌러서 삭제</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="schedModalBg">
+  <div class="sched-modal-shell">
+    <div class="sched-modal-scroll">
+    <h3>📅 일정 관리</h3>
+    <div class="sub">날짜를 눌러 그날 일정을 보세요. 오늘/내일 일정은 상단 배너에도 표시돼요.</div>
+
+    <div class="cal-head">
+      <button onclick="calShiftMonth(-1)">‹</button>
+      <div class="cal-title" id="calTitle">-</div>
+      <button onclick="calShiftMonth(1)">›</button>
+    </div>
+    <div class="cal-grid" id="calDow">
+      <div class="cal-dow">일</div><div class="cal-dow">월</div><div class="cal-dow">화</div>
+      <div class="cal-dow">수</div><div class="cal-dow">목</div><div class="cal-dow">금</div><div class="cal-dow">토</div>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+
+    <div class="cal-toolbar">
+      <div class="sub" id="schedListTitle">등록된 일정</div>
+      <button onclick="calShowAll()">전체 일정 보기</button>
+    </div>
+    <div id="schedList"></div>
+
+    <button class="btn-cancel" style="width:100%;margin-top:14px;padding:16px;font-size:16px;font-weight:700;border-radius:12px;" onclick="toggleAddForm()">
+      <span id="addFormToggleLabel">+ 새 일정 추가</span>
+    </button>
+
+    <div id="addFormFields" style="display:none;margin-top:12px;">
+      <div class="field">
+        <label>제목</label>
+        <input id="sTitle" placeholder="예: 차량 정기점검, 보험 갱신">
+      </div>
+      <div class="field">
+        <label>날짜</label>
+        <input id="sDate" type="date">
+      </div>
+      <div class="field">
+        <label style="display:flex;align-items:center;gap:7px;">
+          <input type="checkbox" id="sRepeat" style="width:auto;">
+          <span style="font-size:13px;color:var(--text);">매월 같은 날짜에 반복</span>
+        </label>
+      </div>
+      <div class="field">
+        <label>메모 (선택)</label>
+        <input id="sMemo" placeholder="추가로 남겨둘 내용">
+      </div>
+      <div class="modal-actions">
+        <button class="btn-save" style="flex:1;" onclick="addSchedule()"><span id="addFormSaveLabel">일정 추가</span></button>
+      </div>
+    </div>
+    </div>
+    <div class="modal-footer-inflow">
+      <button class="btn-cancel" onclick="closeSchedModal()">닫기</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="addModalBg">
+  <div class="modal">
+    <h3>차량 추가</h3>
+    <div class="sub">새 차량 정보를 입력하세요</div>
+    <div id="aMainFields">
+    <div class="field">
+      <label>차량번호 *</label>
+      <input id="aPlate" placeholder="예: 105하9600">
+    </div>
+    <div class="field">
+      <label>구역</label>
+      <input id="aBranch" placeholder="장성 / 장기" list="branchList">
+      <datalist id="branchList">
+        <option value="장성"></option>
+        <option value="장기"></option>
+      </datalist>
+    </div>
+    <div class="field">
+      <label>종별 *</label>
+      <select id="aCls">
+        <option value="">-- 선택 --</option>
+        <option value="경형">경형</option>
+        <option value="소형">소형</option>
+        <option value="중형">중형</option>
+        <option value="대형">대형</option>
+        <option value="승합">승합</option>
+      </select>
+      <div style="font-size:10.5px;color:var(--sub);margin-top:4px;">💡 차령 자동계산에 그대로 쓰여서 목록에서만 고를 수 있게 했어요.</div>
+    </div>
+    <div class="field">
+      <label>차종</label>
+      <input id="aModel" placeholder="예: K5">
+    </div>
+    <div class="field">
+      <label>연료</label>
+      <input id="aFuel" placeholder="예: LPG / 가솔린 / 디젤">
+    </div>
+    <div class="field">
+      <label>추가정보 (자차 / 연령 / 특약 등)</label>
+      <input id="aExtra" placeholder="예: 자차:o·26세·IMS관제">
+    </div>
+    </div>
+    <div class="accordion-header" onclick="toggleAddDocsSection()">
+      <span>📋 보험 · 검사 · 차령 관리</span>
+      <span id="aDocsToggleIcon" class="accordion-icon">▸</span>
+    </div>
+    <div id="aDocsSection" style="display:none;">
+      <div class="field">
+        <label>최초등록일 (전부 이 날짜 기준 자동계산)</label>
+        <input id="aRegDate" type="date" onchange="autoCalcAgeExpire_a(true)">
+        <div id="aAgeInfo" style="font-size:10.5px;color:var(--sub);margin-top:4px;"></div>
+      </div>
+      <div class="field">
+        <label style="display:flex;justify-content:space-between;align-items:center;">
+          <span>차령 만료일</span>
+          <button type="button" onclick="autoCalcAgeExpire_a()" style="background:var(--panel2);border:1px solid var(--line);color:var(--amber);border-radius:6px;padding:3px 8px;font-size:11px;font-weight:600;">⚙ 재계산</button>
+        </label>
+        <input id="aAgeExpireDate" type="date">
+      </div>
+      <div class="field">
+        <label>A/S 기간 (년)</label>
+        <input id="aAsYears" type="number" min="1" max="10" placeholder="예: 3" value="3" onchange="updateAgeInfo('a')">
+        <div id="aAsInfo" style="font-size:10.5px;color:var(--sub);margin-top:4px;">💡 대부분 3년/6만km이지만 5년짜리 등 다른 차량은 여기서 직접 바꿔주세요.</div>
+      </div>
+      <div class="field">
+        <label>보험 갱신일자</label>
+        <input id="aInsuranceDate" type="date">
+        <div style="font-size:10.5px;color:var(--sub);margin-top:4px;">💡 최초등록일 입력 시 비어있으면 1년 뒤 날짜로 자동입력돼요.</div>
+      </div>
+      <div class="field">
+        <label>검사종류</label>
+        <select id="aInspectionType">
+          <option value="일반">일반검사</option>
+          <option value="연장">차령연장검사</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>검사일자</label>
+        <input id="aInspectionDate" type="date" onchange="autoSetInspectionType('a')">
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeAddModal()">취소</button>
+      <button class="btn-save" onclick="saveAddModal()">추가</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="historyModalBg">
+  <div class="modal">
+    <h3>🕒 변경 기록</h3>
+    <div class="sub">저장할 때마다 그 직전 상태가 자동으로 남아요. 실수했으면 원하는 시점으로 되돌릴 수 있어요.</div>
+    <div id="historyList"><div class="empty">불러오는 중...</div></div>
+    <div class="modal-actions" style="margin-top:14px;">
+      <button class="btn-cancel" style="width:100%;padding:15px;font-size:15px;font-weight:700;border-radius:12px;" onclick="closeHistoryModal()">닫기</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="staffModalBg">
+  <div class="modal">
+    <h3>👥 직원 관리</h3>
+    <div class="sub">이 업체에 속한 직원 목록입니다. 새 직원은 초대코드로 참여시킬 수 있어요.</div>
+    <div id="staffList"><div class="empty">불러오는 중...</div></div>
+
+    <div id="staffInviteBox" style="display:none;margin-top:16px;padding-top:14px;border-top:1px solid var(--line);">
+      <label style="font-size:13px;color:var(--sub);">새 직원 초대</label>
+      <div style="font-size:12px;color:var(--sub);margin:6px 0 10px;line-height:1.5;">
+        초대코드를 만들어서 직원에게 알려주세요. 직원이 앱에서 "초대코드를 받았어요"를 눌러 가입하면 자동으로 이 업체에 합류합니다.
+      </div>
+      <button class="btn-save" style="width:100%;padding:13px;font-size:14px;font-weight:700;border-radius:10px;" onclick="createInviteCode()">
+        + 초대코드 만들기
+      </button>
+      <div id="staffInviteResult" style="display:none;margin-top:12px;text-align:center;">
+        <div style="font-size:12px;color:var(--sub);margin-bottom:6px;">아래 코드를 직원에게 전달하세요</div>
+        <div id="staffInviteCode" style="font-size:26px;font-weight:800;letter-spacing:4px;color:var(--amber);font-family:ui-monospace,Menlo,Consolas,monospace;"></div>
+        <button class="btn-cancel" style="margin-top:10px;padding:10px 18px;font-size:13px;border-radius:8px;" onclick="copyInviteCode()">📋 복사하기</button>
+      </div>
+    </div>
+
+    <div class="modal-actions" style="margin-top:14px;">
+      <button class="btn-cancel" style="width:100%;padding:15px;font-size:15px;font-weight:700;border-radius:12px;" onclick="closeStaffModal()">닫기</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="chatModalBg">
+  <div class="sched-modal-shell">
+    <div class="sched-modal-scroll" id="chatScroll">
+      <h3 style="display:flex;align-items:center;justify-content:space-between;">💬 직원 채팅
+        <button onclick="setupClaudeKey()" id="aiKeyBtn" style="background:none;border:1px solid var(--line);color:var(--sub);font-size:11px;padding:4px 8px;border-radius:6px;font-weight:400;">🤖 계기판 인식 설정</button></h3>
+      <div class="sub">이 업체 직원들끼리 나누는 대화입니다. 최근 200개까지 보관돼요.</div>
+      <div id="chatList"><div class="empty">불러오는 중...</div></div>
+    </div>
+    <div class="modal-footer-inflow">
+      <div id="chatPhotoPreview" style="display:none;align-items:center;gap:10px;margin-bottom:8px;padding:8px;background:var(--panel2);border-radius:10px;">
+        <img id="chatPhotoThumb" style="width:56px;height:56px;object-fit:cover;border-radius:8px;">
+        <div style="flex:1;font-size:12px;color:var(--sub);line-height:1.5;">사진 첨부됨 · "9588 회수"처럼 같이 보내면<br>계기판 주행거리를 읽어서 회수 처리해요</div>
+        <button onclick="clearChatPhoto()" style="background:none;border:none;color:var(--sub);font-size:18px;padding:4px 8px;">✕</button>
+      </div>
+      <input type="file" id="chatPhotoInput" accept="image/*" style="display:none;" onchange="onChatPhotoPicked(this)">
+      <div style="display:flex;gap:8px;margin-bottom:8px;">
+        <button class="btn-cancel" id="chatPhotoBtn" title="사진 첨부" style="width:48px;padding:0;font-size:20px;border-radius:10px;" onclick="document.getElementById('chatPhotoInput').click()">📷</button>
+        <input id="chatInput" placeholder="메시지를 입력하세요" maxlength="2000"
+               style="flex:1;padding:13px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:14px;"
+               onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChatMessage();}">
+        <button class="btn-save" id="chatSendBtn" style="width:64px;padding:0;font-size:14px;font-weight:700;border-radius:10px;" onclick="sendChatMessage()">전송</button>
+      </div>
+      <button class="btn-cancel" onclick="closeChatModal()">닫기</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="locModalBg">
+  <div class="sched-modal-shell">
+    <div class="sched-modal-scroll" id="locScroll">
+      <h3>📍 직원 위치</h3>
+      <div class="sub">위치 공유를 켠 직원끼리만 서로 위치가 보여요. 🟢 실시간 · ⚪ 마지막으로 확인된 위치</div>
+
+      <div id="locConsentBox" style="display:none;background:var(--panel2);border-radius:10px;padding:14px;margin-bottom:14px;">
+        <label style="display:flex;align-items:flex-start;gap:8px;color:var(--text);font-size:13px;line-height:1.6;">
+          <input type="checkbox" id="locConsentCheck" style="margin-top:3px;">
+          <span>업무시간(<b id="locConsentHours">09:00~18:00</b>) 동안 동료 직원에게 내 위치가 공유되는 것에 동의합니다. <b>앱을 닫거나 화면을 꺼도 업무시간 동안은 계속 공유되며</b>, 그동안 휴대폰 상단에 "위치 공유 중" 알림이 표시됩니다. 업무시간 외에는 자동으로 꺼지고, 언제든 직접 끌 수 있으며 끄면 위치는 즉시 삭제됩니다.</span>
+        </label>
+        <button class="btn-save" style="width:100%;padding:11px;font-size:13px;font-weight:700;border-radius:9px;margin-top:10px;" onclick="agreeLocationConsent()">동의하고 계속</button>
+      </div>
+
+      <div id="locMainBox" style="display:none;">
+        <div id="locStatusMsg" style="font-size:12px;color:var(--sub);text-align:center;margin-bottom:10px;"></div>
+        <div id="locHoursBox" style="display:none;background:var(--panel2);border-radius:10px;padding:12px;margin-bottom:12px;">
+          <div style="font-size:12px;color:var(--sub);margin-bottom:8px;">⚙️ 위치 공유 시간 (관리자만 변경 · 바꾸면 직원들이 다시 동의해야 해요)</div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <input type="time" id="locHoursStart" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--text);font-size:14px;">
+            <span style="color:var(--sub);">~</span>
+            <input type="time" id="locHoursEnd" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--text);font-size:14px;">
+            <button class="btn-save" style="padding:10px 14px;font-size:13px;font-weight:700;border-radius:8px;" onclick="saveLocHours()">저장</button>
+          </div>
+        </div>
+        <div id="locMap" style="width:100%;height:220px;border-radius:12px;overflow:hidden;margin-bottom:14px;background:var(--panel2);"></div>
+        <div id="locList"><div class="empty">불러오는 중...</div></div>
+      </div>
+    </div>
+    <div class="modal-footer-inflow">
+      <button class="btn-save" id="locToggleBtn" style="width:100%;padding:13px;font-size:14px;font-weight:700;border-radius:10px;margin-bottom:8px;display:none;" onclick="toggleLocationShare()">📍 내 위치 공유 시작</button>
+      <button class="btn-cancel" onclick="closeLocModal()">닫기</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// 모든 데이터는 companies/{업체ID}/ 아래에 저장됩니다.
+// P('vehicles') → 'companies/c_abc123/vehicles' 처럼 경로를 만들어주는 함수.
+// 이렇게 해두면 업체마다 데이터가 완전히 분리돼서 서로 안 보입니다.
+// ══════════════════════════════════════════════════════════════
+function P(sub){
+  if(!window.COMPANY_ID) throw new Error('아직 업체 정보가 준비되지 않았습니다.');
+  return 'companies/' + window.COMPANY_ID + '/' + sub;
+}
+const LEGACY_STORAGE_KEY = 'fleet-vehicles-jangseong-v1'; // 예전 단일업체 시절 경로 (이전 도구에서만 사용)
+const LEGACY_HISTORY_KEY = 'history-jangseong-v1';
+const HOME_BRANCH = window.APP_CONFIG.homeBranch;       // 기본 지점명 (예: 장성)
+const LONG_BRANCH = window.APP_CONFIG.longTermBranch;   // 장기렌트 지점/구분명 (예: 장기)
+
+// ── 로그인/업체 확인은 FleetAuth 모듈이 담당합니다 (fleet-auth.js) ──
+// 로그인 + 소속 업체 확인이 끝나면 FleetAuth가 startApp()을 불러줍니다.
+// 아래는 앱 안에서 쓰는 로그아웃 버튼용.
+function logoutApp(){
+  if(!confirm('로그아웃할까요?')) return;
+  FleetAuth.doLogout();
+}
+
+// ── 비밀번호 잠금 제거됨 (누구나 조회/수정 가능) ─────────────
+function ensureEditUnlocked(){
+  return true;
+}
+
+// (예전 장성영업소 예시 차량 데이터(SEED)는 제거했습니다.
+//  새 업체는 빈 상태로 시작하고, 기존 데이터는 migrate.html로 옮깁니다.)
+
+let vehicles = [];
+
+// ── 차령(사용연한) 자동계산 기준 ─────────────────────────────
+// 여객자동차운수사업법 시행령 별표2 기준 (경형·소형·중형 승용 5년 / 대형 승용 8년 / 승합자동차 9년)
+// 규정이 개정되면 아래 숫자만 바꿔주면 됩니다.
+const AGE_LIMIT_YEARS = {
+  '경형': 5,
+  '소형': 5,
+  '중형': 5,
+  '대형': 8,
+  '승합': 9
+};
+const AGE_LIMIT_DEFAULT = 5;
+// 연장검사 통과 시 차령을 1년씩 늘려주되, 최대 2회(총 2년)까지만 가능
+const AGE_EXTEND_MAX = 2;
+
+// ── 정기검사 주기 기준 (자동차관리법 시행규칙 별표15의2) ────────
+// 사업용 승용자동차(경형~대형 렌터카): 최초 신규등록일+2년에 첫 검사, 이후 매 1년마다.
+// 승합자동차는 최초 유예 없이 1년 주기(차령 8년 초과 대형승합은 6개월 주기지만, 이 툴은 단순화해서 1년으로 계산 후
+// 연장검사 임박 알림으로 보완합니다 — 대형승합 차량은 차령 8년 초과 시 직접 확인해주세요).
+const INSPECTION_INITIAL_YEARS = { '승합': 1 };
+const INSPECTION_INITIAL_DEFAULT = 2;
+const INSPECTION_CYCLE_YEARS = 1;
+
+function addYears(dateStr, years){
+  if(!dateStr) return null;
+  const d = new Date(dateStr+'T00:00:00');
+  d.setFullYear(d.getFullYear()+years);
+  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+}
+function calcAgeExpireDate(regDate, cls, fuel){
+  if(!regDate) return null;
+  let years = AGE_LIMIT_YEARS[(cls||'').trim()] || AGE_LIMIT_DEFAULT;
+  return addYears(regDate, years);
+}
+function calcFirstInspectionDate(regDate, cls){
+  if(!regDate) return null;
+  const years = INSPECTION_INITIAL_YEARS[(cls||'').trim()] ?? INSPECTION_INITIAL_DEFAULT;
+  return addYears(regDate, years);
+}
+// 자동차보험은 보통 1년 단위 갱신이며, 신규등록 시 그날 최초 가입하는 경우가 대부분이라
+// 최초등록일 + 1년을 첫 갱신 예정일로 자동입력(비어있을 때만). 실제 가입일이 다르면 직접 수정.
+function calcFirstInsuranceDate(regDate){
+  return addYears(regDate, 1);
+}
+// 여객자동차 운수사업법 시행령 [별표2]: 차령 만료 2개월 이내(만료 전)부터 받는 검사는
+// 임시검사(연장검사) 대상이며, 자동차대여사업용 승용차는 정기검사로 대체 가능 → 검사종류를 '연장'으로 자동 판정
+const EXTEND_INSPECTION_MONTHS_BEFORE = 2;
+function calcInspectionType(ageExpireVal, inspectionDateVal){
+  if(!ageExpireVal || !inspectionDateVal) return null;
+  const threshold = new Date(ageExpireVal+'T00:00:00');
+  threshold.setMonth(threshold.getMonth()-EXTEND_INSPECTION_MONTHS_BEFORE);
+  const inspDate = new Date(inspectionDateVal+'T00:00:00');
+  return inspDate >= threshold ? '연장' : '일반';
+}
+
+// ── 등록일 기준 현재 차령(연/개월), A/S 만료 임박 계산 ──────────
+// A/S는 보통 3년/6만km이지만 주행거리는 추적하지 않으므로 연식 기준으로만 계산,
+// 차량마다 A/S 기간(년)을 다르게 설정할 수 있게 함 (기본 3년)
+const AS_YEARS_DEFAULT = 3;
+const AS_SOON_DAYS = 60; // 만료 1~2개월 전부터 임박 알림
+
+function calcAgeYM(regDateStr){
+  if(!regDateStr) return null;
+  const start = new Date(regDateStr+'T00:00:00');
+  const today = new Date(); today.setHours(0,0,0,0);
+  if(start > today) return null;
+  let years = today.getFullYear() - start.getFullYear();
+  let months = today.getMonth() - start.getMonth();
+  if(today.getDate() < start.getDate()) months--;
+  if(months < 0){ years--; months += 12; }
+  return `${years}년 ${months}개월`;
+}
+function calcAsExpireDate(regDate, asYears){
+  if(!regDate) return null;
+  return addYears(regDate, asYears || AS_YEARS_DEFAULT);
+}
+function updateAgeExtendInfo(v){
+  const el = document.getElementById('mAgeExtendInfo');
+  if(!el) return;
+  const count = (v && v.ageExtendCount) || 0;
+  el.textContent = `💡 차령연장 사용: ${count}/${AGE_EXTEND_MAX}회 (연장검사 완료 시 1년씩 자동 연장, 최대 ${AGE_EXTEND_MAX}회)`;
+}
+function updateAgeInfo(prefix){
+  const regDate = document.getElementById(prefix+'RegDate').value;
+  const ageInfoEl = document.getElementById(prefix+'AgeInfo');
+  const asInfoEl = document.getElementById(prefix+'AsInfo');
+  const asYearsVal = Number(document.getElementById(prefix+'AsYears').value) || AS_YEARS_DEFAULT;
+  if(ageInfoEl){
+    const ym = calcAgeYM(regDate);
+    ageInfoEl.textContent = ym ? `현재 차령: ${ym}째` : '';
+  }
+  if(asInfoEl){
+    const asExpire = calcAsExpireDate(regDate, asYearsVal);
+    const base = '💡 대부분 3년/6만km이지만 5년짜리 등 다른 차량은 여기서 직접 바꿔주세요.';
+    asInfoEl.textContent = asExpire ? `${base} (A/S 만료 예정: ${asExpire})` : base;
+  }
+}
+
+function autoCalcAgeExpire_m(silent){
+  const regDate = document.getElementById('mRegDate').value;
+  if(!regDate){ if(!silent) showToast('최초등록일을 먼저 입력하세요'); return; }
+  const v = vehicles.find(x=>x.plate===window._editingPlate);
+  const ageResult = calcAgeExpireDate(regDate, v.cls, v.fuel);
+  document.getElementById('mAgeExpireDate').value = ageResult;
+  let extra = '';
+  if(v.ageExtendCount){
+    extra += ` · 차령연장 사용횟수 0회로 초기화`;
+    v.ageExtendCount = 0;
+  }
+  updateAgeExtendInfo(v);
+  const insEl = document.getElementById('mInsuranceDate');
+  if(!insEl.value){
+    insEl.value = calcFirstInsuranceDate(regDate);
+    extra += ` · 보험 갱신일 ${insEl.value} 자동입력`;
+  }
+  const inspEl = document.getElementById('mInspectionDate');
+  if(!inspEl.value){
+    inspEl.value = calcFirstInspectionDate(regDate, v.cls);
+    extra += ` · 최초 검사예정일 ${inspEl.value} 자동입력`;
+  }
+  const typeChanged = autoSetInspectionType('m', true);
+  updateAgeInfo('m');
+  showToast(`차령 만료일 자동계산: ${ageResult} (${v.cls||'기타'} 기준)${extra}${typeChanged?' · '+typeChanged:''}`);
+}
+function autoCalcAgeExpire_a(silent){
+  const regDate = document.getElementById('aRegDate').value;
+  if(!regDate){ if(!silent) showToast('최초등록일을 먼저 입력하세요'); return; }
+  const cls = document.getElementById('aCls').value.trim();
+  const fuel = document.getElementById('aFuel').value.trim();
+  const ageResult = calcAgeExpireDate(regDate, cls, fuel);
+  document.getElementById('aAgeExpireDate').value = ageResult;
+  let extra = '';
+  const insEl = document.getElementById('aInsuranceDate');
+  if(!insEl.value){
+    insEl.value = calcFirstInsuranceDate(regDate);
+    extra += ` · 보험 갱신일 ${insEl.value} 자동입력`;
+  }
+  const inspEl = document.getElementById('aInspectionDate');
+  if(!inspEl.value){
+    inspEl.value = calcFirstInspectionDate(regDate, cls);
+    extra += ` · 최초 검사예정일 ${inspEl.value} 자동입력`;
+  }
+  const typeChanged = autoSetInspectionType('a', true);
+  updateAgeInfo('a');
+  showToast(`차령 만료일 자동계산: ${ageResult} (${cls||'기타'} 기준)${extra}${typeChanged?' · '+typeChanged:''}`);
+}
+function autoSetInspectionType(prefix, quiet){
+  const ageExpireVal = document.getElementById(prefix+'AgeExpireDate').value;
+  const inspectionDateVal = document.getElementById(prefix+'InspectionDate').value;
+  const typeSelect = document.getElementById(prefix+'InspectionType');
+  const newType = calcInspectionType(ageExpireVal, inspectionDateVal);
+  if(!newType || !typeSelect) return null;
+  if(typeSelect.value === newType) return null;
+  typeSelect.value = newType;
+  const shouldExtend = newType === '연장';
+  const msg = shouldExtend
+
+    ? `차령 만료(${ageExpireVal}) ${EXTEND_INSPECTION_MONTHS_BEFORE}개월 전이라 연장검사로 자동 전환`
+    : `검사종류를 일반검사로 자동 전환`;
+  if(!quiet) showToast(msg);
+  return msg;
+}
+
+function daysSince(dateStr){
+  const start = new Date(dateStr+'T00:00:00');
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const diff = Math.floor((today-start)/86400000)+1;
+  return diff<1 ? 1 : diff;
+}
+function formatReturnDate(dateStr){
+  const d = new Date(dateStr+'T00:00:00');
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const diffDays = Math.round((d-today)/86400000);
+  const dDay = diffDays===0 ? 'D-day' : (diffDays>0 ? `D-${diffDays}` : `D+${-diffDays}`);
+  return `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 (${dDay})`;
+}
+function isReturnDue(dateStr){
+  const d = new Date(dateStr+'T00:00:00');
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  return d <= today;
+}
+function isReturnSoon(dateStr, days){
+  const d = new Date(dateStr+'T00:00:00');
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const diffDays = Math.round((d-today)/86400000);
+  return diffDays>0 && diffDays<=(days||3);
+}
+function renderDateLine(label, dateStr){
+  if(!dateStr) return '';
+  const due = isReturnDue(dateStr);
+  const soon = !due && isReturnSoon(dateStr, 30);
+  const cls = due ? ' return-due' : (soon ? ' return-soon' : '');
+  return `<div class="extra${cls}">${label}: ${formatReturnDate(dateStr)}</div>`;
+}
+function renderAsLine(v){
+  if(!v.regDate) return '';
+  const years = v.asYears || AS_YEARS_DEFAULT;
+  const asExpire = calcAsExpireDate(v.regDate, years);
+  if(v.asAckExpire && v.asAckExpire === asExpire) return ''; // 이미 확인 처리한 만료건은 숨김
+  const due = isReturnDue(asExpire);
+  const soon = !due && isReturnSoon(asExpire, AS_SOON_DAYS);
+  if(!due && !soon) return '';
+  const cls = due ? ' return-due' : ' return-soon';
+  const icon = due ? '⏰' : '🔧';
+  const label = due ? `A/S 만료 (${years}년 기준)` : `A/S 종료 임박 (${years}년 기준)`;
+  return `<div class="extra${cls}">${icon} ${label}: ${formatReturnDate(asExpire)}</div>`;
+}
+function renderInspectionLine(v){
+  if(!v.inspectionDate) return '';
+  const due = isReturnDue(v.inspectionDate);
+  const soon = !due && isReturnSoon(v.inspectionDate, 30);
+  if(!due && !soon) return ''; // 1달 이내로 다가오기 전에는 표시 안 함
+  const label = v.inspectionType==='연장' ? '연장검사' : '일반검사';
+  if(v.inspectionDone){
+    return `<div class="extra" style="color:var(--green);">✅ ${label} 완료 (${formatReturnDate(v.inspectionDate)})</div>`;
+  }
+  const cls = due ? ' return-due' : ' return-soon';
+  const icon = due ? '⏰' : '🔔';
+  return `<div class="extra${cls}">${icon} ${label} 예정: ${formatReturnDate(v.inspectionDate)}</div>`;
+}
+function insuranceBadge(v){
+  if(!v.insuranceDate) return '';
+  const due = isReturnDue(v.insuranceDate);
+  const soon = !due && isReturnSoon(v.insuranceDate, 30);
+  if(due) return `<span class="badge return-due">⏰ 보험만료</span>`;
+  if(soon) return `<span class="badge return-soon">🔔 보험임박</span>`;
+  return '';
+}
+function ageExpireBadge(v){
+  if(!v.ageExpireDate) return '';
+  const due = isReturnDue(v.ageExpireDate);
+  const soon = !due && isReturnSoon(v.ageExpireDate, 30);
+  if(due) return `<span class="badge return-due">⏰ 차령만료</span>`;
+  if(soon) return `<span class="badge return-soon">🔔 차령임박</span>`;
+  return '';
+}
+function statusClass(v){
+  if(v.startDate) return 'st-dispatch';
+  if(v.status==='대기') return 'st-idle';
+  if(v.status==='준비중') return 'st-prep';
+  return 'st-running';
+}
+function totalDaysBetween(startStr, endStr){
+  const start = new Date(startStr+'T00:00:00');
+  const end = new Date(endStr+'T00:00:00');
+  const diff = Math.round((end-start)/86400000)+1;
+  return diff<1 ? 1 : diff;
+}
+function statusLabel(v){
+  if(v.startDate && v.returnDate){
+    const total = totalDaysBetween(v.startDate, v.returnDate);
+    const cur = Math.min(daysSince(v.startDate), total);
+    return `${total}일중 ${cur}일째`;
+  }
+  if(v.startDate) return `${daysSince(v.startDate)}일째`;
+  return v.status ? v.status : '운행중';
+}
+
+function isPermissionDenied(e){
+  const msg = ((e && e.code) || '') + ' ' + ((e && e.message) || '');
+  return /permission[_-]?denied/i.test(msg);
+}
+
+let _suppressNextRemote = false;
+
+async function loadData(){
+  const { ref, get, db } = window._fb;
+  try{
+    const snap = await get(ref(db, P('vehicles')));
+    // ▼ 중요: 새로 가입한 업체는 "빈 상태"로 시작해야 합니다.
+    //   예전에는 여기서 SEED(장성영업소 예시 차량)를 자동으로 넣었는데,
+    //   그러면 다른 업체가 가입했을 때 모르는 차량이 잔뜩 들어가버립니다.
+    vehicles = snap.exists() ? (snap.val() || []) : [];
+  }catch(e){
+    console.error(e);
+    if(isPermissionDenied(e)){
+      showToast('이 업체 데이터에 접근 권한이 없어요. 관리자에게 문의해주세요.');
+      return false;
+    }
+    vehicles = [];
+    showToast('연결 실패 - Firebase 설정을 확인하세요');
+  }
+  autoFlagReturnDue();
+  return true;
+}
+
+function autoFlagReturnDue(){
+  // 반납일 도래 표시는 render()에서 배지(⏰ 반납일 도래)로만 계산해서 보여줍니다.
+  // 예전에는 여기서 비고(note)란에 "반납 임박" 문구를 직접 써넣고 자동 저장까지 했는데,
+  // 그러면 화면만 열어도 저장이 발생하고 반납 후에도 문구가 비고에 영구히 남는 문제가 있어 제거했습니다.
+}
+
+const HISTORY_KEY = 'history-jangseong-v1';
+const HISTORY_MAX = 30;
+
+async function snapshotHistory(){
+  const { ref, get, set, push, db } = window._fb;
+  try{
+    const prevSnap = await get(ref(db, P('vehicles')));
+    if(!prevSnap.exists()) return;
+    const newRef = push(ref(db, P('history')));
+    await set(newRef, { vehicles: prevSnap.val(), savedAt: Date.now() });
+    await pruneHistory();
+  }catch(e){
+    console.error('history snapshot failed', e);
+  }
+}
+
+async function pruneHistory(){
+  const { ref, get, remove, db } = window._fb;
+  const snap = await get(ref(db, P('history')));
+  if(!snap.exists()) return;
+  const keys = Object.keys(snap.val()).sort(); // push 키는 시간순 정렬됨
+  if(keys.length > HISTORY_MAX){
+    const excess = keys.slice(0, keys.length - HISTORY_MAX);
+    for(const k of excess){
+      await remove(ref(db, P('history/' + k)));
+    }
+  }
+}
+
+// change 인자를 넘기면(수정/추가/삭제 1건 또는 여러 건) 서버의 "현재" 배열에
+// 그 변경분만 트랜잭션으로 병합해서 씁니다. 이렇게 하면 다른 직원이 그 사이에
+// 다른 차량을 수정해서 저장했더라도 서로의 변경사항이 통째로 덮어써지지 않습니다.
+// change를 생략하면(과거 히스토리 복원 등 "전체를 이 상태로 되돌린다"가 목적일 때만)
+// 기존처럼 로컬 vehicles 배열 전체로 덮어씁니다.
+async function persist(change){
+  const { ref, set, runTransaction, db } = window._fb;
+  try{
+    _suppressNextRemote = true;
+    await snapshotHistory(); // 덮어쓰기 전 이전 상태를 변경 기록에 먼저 남김
+    if(change){
+      const result = await runTransaction(ref(db, P('vehicles')), (current)=>{
+        let list = Array.isArray(current) ? current.slice() : [];
+        const upsert = (v)=>{
+          const idx = list.findIndex(x=>x && x.plate===v.plate);
+          if(idx>=0) list[idx] = v; else list.push(v);
+        };
+        if(change.type==='upsert'){
+          upsert(change.vehicle);
+        }else if(change.type==='upsert-many'){
+          change.vehicles.forEach(upsert);
+        }else if(change.type==='delete'){
+          list = list.filter(x=>x && x.plate!==change.plate);
+        }
+        return list;
+      });
+      vehicles = (result.snapshot.val()) || [];
+      render();
+    }else{
+      await set(ref(db, P('vehicles')), vehicles);
+    }
+    showToast('저장됨 · 다른 직원 화면에도 실시간 반영됩니다');
+  }catch(e){
+    console.error(e);
+    showToast('저장 실패 - 다시 시도해주세요');
+  }
+}
+
+function startRealtimeSync(){
+  const { ref, onValue, db } = window._fb;
+  onValue(ref(db, P('vehicles')), (snap)=>{
+    if(_suppressNextRemote){ _suppressNextRemote = false; return; }
+    if(snap.exists()){
+      vehicles = snap.val();
+      autoFlagReturnDue();
+      render();
+    }
+  });
+}
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(()=>t.classList.remove('show'), 1800);
+}
+
+// ── 일정 관리 ──────────────────────────────────────────────
+let schedules = {}; // { key: {title, date:'YYYY-MM-DD', repeat:bool, memo} }
+
+function pad2(n){ return String(n).padStart(2,'0'); }
+function todayStr(){
+  const d = new Date();
+  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+}
+function tomorrowStr(){
+  const d = new Date();
+  d.setDate(d.getDate()+1);
+  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+}
+function fmtDoneAt(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  if(isNaN(d.getTime())) return '';
+  return `${pad2(d.getMonth()+1)}/${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+function matchesDate(sched, dateStr){
+  if(sched.repeat){
+    const day = Number(dateStr.split('-')[2]);
+    const schedDay = Number((sched.date||'').split('-')[2]);
+    return day === schedDay;
+  }
+  return sched.date === dateStr;
+}
+
+async function loadSchedules(){
+  const { ref, get, db } = window._fb;
+  try{
+    const snap = await get(ref(db, P('schedules')));
+    schedules = snap.exists() ? snap.val() : {};
+  }catch(e){
+    console.error(e);
+    schedules = {};
+  }
+}
+
+function startScheduleSync(){
+  const { ref, onValue, db } = window._fb;
+  onValue(ref(db, P('schedules')), (snap)=>{
+    schedules = snap.exists() ? snap.val() : {};
+    renderSchedBanner();
+    if(document.getElementById('schedModalBg').classList.contains('open')){
+      renderCalendar();
+      renderSchedList();
+    }
+  });
+}
+
+function isScheduleDone(sched, dateStr){
+  if(sched.repeat) return !!(sched.completedDates && sched.completedDates[dateStr]);
+  return !!sched.done;
+}
+
+async function toggleScheduleDone(key, dateStr){
+  const sched = schedules[key];
+  if(!sched) return;
+  const { ref, set, update, db } = window._fb;
+  if(sched.repeat){
+    const cur = !!(sched.completedDates && sched.completedDates[dateStr]);
+    // 완료 시각을 날짜별로 기록 (취소 시엔 null)
+    await set(ref(db, P(`schedules/${key}/completedDates/${dateStr}`)), cur ? null : new Date().toISOString());
+  }else{
+    const next = !sched.done;
+    await update(ref(db, P(`schedules/${key}`)), { done: next, doneAt: next ? new Date().toISOString() : null });
+  }
+}
+
+function renderSchedBanner(){
+  const el = document.getElementById('schedBanner');
+  const list = Object.values(schedules || {});
+  const today = todayStr();
+  const tomorrow = tomorrowStr();
+  const hour = new Date().getHours();
+
+  // 일반 타입은 이제 차량 카드의 '입금완료' 체크박스로 직접 관리하므로,
+  // schedules 기반 '미청구' 집계에서는 제외합니다(대신 아래 '미입금' 배너로 대체).
+  // 스케줄에 저장된 당시 type을 우선 쓰고(회수 처리로 차량의 현재 type이 초기화된 뒤에도 정확히 판단됨),
+  // 예전에 만들어져 type이 없는 스케줄만 차량의 현재 type으로 보조 판단합니다.
+  const unbilledCount = list.filter(s => {
+    if(!(s.auto && s.done && !s.billed)) return false;
+    if(s.type) return s.type !== '일반';
+    const veh = vehicles.find(v=>v.plate===s.plate);
+    return !(veh && veh.type==='일반');
+  }).length;
+  const unpaidCount = vehicles.filter(v => v.type==='일반' && v.amount && !v.depositPaid).length;
+  const todayItems = list.filter(s => matchesDate(s, today) && !isScheduleDone(s, today));
+  const showTomorrow = hour >= 18; // 저녁 6시 이후부터 내일 일정 미리 표시
+  const tomorrowItems = showTomorrow ? list.filter(s => matchesDate(s, tomorrow) && !isScheduleDone(s, tomorrow)) : [];
+
+  let html = '';
+  if(unbilledCount > 0){
+    html += `<div class="sched-item unbilled" onclick="location.href='payment.html'"><span class="sched-tag">미청구</span><span class="sched-title">회수된 차량 중 미청구 차량이 ${unbilledCount}건 있습니다</span></div>`;
+  }
+  if(unpaidCount > 0){
+    html += `<div class="sched-item unbilled"><span class="sched-tag">미입금</span><span class="sched-title">일반 차량 중 미입금 차량이 ${unpaidCount}건 있습니다</span></div>`;
+  }
+  todayItems.forEach(s=>{
+    const paidTag = s.type==='일반' ? `<span class="sched-tag" style="background:${s.depositPaid?'var(--green)':'var(--red)'};color:${s.depositPaid?'#0a2016':'#2a0d0d'};">${s.depositPaid?'입금완료':'미입금'}</span>` : '';
+    html += `<div class="sched-item today" onclick="openSchedModalOnDate('${today}')"><span class="sched-tag">오늘</span><span class="sched-title">${escapeHtml(s.title)}${s.memo?` · ${escapeHtml(s.memo)}`:''}</span>${paidTag}</div>`;
+  });
+  tomorrowItems.forEach(s=>{
+    const paidTag = s.type==='일반' ? `<span class="sched-tag" style="background:${s.depositPaid?'var(--green)':'var(--red)'};color:${s.depositPaid?'#0a2016':'#2a0d0d'};">${s.depositPaid?'입금완료':'미입금'}</span>` : '';
+    html += `<div class="sched-item tomorrow" onclick="openSchedModalOnDate('${tomorrow}')"><span class="sched-tag">내일</span><span class="sched-title">${escapeHtml(s.title)}${s.memo?` · ${escapeHtml(s.memo)}`:''}</span>${paidTag}</div>`;
+  });
+  el.innerHTML = html;
+}
+
+// 오늘/내일 일정 배너를 눌렀을 때 그 날짜가 선택된 상태로 일정 화면을 엽니다.
+function openSchedModalOnDate(dateStr){
+  openSchedModal();
+  calSelectDate(dateStr);
+}
+
+function escapeHtml(s){
+  return (s||'').toString().replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+}
+
+// ── 뒤로가기(브라우저/제스처)로 모달을 닫을 수 있게 처리 ──────────────
+// 모달을 열 때마다 히스토리를 하나 쌓아두고, 뒤로가기가 오면 페이지를 벗어나는
+// 대신 열려있는 모달만 닫히게 합니다. 앱 내 닫기/취소/저장 버튼으로 닫을 때도
+// 쌓아둔 히스토리를 같이 되돌려서 스택이 계속 쌓이지 않게 맞춰줍니다.
+const MODAL_IDS = ['modalBg','schedModalBg','addModalBg','historyModalBg','staffModalBg','chatModalBg','locModalBg'];
+function pushModalHistoryState(id){
+  history.pushState({ modalId: id }, '');
+}
+function popModalHistoryIfNeeded(id){
+  if(history.state && history.state.modalId === id) history.back();
+}
+window.addEventListener('popstate', (e)=>{
+  MODAL_IDS.forEach(id=>{
+    if(e.state && e.state.modalId === id) return; // 이 모달 상태로 되돌아온 경우는 그대로 둠
+    const el = document.getElementById(id);
+    if(el && el.classList.contains('open')) el.classList.remove('open');
+  });
+});
+
+function toggleAddForm(){
+  const el = document.getElementById('addFormFields');
+  const label = document.getElementById('addFormToggleLabel');
+  const willOpen = el.style.display === 'none';
+  el.style.display = willOpen ? 'block' : 'none';
+  if(!willOpen) exitEditMode();
+  label.textContent = willOpen ? '- 새 일정 추가 닫기' : '+ 새 일정 추가';
+}
+
+let editingScheduleKey = null;
+
+function exitEditMode(){
+  editingScheduleKey = null;
+  document.getElementById('sTitle').value = '';
+  document.getElementById('sDate').value = todayStr();
+  document.getElementById('sRepeat').checked = false;
+  document.getElementById('sMemo').value = '';
+  document.getElementById('addFormSaveLabel').textContent = '일정 추가';
+  document.getElementById('addFormToggleLabel').textContent = '+ 새 일정 추가';
+}
+
+function editSchedule(key){
+  const s = schedules[key];
+  if(!s) return;
+  editingScheduleKey = key;
+  document.getElementById('sTitle').value = s.title || '';
+  document.getElementById('sDate').value = s.date || todayStr();
+  document.getElementById('sRepeat').checked = !!s.repeat;
+  document.getElementById('sMemo').value = s.memo || '';
+  document.getElementById('addFormSaveLabel').textContent = '수정 저장';
+  document.getElementById('addFormToggleLabel').textContent = '- 새 일정 추가 닫기';
+  document.getElementById('addFormFields').style.display = 'block';
+  document.getElementById('addFormFields').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+function openSchedModal(){
+  exitEditMode();
+  document.getElementById('addFormFields').style.display = 'none';
+  const now = new Date();
+  calYear = now.getFullYear();
+  calMonth = now.getMonth();
+  calSelectedDate = todayStr();
+  renderCalendar();
+  renderSchedList();
+  document.getElementById('schedModalBg').classList.add('open');
+  pushModalHistoryState('schedModalBg');
+}
+async function closeSchedModal(){
+  // 추가/수정 폼이 열려있고 제목을 입력해둔 상태면, 저장 버튼을 안 눌렀어도
+  // 닫기를 누르는 순간 자동으로 저장해줍니다. (수정인 경우 addSchedule 안에서 확인창이 뜸)
+  const formOpen = document.getElementById('addFormFields').style.display !== 'none';
+  const title = document.getElementById('sTitle').value.trim();
+  if(formOpen && title){
+    const dateEl = document.getElementById('sDate');
+    if(!dateEl.value) dateEl.value = todayStr(); // 날짜를 안 채웠으면 오늘 날짜로 채워서 저장
+    await addSchedule();
+  }
+  document.getElementById('schedModalBg').classList.remove('open');
+  popModalHistoryIfNeeded('schedModalBg');
+}
+
+async function addSchedule(){
+  const title = document.getElementById('sTitle').value.trim();
+  const date = document.getElementById('sDate').value;
+  if(!title || !date){ showToast('제목과 날짜를 입력해주세요'); return; }
+
+  if(editingScheduleKey){
+    if(!confirm(`"${title}" 일정을 수정할까요?`)) return;
+  }
+
+  const { ref, push, set, db } = window._fb;
+  const payload = {
+    title, date,
+    repeat: document.getElementById('sRepeat').checked,
+    memo: document.getElementById('sMemo').value.trim()
+  };
+
+  if(editingScheduleKey){
+    // 기존 일정 수정 - 완료 기록은 유지
+    const prev = schedules[editingScheduleKey] || {};
+    if(prev.done !== undefined) payload.done = prev.done;
+    if(prev.completedDates !== undefined) payload.completedDates = prev.completedDates;
+    await set(ref(db, P('schedules/'+editingScheduleKey)), payload);
+    showToast('일정이 수정되었습니다');
+  }else{
+    await push(ref(db, P('schedules')), payload);
+    showToast('일정이 추가되었습니다');
+  }
+
+  exitEditMode();
+  calSelectedDate = date;
+  const [ny, nm] = date.split('-').map(Number);
+  calYear = ny; calMonth = nm - 1;
+  renderCalendar();
+  renderSchedList();
+}
+
+async function deleteSchedule(key){
+  const s = schedules[key];
+  const label = s && s.title ? `"${s.title}" 일정을` : '이 일정을';
+  if(!confirm(`${label} 삭제할까요? 삭제하면 되돌릴 수 없습니다.`)) return;
+  if(editingScheduleKey === key) exitEditMode();
+  const { ref, remove, db } = window._fb;
+  await remove(ref(db, P('schedules/'+key)));
+  showToast('일정이 삭제되었습니다');
+}
+
+// ── 캘린더 뷰 ──────────────────────────────────────────────
+let calYear, calMonth; // 0-indexed month
+let calSelectedDate = null; // 'YYYY-MM-DD' or null(전체보기)
+
+function calShiftMonth(diff){
+  calMonth += diff;
+  if(calMonth < 0){ calMonth = 11; calYear--; }
+  if(calMonth > 11){ calMonth = 0; calYear++; }
+  renderCalendar();
+}
+
+function calShowAll(){
+  calSelectedDate = null;
+  renderCalendar();
+  renderSchedList();
+}
+
+function daysWithSchedule(year, month){
+  // 이 달(year, month)에 표시될 일정이 있는 날짜(day 숫자) 집합
+  const set = new Set();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  Object.values(schedules || {}).forEach(s=>{
+    if(!s.date) return;
+    if(s.repeat){
+      const schedDay = Number(s.date.split('-')[2]);
+      if(schedDay <= daysInMonth) set.add(schedDay);
+    }else{
+      const [y,m,d] = s.date.split('-').map(Number);
+      if(y === year && (m-1) === month) set.add(d);
+    }
+  });
+  return set;
+}
+
+function renderCalendar(){
+  document.getElementById('calTitle').textContent = `${calYear}년 ${calMonth+1}월`;
+  const grid = document.getElementById('calGrid');
+  const firstDow = new Date(calYear, calMonth, 1).getDay();
+  const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
+  const markedDays = daysWithSchedule(calYear, calMonth);
+  const today = todayStr();
+
+  let html = '';
+  for(let i=0;i<firstDow;i++) html += `<div class="cal-cell blank"></div>`;
+  for(let d=1; d<=daysInMonth; d++){
+    const dateStr = `${calYear}-${pad2(calMonth+1)}-${pad2(d)}`;
+    let cls = 'cal-cell';
+    if(dateStr === today) cls += ' today';
+    if(dateStr === calSelectedDate) cls += ' selected';
+    html += `<div class="${cls}" onclick="calSelectDate('${dateStr}')">${d}${markedDays.has(d) ? '<span class="dot"></span>' : ''}</div>`;
+  }
+  grid.innerHTML = html;
+}
+
+function calSelectDate(dateStr){
+  calSelectedDate = dateStr;
+  document.getElementById('sDate').value = dateStr;
+  renderCalendar();
+  renderSchedList();
+}
+
+function renderSchedList(){
+  const el = document.getElementById('schedList');
+  const titleEl = document.getElementById('schedListTitle');
+  let entries = Object.entries(schedules || {});
+
+  if(calSelectedDate){
+    entries = entries.filter(([,s]) => matchesDate(s, calSelectedDate));
+    const [y,m,d] = calSelectedDate.split('-');
+    titleEl.textContent = `${m}월 ${d}일 일정`;
+  }else{
+    titleEl.textContent = '전체 일정';
+  }
+  entries.sort((a,b)=> (a[1].date||'').localeCompare(b[1].date||''));
+
+  if(entries.length===0){
+    el.innerHTML = `<div class="sched-empty">${calSelectedDate ? '이 날짜엔 등록된 일정이 없습니다' : '등록된 일정이 없습니다'}</div>`;
+    return;
+  }
+  el.innerHTML = entries.map(([key, s])=>{
+    const [y,m,d] = (s.date||'').split('-');
+    const effDate = calSelectedDate || (s.repeat ? null : s.date); // repeat 일정은 날짜 선택 시에만 완료처리 가능
+    const done = effDate ? isScheduleDone(s, effDate) : false;
+    const doneBtn = effDate
+      ? `<div class="done-switch${done?' on':''}"><span class="lbl">${done?'완료':'완료'}</span><label class="toggle"><input type="checkbox" ${done?'checked':''} onchange="toggleScheduleDone('${key}','${effDate}')"><span class="slider"></span></label></div>`
+      : `<div class="done-switch"><span class="lbl">완료</span><label class="toggle" title="날짜를 선택하면 완료 처리할 수 있어요"><input type="checkbox" disabled><span class="slider"></span></label></div>`;
+    return `
+      <div class="sched-list-row${done?' done':''}">
+        <div>
+          <div class="d">${m}월 ${d}일${s.repeat?'<span class="sched-repeat-tag">매월 반복</span>':''}</div>
+          <div class="t">${escapeHtml(s.title)}${s.type==='일반'?`<span class="badge${s.depositPaid?' paid':' unpaid'}" style="margin-left:6px;vertical-align:middle;">${s.depositPaid?'💰 입금완료':'⚠️ 미입금'}</span>`:''}</div>
+          ${s.memo?`<div class="m">${escapeHtml(s.memo)}</div>`:''}
+        </div>
+        <div class="actions">
+          ${doneBtn}
+          <div style="display:flex;gap:8px;">
+            <button class="del" style="color:var(--blue);" onclick="editSchedule('${key}')">수정</button>
+            <button class="del" onclick="deleteSchedule('${key}')">삭제</button>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+let statusFilter = null; // null | '대기' | '준비중' | '운행중'
+
+function toggleStatusFilter(s){
+  statusFilter = (statusFilter === s) ? null : s;
+  render();
+}
+
+function renderStats(){
+  const total = vehicles.length;
+  const idle = vehicles.filter(v=>v.status==='대기').length;
+  const prep = vehicles.filter(v=>v.status==='준비중').length;
+  const longTerm = vehicles.filter(v=>v.type===LONG_BRANCH);
+  const longCount = longTerm.length;
+  const longAmount = longTerm.reduce((sum,v)=> sum + (Number(v.amount)||0), 0);
+  // ▼ 수정: 운행중 카운트에서 장기렌트 차량은 제외 (장기는 별도 통계로만 표시)
+  const running = total - idle - prep - longCount;
+  const el = document.getElementById('statsRow');
+  el.innerHTML = `
+    <div class="stat ${statusFilter===null?'active':''}" onclick="toggleStatusFilter(null)"><b>${total}</b><span>총 차량</span></div>
+    <div class="stat amber ${statusFilter==='대기'?'active':''}" onclick="toggleStatusFilter('대기')"><b>${idle}</b><span>대기</span></div>
+    <div class="stat blue ${statusFilter==='준비중'?'active':''}" onclick="toggleStatusFilter('준비중')"><b>${prep}</b><span>준비중</span></div>
+    <div class="stat green ${statusFilter==='운행중'?'active':''}" onclick="toggleStatusFilter('운행중')"><b>${running}</b><span>운행중</span></div>
+    <div class="stat purple ${statusFilter===LONG_BRANCH?'active':''}" onclick="toggleStatusFilter('${LONG_BRANCH}')"><b>${longCount}대</b><span>${escapeHtml(LONG_BRANCH)}</span></div>
+    <div class="stat purple"><b>${longAmount.toLocaleString()}만</b><span>장기금액</span></div>
+  `;
+}
+
+function render(){
+  renderStats();
+  renderSchedBanner();
+  const q = document.getElementById('searchInput').value.trim().toLowerCase();
+  let list = vehicles.filter(v=>{
+    if(q){
+      const hay = (v.plate+' '+v.note+' '+v.model+' '+v.extra+' '+(v.customerName||'')).toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    if(statusFilter){
+      if(statusFilter===LONG_BRANCH){ if(v.type !== LONG_BRANCH) return false; }
+      else{
+        const isRunning = v.status !== '대기' && v.status !== '준비중' && v.type !== LONG_BRANCH;
+        if(statusFilter==='운행중'){ if(!isRunning) return false; }
+        else if(v.status !== statusFilter) return false;
+      }
+    }
+    return true;
+  });
+
+  const main = document.getElementById('main');
+  if(list.length===0){
+    main.innerHTML = '<div class="empty">해당하는 차량이 없습니다</div>';
+    return;
+  }
+
+  const sortMode = document.getElementById('sortSelect').value;
+  if(sortMode==='plate'){
+    list = list.slice().sort((a,b)=>a.plate.localeCompare(b.plate,'ko'));
+  }else if(sortMode==='status'){
+    const priority = {'st-idle':1,'st-prep':2,'st-dispatch':3,'st-running':4};
+    list = list.slice().sort((a,b)=>priority[statusClass(a)]-priority[statusClass(b)]);
+  }
+
+  const groups = {};
+  list.forEach(v=>{
+    const b = v.branch || HOME_BRANCH;
+    if(!groups[b]) groups[b]=[];
+    groups[b].push(v);
+  });
+  const DISPLAY_ORDER = [HOME_BRANCH, LONG_BRANCH];
+  const order = [...DISPLAY_ORDER.filter(b=>groups[b]), ...Object.keys(groups).filter(b=>!DISPLAY_ORDER.includes(b))];
+
+  main.innerHTML = order.map(branch=>{
+    let items = groups[branch].slice();
+    items.sort((a, b) => {
+      const aDue = a.returnDate ? isReturnDue(a.returnDate) : false;
+      const bDue = b.returnDate ? isReturnDue(b.returnDate) : false;
+      if (aDue === bDue) return 0;
+      return aDue ? -1 : 1;
+    });
+    const cards = items.map(v=>{
+      const sc = statusClass(v);
+      const due = v.returnDate ? isReturnDue(v.returnDate) : false;
+      const soon = (!due && v.returnDate) ? isReturnSoon(v.returnDate, 1) : false;
+      const cardExtraClass = due ? ' return-alert' : (soon ? ' return-soon-alert' : '');
+      return `
+        <div class="card ${sc}${cardExtraClass}" data-plate="${escapeHtml(v.plate)}">
+          <span class="press-fill"></span>
+          <div class="cbody">
+            <div class="row1">
+              <span class="plate-tag plate">${escapeHtml(v.plate)}</span>
+              ${v.type?`<span class="type-badge tp-${escapeHtml(v.type)}">${escapeHtml(v.type)}</span>`:''}
+              <span class="badge ${sc}">${escapeHtml(statusLabel(v))}</span>
+              ${due?`<span class="badge return-due">⏰ 반납일 도래</span>`:''}
+              ${soon?`<span class="badge return-soon">🔔 반납임박</span>`:''}
+              ${(v.type==='일반' && !v.depositPaid)?`<span class="badge unpaid">💸 미입금</span>`:''}
+              ${insuranceBadge(v)}
+              ${ageExpireBadge(v)}
+            </div>
+            <div class="model">${escapeHtml(v.cls)} · ${escapeHtml(v.model)}${v.fuel?' · '+escapeHtml(v.fuel):''}</div>
+            ${(()=>{
+              const returnLine = v.returnDate?`<div class="extra${due?' return-due':(soon?' return-soon':'')}">반납일자: ${formatReturnDate(v.returnDate)}</div>`:'';
+              const noteLine = v.note?`<div class="note">${escapeHtml(v.note)}</div>`:'';
+              const extraLine = v.extra?`<div class="extra">${escapeHtml(v.extra)}</div>`:'';
+              // 일반 타입은 대여 정보 바로 아래에 반납일자가 오도록, 그 외 타입은 기존 순서(비고/추가정보 다음)를 유지
+              return v.type==='일반' ? returnLine+noteLine+extraLine : noteLine+extraLine+returnLine;
+            })()}
+            ${renderAsLine(v)}
+            ${renderInspectionLine(v)}
+          </div>
+          ${v.amount?`<div class="amount">${v.customerName?`${escapeHtml(v.customerName)}<br>`:''}${escapeHtml(String(v.amount))}만원${v.payDay?`<br>매월 ${escapeHtml(String(v.payDay))}일`:''}${v.type==='일반'?`<br><span style="color:${v.depositPaid?'var(--green)':'var(--red)'};font-weight:700;">${v.depositPaid?'💰 입금완료':'⚠️ 미입금'}</span>`:''}</div>`:''}
+        </div>`;
+    }).join('');
+    return `<div class="section-title"><span>${escapeHtml(branch)}</span><span>${items.length}대</span></div>${cards}`;
+  }).join('');
+
+  // 카드 클릭/길게 누르기 이벤트는 인라인 onclick 대신 위임 방식으로 붙입니다.
+  // (번호판/비고 등에 따옴표가 들어가도 HTML 구조가 깨지지 않도록)
+  main.querySelectorAll('.card').forEach(card=>{
+    const plate = card.dataset.plate;
+    card.addEventListener('click', (e)=>handleCardClick(e, plate));
+    card.addEventListener('pointerdown', (e)=>startPressHold(e, plate));
+    card.addEventListener('pointerup', cancelPressHold);
+    card.addEventListener('pointerleave', cancelPressHold);
+    card.addEventListener('pointercancel', cancelPressHold);
+  });
+}
+
+let _pressTimer = null;
+let _pressTriggered = false;
+
+function startPressHold(e, plate){
+  const card = e.currentTarget;
+  const fill = card.querySelector('.press-fill');
+  _pressTriggered = false;
+  if(fill){
+    fill.style.transition = 'none';
+    fill.style.width = '0%';
+    void fill.offsetWidth;
+    fill.style.transition = 'width 3000ms linear';
+    fill.style.width = '100%';
+  }
+  clearTimeout(_pressTimer);
+  _pressTimer = setTimeout(()=>{
+    _pressTriggered = true;
+    if(navigator.vibrate) navigator.vibrate(40);
+    setVehicleIdle(plate);
+  }, 3000);
+}
+function cancelPressHold(e){
+  clearTimeout(_pressTimer);
+  const card = e.currentTarget;
+  const fill = card ? card.querySelector('.press-fill') : null;
+  if(fill){
+    fill.style.transition = 'width 150ms linear';
+    fill.style.width = '0%';
+  }
+}
+function handleCardClick(e, plate){
+  if(_pressTriggered){
+    _pressTriggered = false;
+    return;
+  }
+  openModal(plate);
+}
+function updateInsuranceInfo(){
+  const insEl = document.getElementById('mInsuranceDate');
+  const infoEl = document.getElementById('mInsuranceInfo');
+  if(!insEl || !infoEl) return;
+  if(!insEl.value){ infoEl.textContent = ''; return; }
+  const lastRenew = addYears(insEl.value, -1);
+  const ym = calcAgeYM(lastRenew);
+  infoEl.textContent = ym ? `최근 갱신 후 ${ym}째` : '';
+}
+function completeInsuranceInModal(){
+  const field = document.getElementById('mInsuranceDate');
+  if(!field || !field.value){ showToast('보험 갱신일자를 먼저 입력하세요'); return; }
+  const nextDate = addYears(field.value, 1);
+  if(!confirm(`보험 갱신 완료 처리하시겠습니까?\n(다음 갱신 예정일이 ${nextDate}로 자동 변경됩니다)`)) return;
+  field.value = nextDate;
+  updateInsuranceInfo();
+  showToast(`다음 갱신 예정일 ${nextDate}로 변경됐어요 · 저장을 눌러야 반영됩니다`);
+}
+function ackAsExpireInModal(){
+  const v = vehicles.find(x=>x.plate===window._editingPlate);
+  if(!v || !v.regDate){ showToast('최초등록일을 먼저 입력하세요'); return; }
+  if(!confirm('A/S기간 종료 임박 확인하셨습니까?')) return;
+  const years = Number(document.getElementById('mAsYears').value) || AS_YEARS_DEFAULT;
+  v.asAckExpire = calcAsExpireDate(v.regDate, years);
+  setupDocsBadge(v, false);
+  showToast('✅ A/S 만료 확인 처리됐어요 · 저장을 눌러야 반영됩니다');
+}
+async function setVehicleIdle(plate){
+  const v = vehicles.find(x=>x.plate===plate);
+  if(!v) return;
+  v.status = '대기';
+  v.startDate = null;
+  v.note = '차고지';
+  v.type = '';
+  v.amount = null;
+  v.payDay = null;
+  v.returnDate = null;
+  if(v.branch===LONG_BRANCH) v.branch = HOME_BRANCH;
+  render();
+  await persist();
+  showToast(`${plate} 대기 · 차고지로 변경되었습니다`);
+}
+
+function openModal(plate){
+  if(!ensureEditUnlocked()) return;
+  window._editingPlate = plate;
+  const v = vehicles.find(x=>x.plate===plate);
+  document.getElementById('mPlate').textContent = v.plate;
+  document.getElementById('mModel').textContent = `${v.cls} · ${v.model}`;
+  document.getElementById('mType').value = v.type || '';
+  document.getElementById('mStartDate').value = v.startDate || '';
+  document.getElementById('mStatus').value = v.status || '';
+  document.getElementById('mNote').value = v.note || '';
+  document.getElementById('mExtra').value = v.extra || '';
+  document.getElementById('mExtra').disabled = true;
+  document.getElementById('mExtraToggle').textContent = '✎ 수정';
+  document.getElementById('mAmount').value = (v.amount===null || v.amount===undefined) ? '' : v.amount;
+  document.getElementById('mPayDay').value = (v.payDay===null || v.payDay===undefined) ? '' : v.payDay;
+  document.getElementById('mCustomer').value = v.customerName || '';
+  document.getElementById('mCustomerPhone').value = v.customerPhone || '';
+  document.getElementById('mReturnDate').value = v.returnDate || '';
+  document.getElementById('mDepositPaid').checked = !!v.depositPaid;
+  document.getElementById('mInsuranceDate').value = v.insuranceDate || '';
+  updateInsuranceInfo();
+  document.getElementById('mInspectionType').value = v.inspectionType || '일반';
+  document.getElementById('mInspectionDate').value = v.inspectionDate || '';
+  document.getElementById('mInspectionDone').checked = !!v.inspectionDone;
+  syncInspectionDoneUI();
+  document.getElementById('mRegDate').value = v.regDate || '';
+  document.getElementById('mAgeExpireDate').value = v.ageExpireDate || '';
+  updateAgeExtendInfo(v);
+  document.getElementById('mAsYears').value = v.asYears || AS_YEARS_DEFAULT;
+  updateAgeInfo('m');
+  setupDocsBadge(v);
+  toggleAmountField('m', false);
+  document.getElementById('modalBg').classList.add('open');
+  pushModalHistoryState('modalBg');
+}
+function closeModal(){
+  document.getElementById('modalBg').classList.remove('open');
+  window._editingPlate = null;
+  cancelDeletePress();
+  popModalHistoryIfNeeded('modalBg');
+}
+function setStatus(s){ document.getElementById('mStatus').value = s; }
+function setupDocsBadge(v, autoToggle){
+  if(autoToggle===undefined) autoToggle = true;
+  const asExpire = v.regDate ? calcAsExpireDate(v.regDate, v.asYears || AS_YEARS_DEFAULT) : null;
+  const asAcked = !!(asExpire && v.asAckExpire === asExpire);
+  const items = [
+    {dateStr:v.insuranceDate, done:false, soonDays:30},
+    {dateStr:v.inspectionDate, done:v.inspectionDone, soonDays:30},
+    {dateStr:v.ageExpireDate, done:false, soonDays:30},
+    {dateStr:asExpire, done:asAcked, soonDays:AS_SOON_DAYS}
+  ].filter(it=>it.dateStr && !it.done);
+  const dueCount = items.filter(it=>isReturnDue(it.dateStr)).length;
+  const soonCount = items.filter(it=>!isReturnDue(it.dateStr) && isReturnSoon(it.dateStr,it.soonDays)).length;
+  const badge = document.getElementById('mDocsBadge');
+  if(dueCount>0){
+    badge.textContent = `⏰ 지남 ${dueCount}건`;
+    badge.className = 'accordion-badge due';
+    badge.style.display = '';
+    if(autoToggle) toggleDocsSection(true);
+  }else if(soonCount>0){
+    badge.textContent = `🔔 임박 ${soonCount}건`;
+    badge.className = 'accordion-badge';
+    badge.style.display = '';
+    if(autoToggle) toggleDocsSection(true);
+  }else{
+    badge.style.display = 'none';
+    if(autoToggle) toggleDocsSection(false);
+  }
+}
+function toggleDocsSection(force){
+  const box = document.getElementById('mDocsSection');
+  const icon = document.getElementById('mDocsToggleIcon');
+  const open = force!==undefined ? force : (box.style.display==='none');
+  box.style.display = open ? '' : 'none';
+  document.getElementById('mMainFields').style.display = open ? 'none' : '';
+  document.getElementById('mMainFields2').style.display = open ? 'none' : '';
+  icon.classList.toggle('open', open);
+  icon.textContent = open ? '▾' : '▸';
+}
+function toggleAddDocsSection(force){
+  const box = document.getElementById('aDocsSection');
+  const icon = document.getElementById('aDocsToggleIcon');
+  const open = force!==undefined ? force : (box.style.display==='none');
+  box.style.display = open ? '' : 'none';
+  document.getElementById('aMainFields').style.display = open ? 'none' : '';
+  icon.classList.toggle('open', open);
+  icon.textContent = open ? '▾' : '▸';
+}
+function syncInspectionDoneUI(){
+  const cb = document.getElementById('mInspectionDone');
+  const checked = cb.checked;
+  if(checked){
+    const dateEl = document.getElementById('mInspectionDate');
+    const cur = dateEl.value;
+    if(cur){
+      const v = vehicles.find(x=>x.plate===window._editingPlate);
+      const typeEl = document.getElementById('mInspectionType');
+      const ageExpireEl = document.getElementById('mAgeExpireDate');
+      const wasExtension = typeEl.value === '연장';
+      const next = addYears(cur, INSPECTION_CYCLE_YEARS);
+      const extendCount = (v && v.ageExtendCount) || 0;
+      let extendMsg = '';
+      if(wasExtension && ageExpireEl.value){
+        if(extendCount < AGE_EXTEND_MAX){
+          const newExpire = addYears(ageExpireEl.value, 1);
+          if(!confirm(`연장검사 완료 확정하시겠습니까?\n(차령 만료일이 1년 연장되어 ${newExpire}로 변경되고, 다음 검사 예정일이 ${next}로 자동 변경됩니다)`)){
+            cb.checked = false;
+            document.getElementById('mInspectionDoneWrap').classList.toggle('on', false);
+            return;
+          }
+          ageExpireEl.value = newExpire;
+          if(v){
+            v.ageExtendCount = extendCount + 1;
+            updateAgeExtendInfo(v);
+          }
+          extendMsg = ` · 차령 만료일 1년 연장 (${extendCount + 1}/${AGE_EXTEND_MAX}회 사용)`;
+        }else{
+          if(!confirm(`검사 완료 확정하시겠습니까?\n(차령연장은 이미 ${AGE_EXTEND_MAX}회를 모두 사용해 차령 만료일은 더 늘어나지 않습니다)`)){
+            cb.checked = false;
+            document.getElementById('mInspectionDoneWrap').classList.toggle('on', false);
+            return;
+          }
+          extendMsg = ` · ⚠️ 차령연장 ${AGE_EXTEND_MAX}회 모두 소진, 만료일 그대로`;
+        }
+      }else{
+        if(!confirm(`검사 완료 확정하시겠습니까?\n(다음 검사 예정일이 ${next}로 자동 변경됩니다)`)){
+          cb.checked = false;
+          document.getElementById('mInspectionDoneWrap').classList.toggle('on', false);
+          return;
+        }
+      }
+      dateEl.value = next;
+      autoSetInspectionType('m', true);
+      cb.checked = false;
+      document.getElementById('mInspectionDoneWrap').classList.toggle('on', false);
+      showToast(`검사 완료 처리 · 다음 검사 예정일 ${next}로 자동 변경됐어요${extendMsg}`);
+      return;
+    }
+  }
+  document.getElementById('mInspectionDoneWrap').classList.toggle('on', checked);
+}
+function toggleExtraEdit(){
+  const input = document.getElementById('mExtra');
+  const btn = document.getElementById('mExtraToggle');
+  input.disabled = !input.disabled;
+  if(!input.disabled){
+    btn.textContent = '🔒 잠금';
+    input.focus();
+  }else{
+    btn.textContent = '✎ 수정';
+  }
+}
+function toggleAmountField(prefix, clear){
+  const type = document.getElementById(prefix+'Type').value;
+  const isLong = (type===LONG_BRANCH);
+  const isGeneral = (type==='일반');
+  const needsMoneyInfo = isLong || isGeneral; // 장기(월세)든 일반(직접 수금)이든 금액/고객 정보가 필요함
+  document.getElementById(prefix+'AmountField').style.display = needsMoneyInfo ? '' : 'none';
+  document.getElementById(prefix+'PayDayField').style.display = isLong ? '' : 'none'; // 결제일(매월 며칠)은 장기 전용
+  const custField = document.getElementById(prefix+'CustomerField');
+  const custPhoneField = document.getElementById(prefix+'CustomerPhoneField');
+  if(custField) custField.style.display = needsMoneyInfo ? '' : 'none';
+  if(custPhoneField) custPhoneField.style.display = needsMoneyInfo ? '' : 'none';
+  document.getElementById(prefix+'ReturnDateField').style.display = isGeneral ? '' : 'none';
+  const depositField = document.getElementById(prefix+'DepositField');
+  if(depositField) depositField.style.display = isGeneral ? '' : 'none';
+  if(!isLong && clear!==false){
+    document.getElementById(prefix+'PayDay').value = '';
+  }
+  if(!needsMoneyInfo && clear!==false){
+    document.getElementById(prefix+'Amount').value = '';
+    if(document.getElementById(prefix+'Customer')) document.getElementById(prefix+'Customer').value = '';
+    if(document.getElementById(prefix+'CustomerPhone')) document.getElementById(prefix+'CustomerPhone').value = '';
+  }
+  if(!isGeneral && clear!==false){
+    document.getElementById(prefix+'ReturnDate').value = '';
+    if(document.getElementById(prefix+'DepositPaid')) document.getElementById(prefix+'DepositPaid').checked = false;
+  }
+  syncDepositUI(prefix);
+}
+
+// 입금완료 체크박스 라벨을 상태에 맞게 갱신 (체크: 입금완료 / 미체크: 미입금 상태임을 눈에 띄게)
+function syncDepositUI(prefix){
+  const label = document.getElementById(prefix+'DepositLabel');
+  if(!label) return;
+  const checked = document.getElementById(prefix+'DepositPaid').checked;
+  label.textContent = checked ? '입금완료' : '미입금 상태 (체크하면 입금완료로 바뀌어요)';
+  label.style.color = checked ? 'var(--green)' : 'var(--red)';
+}
+function scheduleKeyForPlate(plate){
+  return 'auto-return-' + (plate||'').toString().replace(/[.#$\[\]\/\s]/g,'_');
+}
+
+async function syncReturnSchedule(plate, oldDate, newDate, type, depositPaid){
+  const { ref, set, update, db } = window._fb;
+  const key = scheduleKeyForPlate(plate);
+  const dp = (depositPaid===undefined) ? null : depositPaid;
+  if(newDate){
+    if(newDate !== oldDate){
+      // 새 반납일이거나 날짜가 바뀐 경우: 완료 상태를 초기화하고 등록/갱신
+      await set(ref(db, P('schedules/'+key)), {
+        title: `${plate} 차량 반납일`,
+        date: newDate,
+        repeat: false,
+        memo: '',
+        auto: true,
+        plate: plate,
+        type: type || null,
+        depositPaid: dp,
+        done: false,
+        doneAt: null
+      });
+    } else {
+      // 날짜는 그대로여도 입금 상태는 최신값으로 갱신 (완료 상태 등은 건드리지 않음)
+      await update(ref(db, P('schedules/'+key)), { type: type || null, depositPaid: dp });
+    }
+  } else if(oldDate){
+    // 반납일을 지웠다 = 차량이 회수됨 → 삭제 대신 완료 처리해서 기록을 남김 (회수시간 기록)
+    // type도 이 시점 값으로 같이 저장(나중에 차량의 type이 초기화돼도 '일반' 여부를 알 수 있게)
+    await update(ref(db, P('schedules/'+key)), { done: true, doneAt: new Date().toISOString(), plate: plate, type: type || null, depositPaid: dp });
+  }
+}
+
+async function syncAllReturnSchedules(){
+  for(const v of vehicles){
+    const key = scheduleKeyForPlate(v.plate);
+    const existing = schedules[key];
+    if(v.returnDate){
+      if(!existing || existing.date !== v.returnDate || existing.depositPaid !== (v.depositPaid===undefined?null:v.depositPaid)){
+        await syncReturnSchedule(v.plate, existing?existing.date:null, v.returnDate, v.type, v.depositPaid);
+      }
+    } else if(existing && !existing.done){
+      await syncReturnSchedule(v.plate, existing.date, null, v.type, v.depositPaid);
+    }
+  }
+}
+
+async function saveModal(){
+  const v = vehicles.find(x=>x.plate===window._editingPlate);
+  const oldReturnDate = v.returnDate || null;
+  v.type = document.getElementById('mType').value;
+  v.startDate = document.getElementById('mStartDate').value || null;
+  v.status = document.getElementById('mStatus').value.trim();
+  v.note = document.getElementById('mNote').value.trim();
+  v.extra = document.getElementById('mExtra').value.trim();
+  const amtVal = document.getElementById('mAmount').value.trim();
+  v.amount = amtVal === '' ? null : Number(amtVal);
+  const payDayVal = document.getElementById('mPayDay').value.trim();
+  v.payDay = payDayVal === '' ? null : Number(payDayVal);
+  v.customerName = document.getElementById('mCustomer').value.trim();
+  v.customerPhone = document.getElementById('mCustomerPhone').value.trim();
+  v.returnDate = document.getElementById('mReturnDate').value || null;
+  v.depositPaid = (v.type==='일반') ? document.getElementById('mDepositPaid').checked : null;
+  v.insuranceDate = document.getElementById('mInsuranceDate').value || null;
+  const oldInspectionDate = v.inspectionDate || null;
+  v.inspectionType = document.getElementById('mInspectionType').value;
+  v.inspectionDate = document.getElementById('mInspectionDate').value || null;
+  v.inspectionDone = (v.inspectionDate !== oldInspectionDate) ? false : document.getElementById('mInspectionDone').checked;
+  v.regDate = document.getElementById('mRegDate').value || null;
+  v.ageExpireDate = document.getElementById('mAgeExpireDate').value || null;
+  v.asYears = Number(document.getElementById('mAsYears').value) || AS_YEARS_DEFAULT;
+  if(v.type===LONG_BRANCH){
+    v.branch = LONG_BRANCH;
+  }else if(v.branch===LONG_BRANCH){
+    v.branch = HOME_BRANCH;
+  }
+  closeModal();
+  render();
+  await persist({type:'upsert', vehicle: v});
+  await syncReturnSchedule(v.plate, oldReturnDate, v.returnDate, v.type, v.depositPaid);
+}
+
+async function deleteVehicle(){
+  const plate = window._editingPlate;
+  if(!plate) return;
+  vehicles = vehicles.filter(x=>x.plate!==plate);
+  closeModal();
+  render();
+  await persist({type:'delete', plate});
+  const { ref, remove, db } = window._fb;
+  await remove(ref(db, P('schedules/'+scheduleKeyForPlate(plate))));
+  showToast('차량이 삭제되었습니다');
+}
+function startDeletePress(){
+  const fill = document.getElementById('deleteFill');
+  if(!fill) return;
+  fill.style.transition = 'none';
+  fill.style.width = '0%';
+  void fill.offsetWidth;
+  fill.style.transition = 'width 1100ms linear';
+  fill.style.width = '100%';
+  clearTimeout(window._deletePressTimer);
+  window._deletePressTimer = setTimeout(deleteVehicle, 1100);
+}
+function cancelDeletePress(){
+  clearTimeout(window._deletePressTimer);
+  const fill = document.getElementById('deleteFill');
+  if(!fill) return;
+  fill.style.transition = 'width 150ms linear';
+  fill.style.width = '0%';
+}
+
+function openAddModal(){
+  if(!ensureEditUnlocked()) return;
+  ['aPlate','aBranch','aCls','aModel','aFuel','aExtra','aInsuranceDate','aInspectionDate','aRegDate','aAgeExpireDate'].forEach(id=>{
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('aInspectionType').value = '일반';
+  document.getElementById('aBranch').value = HOME_BRANCH;
+  document.getElementById('aAsYears').value = AS_YEARS_DEFAULT;
+  updateAgeInfo('a');
+  toggleAddDocsSection(false);
+  document.getElementById('addModalBg').classList.add('open');
+  pushModalHistoryState('addModalBg');
+}
+function closeAddModal(){
+  document.getElementById('addModalBg').classList.remove('open');
+  popModalHistoryIfNeeded('addModalBg');
+}
+async function saveAddModal(){
+  const plate = document.getElementById('aPlate').value.trim();
+  if(!plate){
+    showToast('차량번호는 필수입니다');
+    return;
+  }
+  if(vehicles.some(v=>v.plate===plate)){
+    showToast('이미 등록된 차량번호입니다');
+    return;
+  }
+  const cls = document.getElementById('aCls').value.trim();
+  if(!cls){
+    showToast('종별을 선택해주세요 (차령 자동계산에 필요해요)');
+    return;
+  }
+  const aBranch = document.getElementById('aBranch').value.trim() || HOME_BRANCH;
+  const newVehicle = {
+    no:'+',
+    plate,
+    branch:aBranch,
+    cls,
+    model:document.getElementById('aModel').value.trim(),
+    fuel:document.getElementById('aFuel').value.trim(),
+    type:'',
+    startDate:null,
+    status:'',
+    extra:document.getElementById('aExtra').value.trim(),
+    note:'',
+    amount:null,
+    payDay:null,
+    returnDate:null,
+    insuranceDate:document.getElementById('aInsuranceDate').value || null,
+    inspectionType:document.getElementById('aInspectionType').value || '일반',
+    inspectionDate:document.getElementById('aInspectionDate').value || null,
+    inspectionDone:false,
+    regDate:document.getElementById('aRegDate').value || null,
+    ageExpireDate:document.getElementById('aAgeExpireDate').value || null,
+    asYears:Number(document.getElementById('aAsYears').value) || AS_YEARS_DEFAULT,
+    ageExtendCount:0
+  };
+  vehicles.push(newVehicle);
+  closeAddModal();
+  render();
+  await persist({type:'upsert', vehicle: newVehicle});
+  showToast('차량이 추가되었습니다');
+}
+
+async function reload(manual){
+  await loadData();
+  render();
+  if(manual) showToast('최신 데이터로 새로고침 되었습니다');
+}
+
+function closeHistoryModal(){
+  document.getElementById('historyModalBg').classList.remove('open');
+  popModalHistoryIfNeeded('historyModalBg');
+}
+
+// ── 직원 관리 (업체 멤버 + 초대코드) ──────────────────────────────
+// 직원은 companies/{업체ID}/members 에 등록됩니다.
+// 관리자(owner)가 초대코드를 만들어서 알려주면, 직원이 그 코드로 가입해서 합류합니다.
+function closeStaffModal(){
+  document.getElementById('staffModalBg').classList.remove('open');
+  popModalHistoryIfNeeded('staffModalBg');
+}
+function renderStaffList(members){
+  const listEl = document.getElementById('staffList');
+  // 삭제된 직원은 값이 비어(null) 올 수 있어서 걸러냅니다.
+  // (예전에는 이걸 안 걸러서 직원을 내보낸 직후 목록 그리다가 오류가 났었습니다)
+  const entries = Object.entries(members || {}).filter(([,m]) => m && typeof m === 'object');
+  if(entries.length===0){
+    listEl.innerHTML = `<div class="empty">등록된 직원이 없어요.</div>`;
+    return;
+  }
+  const myUid = window.CURRENT_USER && window.CURRENT_USER.uid;
+  const isOwner = window.COMPANY_ROLE === 'owner';
+  // 관리자를 위로, 그다음 가입순
+  entries.sort((a,b)=>{
+    if(a[1].role !== b[1].role) return a[1].role === 'owner' ? -1 : 1;
+    return (a[1].joinedAt||'').localeCompare(b[1].joinedAt||'');
+  });
+  listEl.innerHTML = entries.map(([uid,m])=>{
+    const isMe = uid === myUid;
+    const roleTag = m.role === 'owner'
+      ? '<span style="color:var(--amber);font-size:11px;">관리자</span>'
+      : '<span style="color:var(--sub);font-size:11px;">직원</span>';
+    // 관리자만 삭제 가능. 단, 자기 자신(관리자)은 삭제 불가.
+    const canDelete = isOwner && !isMe;
+    return `
+    <div class="sched-list-row">
+      <div class="t">${escapeHtml(m.email||'(이메일 없음)')} ${roleTag}${isMe?' <span style="color:var(--sub);font-size:11px;">(나)</span>':''}</div>
+      ${canDelete?`<button class="del" onclick="removeStaffMember('${uid}','${escapeHtml(m.email||'')}')">✕ 내보내기</button>`:''}
+    </div>`;
+  }).join('');
+}
+async function openStaffModal(){
+  document.getElementById('staffModalBg').classList.add('open');
+  pushModalHistoryState('staffModalBg');
+  const listEl = document.getElementById('staffList');
+  listEl.innerHTML = `<div class="empty">불러오는 중...</div>`;
+  // 초대코드 영역은 관리자에게만 보여줌
+  const inviteBox = document.getElementById('staffInviteBox');
+  if(inviteBox) inviteBox.style.display = (window.COMPANY_ROLE==='owner') ? 'block' : 'none';
+  const { ref, get, db } = window._fb;
+  try{
+    const snap = await get(ref(db, P('members')));
+    renderStaffList(snap.exists() ? snap.val() : {});
+  }catch(e){
+    console.error(e);
+    listEl.innerHTML = `<div class="empty">불러오기 실패했어요.</div>`;
+  }
+}
+// 초대코드 새로 만들기 (관리자만)
+async function createInviteCode(){
+  if(window.COMPANY_ROLE !== 'owner'){ showToast('관리자만 초대코드를 만들 수 있어요'); return; }
+  const { ref, set, db } = window._fb;
+  const code = FleetAuth.makeInviteCode();
+  try{
+    // inviteIndex: 코드 -> 업체ID (가입하려는 사람이 아직 멤버가 아니어도 조회할 수 있어야 해서 별도로 둠)
+    await set(ref(db, 'inviteIndex/' + code), {
+      companyId: window.COMPANY_ID,
+      createdAt: new Date().toISOString()
+    });
+    document.getElementById('staffInviteCode').textContent = code;
+    document.getElementById('staffInviteResult').style.display = 'block';
+    showToast('초대코드가 만들어졌어요');
+  }catch(e){
+    console.error(e);
+    showToast('초대코드 생성 실패 - 다시 시도해주세요');
+  }
+}
+function copyInviteCode(){
+  const code = document.getElementById('staffInviteCode').textContent;
+  if(!code) return;
+  navigator.clipboard.writeText(code)
+    .then(()=>showToast('초대코드를 복사했어요'))
+    .catch(()=>showToast('복사 실패 - 직접 입력해주세요'));
+}
+async function removeStaffMember(uid, email){
+  if(!confirm(`"${email}" 직원을 내보낼까요?\n이 직원은 더 이상 이 업체 데이터를 볼 수 없게 됩니다.`)) return;
+  const { ref, remove, get, db } = window._fb;
+  try{
+    // 실제로 접근을 막는 건 이 members 항목입니다. 이것만 지워지면 그 직원은
+    // 더 이상 이 업체 데이터를 읽지도 쓰지도 못합니다.
+    await remove(ref(db, P('members/' + uid)));
+
+    // userIndex/{남의 uid} 는 보안규칙상 본인만 지울 수 있어서 관리자는 못 지웁니다.
+    // 안 지워져도 접근은 이미 차단된 상태이고, 그 직원이 다음에 로그인하면
+    // '소속 업체 없음' 화면으로 안내되므로 실패해도 그냥 넘어갑니다.
+    try{ await remove(ref(db, 'userIndex/' + uid)); }
+    catch(e2){ console.warn('userIndex 정리는 건너뜀(권한 없음, 정상):', e2 && e2.code); }
+
+    const snap = await get(ref(db, P('members')));
+    renderStaffList(snap.exists() ? snap.val() : {});
+    showToast('직원을 내보냈어요');
+  }catch(e){
+    console.error(e);
+    showToast('내보내기 실패 - 다시 시도해주세요');
+  }
+}
+// ── 직원 채팅 ────────────────────────────────────────────────
+// 업체별 단톡방 1개. /companies/{업체ID}/chat 아래에 메시지가 쌓입니다.
+// 지금은 글만 가능하고, 나중에 사진을 붙일 수 있게 type 필드를 미리 둡니다.
+const CHAT_KEEP = 200;        // 화면에 보여줄 최근 메시지 수
+let _chatMessages = {};       // 실시간으로 받아온 메시지
+let _chatStarted = false;     // 실시간 수신 시작 여부
+let _chatLastRead = 0;        // 내가 마지막으로 읽은 시각(ms)
+let _chatModalOpen = false;
+
+function chatTimeLabel(iso){
+  const d = new Date(iso);
+  if(isNaN(d)) return '';
+  const h = d.getHours(), m = pad2(d.getMinutes());
+  const ampm = h < 12 ? '오전' : '오후';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${ampm} ${h12}:${m}`;
+}
+function chatDayLabel(iso){
+  const d = new Date(iso);
+  if(isNaN(d)) return '';
+  const days=['일','월','화','수','목','금','토'];
+  return `${d.getFullYear()}.${pad2(d.getMonth()+1)}.${pad2(d.getDate())} (${days[d.getDay()]})`;
+}
+function chatSortedList(){
+  return Object.entries(_chatMessages || {})
+    .filter(([,m]) => m && typeof m === 'object' && m.text)
+    .sort((a,b) => (a[1].at||'').localeCompare(b[1].at||''))
+    .slice(-CHAT_KEEP);
+}
+function renderChatList(){
+  const el = document.getElementById('chatList');
+  if(!el) return;
+  const list = chatSortedList();
+  if(list.length === 0){
+    el.innerHTML = `<div class="empty">아직 대화가 없어요.<br>첫 메시지를 남겨보세요.</div>`;
+    return;
+  }
+  const myUid = window.CURRENT_USER && window.CURRENT_USER.uid;
+  const isOwner = window.COMPANY_ROLE === 'owner';
+  let lastDay = '';
+  el.innerHTML = list.map(([id, m])=>{
+    const day = chatDayLabel(m.at);
+    let sep = '';
+    if(day !== lastDay){ sep = `<div class="chat-daysep">${escapeHtml(day)}</div>`; lastDay = day; }
+    // 현황판이 자동으로 남긴 결과 메시지
+    if(m.type === 'system' || m.uid === 'system'){
+      return sep + `
+        <div class="chat-msg system">
+          <div class="bubble sysbubble">${escapeHtml(m.text)}</div>
+        </div>`;
+    }
+    const mine = m.uid === myUid;
+    // 내 메시지이거나 관리자면 삭제 가능
+    const canDel = mine || isOwner;
+    const who = mine ? '나' : (m.email || '알 수 없음');
+    const photoHtml = (m.type === 'photo' && m.photoId)
+      ? `<img data-photo="${escapeHtml(m.photoId)}" alt="사진" onclick="openPhotoViewer('${escapeHtml(m.photoId)}')" style="display:block;width:180px;max-width:100%;min-height:60px;border-radius:8px;margin-bottom:${m.text && m.text!=='📷 사진'?'6px':'0'};background:var(--panel);cursor:pointer;">`
+      : '';
+    const textHtml = (m.type === 'photo' && m.text === '📷 사진') ? '' : escapeHtml(m.text);
+    return sep + `
+      <div class="chat-msg${mine?' mine':''}">
+        <div class="meta">${escapeHtml(who)} · ${escapeHtml(chatTimeLabel(m.at))}</div>
+        <div class="bubble">${photoHtml}${textHtml}</div>
+        ${canDel?`<button class="del-msg" onclick="deleteChatMessage('${escapeHtml(id)}')">삭제</button>`:''}
+      </div>`;
+  }).join('');
+}
+function scrollChatToBottom(){
+  hydrateChatPhotos();
+  const sc = document.getElementById('chatScroll');
+  if(sc) sc.scrollTop = sc.scrollHeight;
+}
+function updateChatBadge(){
+  const badge = document.getElementById('chatBadge');
+  if(!badge) return;
+  const myUid = window.CURRENT_USER && window.CURRENT_USER.uid;
+  // 내가 마지막으로 읽은 시각 이후에 "남이" 보낸 메시지 수
+  const unread = chatSortedList().filter(([,m])=>{
+    if(m.uid === myUid) return false;
+    const t = new Date(m.at).getTime();
+    return !isNaN(t) && t > _chatLastRead;
+  }).length;
+  if(unread > 0){
+    badge.textContent = unread > 99 ? '99+' : String(unread);
+    badge.style.display = 'flex';
+  }else{
+    badge.style.display = 'none';
+  }
+}
+// 실시간 수신 시작 (앱 시작 시 1회)
+function startChatSync(){
+  if(_chatStarted) return;
+  _chatStarted = true;
+  const { ref, onValue, get, db } = window._fb;
+  // 내가 마지막으로 읽은 시각 먼저 불러오기
+  const myUid = window.CURRENT_USER && window.CURRENT_USER.uid;
+  if(myUid){
+    get(ref(db, P('chatReads/' + myUid)))
+      .then(s=>{ if(s.exists()) _chatLastRead = Number(s.val()) || 0; updateChatBadge(); })
+      .catch(()=>{});
+  }
+  onValue(ref(db, P('chat')), (snap)=>{
+    _chatMessages = snap.exists() ? (snap.val() || {}) : {};
+    if(_chatModalOpen){
+      renderChatList();
+      scrollChatToBottom();
+      markChatRead();
+    }
+    updateChatBadge();
+  }, (err)=>{ console.error('채팅 수신 실패:', err); });
+}
+async function markChatRead(){
+  const myUid = window.CURRENT_USER && window.CURRENT_USER.uid;
+  if(!myUid) return;
+  _chatLastRead = Date.now();
+  updateChatBadge();
+  try{
+    const { ref, set, db } = window._fb;
+    await set(ref(db, P('chatReads/' + myUid)), _chatLastRead);
+  }catch(e){ console.warn('읽음 표시 저장 실패(무시):', e && e.code); }
+}
+function openChatModal(){
+  updateAiKeyLabel();
+  _chatModalOpen = true;
+  document.getElementById('chatModalBg').classList.add('open');
+  pushModalHistoryState('chatModalBg');
+  renderChatList();
+  setTimeout(scrollChatToBottom, 30);
+  markChatRead();
+  const inp = document.getElementById('chatInput');
+  if(inp) setTimeout(()=>inp.focus(), 80);
+}
+function closeChatModal(){
+  _chatModalOpen = false;
+  document.getElementById('chatModalBg').classList.remove('open');
+  popModalHistoryIfNeeded('chatModalBg');
+}
+// ── 채팅 명령어 처리 ─────────────────────────────────────────
+// 텔레그램 봇처럼, 채팅창에 "9585 보험 선명 쏘나타" 라고 치면
+// 현황판 차량 정보가 실제로 바뀝니다. 명령이 아니면 그냥 대화로 저장됩니다.
+const CHAT_TYPE_KEYWORDS = ['보험', '서비스', '일반', LONG_BRANCH];
+const CHAT_STATUS_KEYWORDS = {
+  '준비중':'준비중', '준비':'준비중', '대기':'대기', '대기중':'대기', '운행중':'운행중', '운행':'운행중'
+};
+// 목록 조회 명령 (봇의 "전체차량/대기차량/..." 과 동일)
+const CHAT_LIST_COMMANDS = {
+  '준비차량': v => v.status === '준비중',
+  '대기차량': v => v.status === '대기',
+  '운행중차량': v => v.status !== '대기' && v.status !== '준비중' && v.type !== LONG_BRANCH,
+  '일반차량': v => v.type === '일반',
+  '장기차량': v => v.type === LONG_BRANCH,
+  '보험차량': v => v.type === '보험',
+  '서비스차량': v => v.type === '서비스'
+};
+const CHAT_HELP_TEXT =
+`📖 채팅으로 쓸 수 있는 명령
+• 상태 변경: "9585 보험 선명 쏘나타"
+• 준비중/대기: "9585 준비중 수완현대", "9585 대기"
+• 회수: "9585 회수"
+• 현재 상태 확인: "9585" (저장 안 함)
+• 목록 보기: 전체차량 / 준비차량 / 대기차량 / 운행중차량 / 일반차량 / 장기차량 / 보험차량 / 서비스차량
+• 이력 보기: "이력 9585"
+• 구분 키워드: 보험 / ${LONG_BRANCH} / 서비스 / 일반
+※ 명령이 아닌 말은 그냥 대화로 남습니다.`;
+
+function chatVehicleLine(v){
+  const loc = (v.note || '').replace(/\s*\[조치완료\]\s*/g,'').trim();
+  return `${v.plate} ${v.model || '모델 미상'} ${loc || '위치 미상'}`;
+}
+function buildChatListMessage(label, list){
+  if(list.length === 0) return `📋 ${label} 0대`;
+  return `📋 ${label} ${list.length}대\n` + list.map(chatVehicleLine).join('\n');
+}
+function buildChatFullList(){
+  const all = vehicles.filter(v=>v && v.plate);
+  if(all.length === 0) return '📋 등록된 차량이 없어요.';
+  const groups = [
+    ['준비차량', v => v.status === '준비중'],
+    ['대기차량', v => v.status === '대기'],
+    ['운행중차량', v => v.status !== '대기' && v.status !== '준비중' && v.type !== '서비스' && v.type !== LONG_BRANCH],
+    ['서비스차량', v => v.status !== '대기' && v.status !== '준비중' && v.type === '서비스'],
+    ['장기차량', v => v.status !== '대기' && v.status !== '준비중' && v.type === LONG_BRANCH]
+  ];
+  const secs = groups.map(([label,fn])=>[label, all.filter(fn)])
+    .filter(([,l])=>l.length>0)
+    .map(([label,l])=>`${label} ${l.length}대\n` + l.map(chatVehicleLine).join('\n'));
+  return `📋 전체차량 (${all.length}대)\n\n` + secs.join('\n\n');
+}
+// "이력 9585" 처럼, 단어 안에서 다른 숫자에 안 붙은 4자리만 찾습니다
+function extractChatPlate(text){
+  for(const t of text.trim().split(/\s+/)){
+    const m = t.match(/(?<!\d)\d{4}(?!\d)/);
+    if(m) return m[0];
+  }
+  return null;
+}
+async function buildChatHistoryMessage(plateToken){
+  const v = vehicles.find(x => x && x.plate && x.plate.endsWith(plateToken));
+  if(!v) return `❌ 뒷자리 ${plateToken} 차량을 찾을 수 없어요.`;
+  try{
+    const { ref, get, db } = window._fb;
+    const snap = await get(ref(db, P('plateHistory/' + v.plate)));
+    if(!snap.exists()) return `📋 ${v.plate} 이력이 아직 없어요.`;
+    const data = snap.val() || {};
+    const keys = Object.keys(data).sort().slice(-10);
+    if(keys.length === 0) return `📋 ${v.plate} 이력이 아직 없어요.`;
+    return `📋 ${v.plate} 최근 이력 (${keys.length}건)\n` +
+      keys.map((k,i)=>{ const e = data[k] || {}; return `${i+1}. ${e.time||''} - ${e.text||''}`; }).join('\n');
+  }catch(e){
+    console.error(e);
+    return '❌ 이력을 불러오지 못했어요.';
+  }
+}
+// 목록/이력/도움말 명령이면 결과 문구를, 아니면 null을 돌려줍니다.
+async function handleChatInfoCommand(text){
+  const key = text.trim();
+  if(key === '도움말' || key === '도움' || key.toLowerCase() === 'help') return CHAT_HELP_TEXT;
+  if(key === '전체차량') return buildChatFullList();
+  if(CHAT_LIST_COMMANDS[key]){
+    return buildChatListMessage(key, vehicles.filter(v => v && v.plate && CHAT_LIST_COMMANDS[key](v)));
+  }
+  if(/(이력|조회)/.test(key)){
+    const plate = extractChatPlate(key);
+    if(!plate) return '❌ "이력 9585" 처럼 차량번호 뒷 4자리와 같이 보내주세요.';
+    return await buildChatHistoryMessage(plate);
+  }
+  return null;
+}
+
+// "9585 ..." 처럼 첫 단어가 4자리 숫자로 시작하면 명령으로 봅니다.
+function parseChatCommand(text){
+  const raw = text.trim().split(/\s+/).filter(Boolean);
+  if(raw.length === 0) return null;
+  const first = raw[0].match(/^(\d{4})(.*)$/);
+  if(!first) return null;
+  const plateToken = first[1];
+  const rest = first[2] ? [first[2], ...raw.slice(1)] : raw.slice(1);
+
+  const isRecall = rest.includes('회수') || rest.includes('ㅎㅅ');
+  const statusToken = rest.find(t => CHAT_STATUS_KEYWORDS[t]);
+  const typeToken = rest.find(t => CHAT_TYPE_KEYWORDS.includes(t));
+  const noteTokens = rest.filter(t =>
+    t !== typeToken && t !== statusToken &&
+    t !== '회수' && t !== 'ㅎㅅ' && t !== '조완' && t !== 'ㅈㅇ' && t !== '조치완료'
+  );
+  return {
+    plateToken,
+    isRecall,
+    newStatus: statusToken ? CHAT_STATUS_KEYWORDS[statusToken] : null,
+    typeToken: typeToken || null,
+    note: noteTokens.join(' '),
+    isQueryOnly: !isRecall && !statusToken && !typeToken && noteTokens.length === 0
+  };
+}
+// 명령을 실제 차량 데이터에 적용. 결과 안내 문구를 돌려줍니다.
+async function applyChatCommand(cmd){
+  const idx = vehicles.findIndex(v => v && v.plate && v.plate.endsWith(cmd.plateToken));
+  if(idx === -1) return { ok:false, msg:`❌ 뒷자리 ${cmd.plateToken} 차량을 찾을 수 없어요.` };
+  const v = Object.assign({}, vehicles[idx]);
+
+  // 번호만 입력 → 조회만 (저장 안 함)
+  if(cmd.isQueryOnly){
+    return { ok:true, query:true,
+      msg:`📋 ${v.plate} (${v.model||'-'})\n- 구분: ${v.type||'-'}\n- 상태: ${v.status||'-'}\n- 메모: ${v.note||'-'}` };
+  }
+
+  const oldReturnDate = v.returnDate || null;
+  const typeBefore = v.type || null; // 회수로 구분이 지워지기 전 값 (일반 차량 청구 제외 판단용)
+  if(cmd.isRecall){
+    v.type=''; v.note='차고지'; v.status='대기';
+    v.startDate=null; v.amount=null; v.payDay=null; v.returnDate=null;
+    if(v.branch===LONG_BRANCH) v.branch=HOME_BRANCH;
+  }else{
+    if(cmd.typeToken){
+      v.type=cmd.typeToken; v.status='운행중'; v.startDate=todayStr();
+      v.amount=null; v.payDay=null; v.returnDate=null;
+      if(cmd.typeToken===LONG_BRANCH) v.branch=LONG_BRANCH;
+      else if(v.branch===LONG_BRANCH) v.branch=HOME_BRANCH;
+    }
+    if(cmd.newStatus){
+      v.status=cmd.newStatus;
+      if(cmd.newStatus!=='운행중') v.startDate=null;
+    }
+    if(cmd.note) v.note=cmd.note;
+  }
+
+  vehicles[idx]=v;
+  render();
+  await persist({type:'upsert', vehicle:v});
+  await syncReturnSchedule(v.plate, oldReturnDate, v.returnDate, cmd.isRecall ? typeBefore : v.type);
+
+  // 회수면 미청구(회수 기록) 목록에 항상 남김 — 회수 시간 + 종료 주행거리 + 계기판 사진
+  // (예전엔 반납일이 등록된 차량만 기록돼서, 반납일 없이 회수하면 미청구 목록에서 빠졌음)
+  if(cmd.isRecall){
+    try{
+      const { ref, push, update, db } = window._fb;
+      const extra = { returnKm: (cmd.returnKm == null ? null : cmd.returnKm),
+                      aiKm: (cmd.aiKm == null ? null : cmd.aiKm),
+                      photoId: cmd.photoId || null };
+      if(oldReturnDate){
+        await update(ref(db, P('schedules/' + scheduleKeyForPlate(v.plate))), extra);
+      }else{
+        await push(ref(db, P('schedules')), Object.assign({
+          title: `${v.plate} 회수`, plate: v.plate, type: typeBefore,
+          done: true, auto: true, doneAt: new Date().toISOString(), billed: false
+        }, extra));
+      }
+    }catch(e){ console.warn('회수 기록 실패:', e && e.code); }
+  }
+
+  // 차량별 이력 기록 ("이력 9585" 로 조회할 수 있게)
+  try{
+    const { ref, push, db } = window._fb;
+    let hist = cmd.isRecall ? ('회수 처리 → 대기' + (cmd.returnKm ? ` · 종료 ${Number(cmd.returnKm).toLocaleString()}km` : '')) : '';
+    if(!cmd.isRecall){
+      if(cmd.typeToken) hist += cmd.typeToken;
+      if(cmd.newStatus) hist += (hist?' / ':'') + cmd.newStatus;
+      if(cmd.note) hist += (hist?' / ':'') + cmd.note;
+    }
+    const now = new Date();
+    await push(ref(db, P('plateHistory/' + v.plate)), Object.assign({
+      time: `${pad2(now.getMonth()+1)}/${pad2(now.getDate())} ${pad2(now.getHours())}:${pad2(now.getMinutes())}`,
+      text: hist || '변경'
+    }, cmd.photoId ? { photoId: cmd.photoId } : {}));
+  }catch(e){ console.warn('이력 기록 실패(무시):', e && e.code); }
+
+  return { ok:true,
+    msg:`✅ ${v.plate} (${v.model||'-'}) ${cmd.isRecall ? '회수 완료' : '변경됨'}\n- 구분: ${v.type||'-'}\n- 상태: ${v.status||'-'}\n- 메모: ${v.note||'-'}`
+      + (cmd.isRecall ? `\n- 종료 주행거리: ${cmd.returnKm ? Number(cmd.returnKm).toLocaleString()+'km' : '미입력'}\n📋 미청구(회수 기록) 목록에 추가됨` : '') };
+}
+
+
+// ── 사진 첨부 + 계기판 주행거리 자동 인식 (Claude API) ──────────────
+// 사진은 Realtime DB의 companies/{id}/photos 에 압축해서 저장합니다(무료 요금제용).
+// API 키는 이 기기(localStorage)에만 저장하고, 서버·코드에는 절대 넣지 않습니다.
+const CLAUDE_KEY_LS = 'fleetClaudeApiKey';
+const CLAUDE_MODEL = 'claude-sonnet-5';
+const PHOTO_MAX_B64 = 550000;   // DB 한 장 최대 약 400KB (보안규칙과 맞춤)
+let _chatPendingPhoto = null;   // 첨부 대기 중인 사진 (dataURL)
+const _photoCache = {};
+function getClaudeKey(){ return localStorage.getItem(CLAUDE_KEY_LS) || ''; }
+function updateAiKeyLabel(){
+  const b = document.getElementById('aiKeyBtn');
+  if(b) b.textContent = getClaudeKey() ? '🤖 계기판 인식 켜짐' : '🤖 계기판 인식 설정';
+}
+function setupClaudeKey(){
+  const cur = getClaudeKey();
+  const v = prompt(
+    '계기판 주행거리 자동 인식에 쓸 Claude API 키를 붙여넣으세요.\n' +
+    '· 이 휴대폰에만 저장되고 서버에는 올라가지 않아요\n' +
+    '· 지우려면 빈칸으로 확인\n\n' +
+    (cur ? '현재 키: ' + cur.slice(0, 12) + '…' + cur.slice(-4) : '현재 키: 없음'), '');
+  if(v === null) return;
+  const t = v.trim();
+  if(!t){ localStorage.removeItem(CLAUDE_KEY_LS); showToast('API 키를 지웠어요'); }
+  else if(!/^sk-ant-/.test(t)){ showToast('키 형식이 달라요 (sk-ant- 로 시작해야 해요)'); return; }
+  else { localStorage.setItem(CLAUDE_KEY_LS, t); showToast('저장했어요 · 이 휴대폰에서만 쓰여요'); }
+  updateAiKeyLabel();
+}
+function compressImage(file, maxSide, quality){
+  return new Promise((resolve, reject)=>{
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = ()=>{
+      let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+      const k = Math.min(1, maxSide / Math.max(w, h));
+      w = Math.round(w * k); h = Math.round(h * k);
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      resolve(c.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('사진을 읽을 수 없어요')); };
+    img.src = url;
+  });
+}
+async function onChatPhotoPicked(input){
+  const f = input.files && input.files[0];
+  input.value = '';
+  if(!f) return;
+  try{
+    // 숫자가 잘 읽히는 크기로 압축 → 너무 크면 한 번 더 줄임
+    let d = await compressImage(f, 1280, 0.72);
+    if(d.length > PHOTO_MAX_B64) d = await compressImage(f, 1024, 0.6);
+    if(d.length > PHOTO_MAX_B64){ showToast('사진이 너무 커요'); return; }
+    _chatPendingPhoto = d;
+    document.getElementById('chatPhotoThumb').src = d;
+    document.getElementById('chatPhotoPreview').style.display = 'flex';
+    const inp = document.getElementById('chatInput'); if(inp) inp.focus();
+  }catch(e){ console.error(e); showToast(e.message || '사진 첨부 실패'); }
+}
+function clearChatPhoto(){
+  _chatPendingPhoto = null;
+  const pv = document.getElementById('chatPhotoPreview'); if(pv) pv.style.display = 'none';
+}
+async function savePhoto(dataUrl, plate){
+  const { ref, push, db } = window._fb;
+  const r = await push(ref(db, P('photos')), {
+    data: dataUrl, uid: window.CURRENT_USER.uid, plate: plate || null, at: new Date().toISOString()
+  });
+  _photoCache[r.key] = dataUrl;
+  return r.key;
+}
+async function loadPhoto(id){
+  if(_photoCache[id]) return _photoCache[id];
+  try{
+    const { ref, get, db } = window._fb;
+    const snap = await get(ref(db, P('photos/' + id)));
+    const v = snap.exists() ? snap.val() : null;
+    if(v && v.data) _photoCache[id] = v.data;
+  }catch(e){ console.warn('사진 불러오기 실패:', e && e.code); }
+  return _photoCache[id] || null;
+}
+function hydrateChatPhotos(){
+  document.querySelectorAll('#chatList img[data-photo]:not([src])').forEach(async (img)=>{
+    const d = await loadPhoto(img.dataset.photo);
+    if(d){
+      const sc = document.getElementById('chatScroll');
+      const nearBottom = sc && (sc.scrollHeight - sc.scrollTop - sc.clientHeight < 80);
+      img.onload = ()=>{ if(nearBottom && sc) sc.scrollTop = sc.scrollHeight; };
+      img.src = d;
+    }
+  });
+}
+async function openPhotoViewer(id){
+  const d = await loadPhoto(id);
+  if(!d){ showToast('사진을 불러오지 못했어요'); return; }
+  let ov = document.getElementById('photoViewer');
+  if(!ov){
+    ov = document.createElement('div'); ov.id = 'photoViewer';
+    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:2000;display:flex;align-items:center;justify-content:center;padding:12px;';
+    ov.onclick = ()=>{ ov.style.display = 'none'; };
+    ov.innerHTML = '<img style="max-width:100%;max-height:100%;border-radius:8px;">';
+    document.body.appendChild(ov);
+  }
+  ov.querySelector('img').src = d;
+  ov.style.display = 'flex';
+}
+// Claude에게 계기판 사진을 보내 누적 주행거리(ODO)를 읽어옵니다
+async function readOdometerWithClaude(dataUrl){
+  const key = getClaudeKey();
+  if(!key) return { km: null, reason: 'nokey' };
+  const body = {
+    model: CLAUDE_MODEL,
+    max_tokens: 200,
+    messages: [{ role: 'user', content: [
+      { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: dataUrl.split(',')[1] } },
+      { type: 'text', text:
+        'This is a photo of a car instrument cluster (dashboard). Read the TOTAL odometer (ODO), ' +
+        'i.e. the cumulative distance the car has driven, in km. Ignore trip meters (TRIP A/B), ' +
+        'distance-to-empty / fuel range, speed, RPM and temperature. ' +
+        'Reply with JSON only, no other text: {"odometer_km": <integer or null>, "confidence": "high" or "low"}. ' +
+        'Use null if the odometer is not visible or not readable.' }
+    ]}]
+  };
+  const headers = {
+    'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json',
+    'anthropic-dangerous-direct-browser-access': 'true'
+  };
+  let status = 0, data = null;
+  try{
+    const http = (typeof nativeHttp === 'function' && typeof isNativeApp === 'function' && isNativeApp()) ? nativeHttp() : null;
+    if(http){
+      const r = await http.request({ method: 'POST', url: 'https://api.anthropic.com/v1/messages', headers, data: body });
+      status = r.status; data = typeof r.data === 'string' ? JSON.parse(r.data) : r.data;
+    }else{
+      const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers, body: JSON.stringify(body) });
+      status = r.status; data = await r.json().catch(()=>null);
+    }
+  }catch(e){ return { km: null, reason: '연결 실패: ' + (e.message || e) }; }
+  if(status < 200 || status >= 300){
+    const m = data && data.error && data.error.message;
+    return { km: null, reason: status === 401 ? 'API 키가 올바르지 않아요' : (m || ('오류 ' + status)) };
+  }
+  const text = ((data && data.content) || []).map(c => c.text || '').join('').trim();
+  let km = null, confidence = '';
+  try{
+    const j = JSON.parse((text.match(/\{[\s\S]*\}/) || [text])[0]);
+    if(j.odometer_km !== null && j.odometer_km !== undefined){
+      const n = Math.round(Number(String(j.odometer_km).replace(/[^0-9.]/g, '')));
+      if(Number.isFinite(n) && n > 0) km = n;
+    }
+    confidence = j.confidence || '';
+  }catch(e){ /* JSON이 아니면 인식 실패로 처리 */ }
+  return { km, confidence, reason: km ? '' : '계기판 숫자를 못 읽었어요' };
+}
+// 사진과 함께 보내기 — "9588 회수"면 계기판 인식 → 사장님 확인 → 회수 처리
+async function sendChatPhoto(text){
+  const { ref, push, db } = window._fb;
+  const user = window.CURRENT_USER;
+  const photo = _chatPendingPhoto;
+  clearChatPhoto();
+  const cmd = text ? parseChatCommand(text) : null;
+  const veh = cmd ? vehicles.find(v => v && v.plate && v.plate.endsWith(cmd.plateToken)) : null;
+  const photoId = await savePhoto(photo, veh ? veh.plate : null);
+  await push(ref(db, P('chat')), {
+    text: text || '📷 사진', uid: user.uid, email: user.email || '',
+    at: new Date().toISOString(), type: 'photo', photoId
+  });
+  setTimeout(scrollChatToBottom, 50);
+  if(!cmd) return;               // 그냥 사진이면 여기까지
+  if(!veh){                      // 번호가 없는 차량
+    await push(ref(db, P('chat')), { text: `❌ 뒷자리 ${cmd.plateToken} 차량을 찾을 수 없어요.`,
+      uid: 'system', email: '현황판', at: new Date().toISOString(), type: 'system' });
+    return;
+  }
+  cmd.photoId = photoId;
+  if(cmd.isRecall){
+    showToast('🤖 계기판 읽는 중...');
+    let ai = { km: null, reason: '' };
+    try{ ai = await readOdometerWithClaude(photo); }catch(e){ ai = { km: null, reason: e.message || '' }; }
+    const head = ai.km
+      ? `📷 계기판에서 읽은 누적 주행거리: ${ai.km.toLocaleString()} km${ai.confidence === 'low' ? '  (⚠️ 흐릿해서 확실하지 않아요)' : ''}\n\n맞으면 [확인], 다르면 숫자를 고쳐서 [확인]하세요.`
+      : `${ai.reason === 'nokey' ? '🤖 계기판 인식 설정(API 키)이 없어서 자동으로 못 읽었어요.' : '⚠️ ' + (ai.reason || '자동 인식 실패')}\n\n종료 주행거리(km)를 직접 입력하세요. (모르면 빈칸)`;
+    const ans = prompt(`${veh.plate} 회수\n\n${head}`, ai.km ? String(ai.km) : '');
+    const num = ans == null ? NaN : Number(String(ans).replace(/[^0-9]/g, ''));
+    cmd.returnKm = (Number.isFinite(num) && num > 0) ? num : null;
+    cmd.aiKm = ai.km;
+  }
+  let result;
+  try{ result = await applyChatCommand(cmd); }
+  catch(err){ console.error(err); result = { ok:false, msg:'⚠️ 처리 중 오류가 발생했어요: ' + (err.message || err) }; }
+  if(!cmd.isRecall && result.ok){
+    // 회수가 아니어도 차량 이력에 사진은 남겨둠
+    try{
+      const now = new Date();
+      await push(ref(db, P('plateHistory/' + veh.plate)), {
+        time: `${pad2(now.getMonth()+1)}/${pad2(now.getDate())} ${pad2(now.getHours())}:${pad2(now.getMinutes())}`,
+        text: '📷 사진 첨부', photoId });
+    }catch(e){}
+  }
+  await push(ref(db, P('chat')), { text: result.msg, uid: 'system', email: '현황판',
+    at: new Date().toISOString(), type: 'system' });
+  if(result.ok && !result.query) showToast('현황판에 반영됐어요');
+  setTimeout(scrollChatToBottom, 50);
+}
+
+async function sendChatMessage(){
+  const inp = document.getElementById('chatInput');
+  const btn = document.getElementById('chatSendBtn');
+  const text = (inp.value || '').trim();
+  if(_chatPendingPhoto){         // 사진이 첨부돼 있으면 사진 전송 흐름으로
+    if(!window.CURRENT_USER){ showToast('로그인 상태를 확인해주세요'); return; }
+    inp.value = '';
+    if(btn) btn.disabled = true;
+    try{ await sendChatPhoto(text); }
+    catch(e){ console.error(e); showToast('사진 전송 실패 - 다시 시도해주세요'); }
+    finally{ if(btn) btn.disabled = false; }
+    return;
+  }
+  if(!text) return;
+  if(text.length > 2000){ showToast('메시지가 너무 길어요 (2000자까지)'); return; }
+  const user = window.CURRENT_USER;
+  if(!user){ showToast('로그인 상태를 확인해주세요'); return; }
+  inp.value = '';
+  if(btn) btn.disabled = true;
+  try{
+    const { ref, push, db } = window._fb;
+    // 1) 입력한 내용은 항상 대화로 남깁니다 (누가 무슨 작업을 지시했는지 기록)
+    await push(ref(db, P('chat')), {
+      text: text, uid: user.uid, email: user.email || '',
+      at: new Date().toISOString(), type: 'text'
+    });
+
+    // 2) 목록/이력/도움말 같은 조회 명령 먼저 확인
+    let infoMsg = null;
+    try{ infoMsg = await handleChatInfoCommand(text); }
+    catch(err){ console.error(err); infoMsg = '⚠️ 조회 중 오류가 발생했어요.'; }
+    if(infoMsg !== null){
+      await push(ref(db, P('chat')), {
+        text: infoMsg, uid: 'system', email: '현황판',
+        at: new Date().toISOString(), type: 'system'
+      });
+      setTimeout(scrollChatToBottom, 50);
+      return;
+    }
+
+    // 3) 차량 변경 명령이면 실제로 적용하고, 결과를 시스템 메시지로 남깁니다
+    const cmd = parseChatCommand(text);
+    if(cmd){
+      let result;
+      try{
+        result = await applyChatCommand(cmd);
+      }catch(err){
+        console.error(err);
+        result = { ok:false, msg:'⚠️ 처리 중 오류가 발생했어요: ' + (err.message || err) };
+      }
+      await push(ref(db, P('chat')), {
+        text: result.msg, uid: 'system', email: '현황판',
+        at: new Date().toISOString(), type: 'system'
+      });
+      if(result.ok && !result.query) showToast('현황판에 반영됐어요');
+    }
+    setTimeout(scrollChatToBottom, 50);
+  }catch(e){
+    console.error(e);
+    showToast('전송 실패 - 다시 시도해주세요');
+    inp.value = text; // 실패하면 입력값 되돌려줌
+  }finally{
+    if(btn) btn.disabled = false;
+  }
+}
+async function deleteChatMessage(msgId){
+  if(!confirm('이 메시지를 삭제할까요?')) return;
+  try{
+    const { ref, remove, db } = window._fb;
+    await remove(ref(db, P('chat/' + msgId)));
+  }catch(e){
+    console.error(e);
+    showToast('삭제 실패 - 내 메시지만 지울 수 있어요');
+  }
+}
+
+function formatHistoryTime(ts){
+  const d = new Date(ts);
+  const days=['일','월','화','수','목','금','토'];
+  return `${d.getFullYear()}.${pad2(d.getMonth()+1)}.${pad2(d.getDate())}(${days[d.getDay()]}) ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+async function openHistoryModal(){
+  document.getElementById('historyModalBg').classList.add('open');
+  pushModalHistoryState('historyModalBg');
+  const listEl = document.getElementById('historyList');
+  listEl.innerHTML = `<div class="empty">불러오는 중...</div>`;
+  const { ref, get, db } = window._fb;
+  try{
+    const snap = await get(ref(db, P('history')));
+    if(!snap.exists()){
+      listEl.innerHTML = `<div class="empty">아직 변경 기록이 없어요.<br>다음 저장부터 자동으로 기록이 남아요.</div>`;
+      return;
+    }
+    const obj = snap.val();
+    const entries = Object.keys(obj)
+      .map(k=>({key:k, savedAt:obj[k].savedAt, count:(obj[k].vehicles||[]).length}))
+      .sort((a,b)=>b.savedAt-a.savedAt);
+    listEl.innerHTML = entries.map(e=>`
+      <div class="sched-list-row">
+        <div>
+          <div class="t">${formatHistoryTime(e.savedAt)}</div>
+          <div class="m">저장 직전 상태 · 차량 ${e.count}대</div>
+        </div>
+        <button class="del" style="color:var(--blue);font-weight:700;" onclick="restoreHistory('${e.key}')">↩ 복원</button>
+      </div>`).join('');
+  }catch(e){
+    console.error(e);
+    listEl.innerHTML = `<div class="empty">불러오기 실패했어요.</div>`;
+  }
+}
+async function restoreHistory(key){
+  if(!confirm('이 시점 상태로 되돌리시겠습니까?\n(되돌리기 전 현재 상태도 자동으로 기록에 남으니, 필요하면 다시 앞으로 되돌릴 수 있어요)')) return;
+  const { ref, get, db } = window._fb;
+  try{
+    const snap = await get(ref(db, P('history/' + key)));
+    if(!snap.exists()){ showToast('해당 기록을 찾을 수 없어요'); return; }
+    vehicles = snap.val().vehicles || [];
+    render();
+    await persist();
+    closeHistoryModal();
+    showToast('✅ 이전 상태로 복원됐어요');
+  }catch(e){
+    console.error(e);
+    showToast('복원 실패 - 다시 시도해주세요');
+  }
+}
+
+function setDate(){
+  const d = new Date();
+  const days=['일','월','화','수','목','금','토'];
+  document.getElementById('dateLine').textContent =
+    `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 ${days[d.getDay()]}요일`;
+}
+
+// ── 직원 위치 공유 ─────────────────────────────────────────
+// 켠 사람끼리만 companies/{id}/locations/{uid}에 {lat,lng,email,at}로 저장됩니다.
+// 자발적(opt-in)으로만 켜지고, 끄면 즉시 내 위치가 지워집니다.
+const LOC_STALE_MS = 10 * 60 * 1000; // 10분 넘게 갱신 없으면 "오프라인" 취급
+let _locations = {};
+let _locWatchId = null;
+let _locSharing = false;
+let _locLastError = null;
+let _locModalOpen = false;
+let _locMap = null;
+let _locMarkers = {};
+let _locWatchMode = null;   // 'web' 또는 'capacitor'
+let _locPermDenied = false; // 위치 권한 거부 시 30초마다 자동 재시도하지 않도록
+let _locFitDone = false;    // 지도 자동 맞춤은 창을 열 때 한 번만
+// 카카오맵 SDK는 스크립트 태그를 동적으로 붙여서 불러옵니다 (키가 APP_CONFIG에 있어서).
+let _kakaoLoadPromise = null;
+function loadKakaoMaps(){
+  if(_kakaoLoadPromise) return _kakaoLoadPromise;
+  _kakaoLoadPromise = new Promise((resolve, reject)=>{
+    const key = window.APP_CONFIG && window.APP_CONFIG.kakaoMapKey;
+    if(!key || key === 'YOUR_KAKAO_JS_KEY'){
+      reject(new Error('카카오맵 키가 설정되지 않았어요 (APP_CONFIG.kakaoMapKey)'));
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${key}&autoload=false&libraries=services`;
+    script.onload = ()=> window.kakao.maps.load(()=> resolve(window.kakao));
+    script.onerror = ()=> reject(new Error('카카오맵 스크립트 로딩 실패'));
+    document.head.appendChild(script);
+  });
+  return _kakaoLoadPromise;
+}
+function locTimeAgo(iso){
+  const t = new Date(iso).getTime();
+  if(isNaN(t)) return '';
+  const diffMin = Math.max(0, Math.round((Date.now() - t) / 60000));
+  if(diffMin < 1) return '방금 전';
+  if(diffMin < 60) return diffMin + '분 전';
+  return Math.round(diffMin / 60) + '시간 전';
+}
+function locActiveEntries(){
+  // 10분 넘게 갱신이 없어도 목록에서 빼지 않고 '마지막 위치'로 표시합니다 (stale=true).
+  const myUid = window.CURRENT_USER && window.CURRENT_USER.uid;
+  return Object.entries(_locations || {})
+    .filter(([uid, v]) => v && typeof v === 'object' && typeof v.lat === 'number' && typeof v.lng === 'number')
+    .map(([uid, v]) => ({ uid, ...v, isMe: uid === myUid,
+      stale: !(Date.now() - new Date(v.at).getTime() <= LOC_STALE_MS) }));
+}
+function updateLocBadge(){
+  const badge = document.getElementById('locBadge');
+  if(!badge) return;
+  const n = locActiveEntries().filter(e=>!e.stale).length; // 뱃지는 '지금 실시간' 인원만
+  if(n > 0){ badge.textContent = String(n); badge.style.display = 'flex'; }
+  else{ badge.style.display = 'none'; }
+}
+async function ensureLocMap(){
+  if(_locMap) return _locMap;
+  try{
+    const kakao = await loadKakaoMaps();
+    const container = document.getElementById('locMap');
+    _locMap = new kakao.maps.Map(container, {
+      center: new kakao.maps.LatLng(35.3016, 126.7867), // 기본 중심: 장성
+      level: 7
+    });
+    return _locMap;
+  }catch(e){
+    console.error(e);
+    const container = document.getElementById('locMap');
+    if(container) container.innerHTML = `<div class="empty" style="padding:20px;">지도를 불러올 수 없어요.<br>(카카오맵 키 설정 필요)</div>`;
+    return null;
+  }
+}
+async function renderLocMarkers(){
+  const kakao = window.kakao;
+  const map = await ensureLocMap();
+  if(!map || !kakao) return;
+  const entries = locActiveEntries();
+  const seen = new Set();
+  entries.forEach(e=>{
+    seen.add(e.uid);
+    const pos = new kakao.maps.LatLng(e.lat, e.lng);
+    const label = (e.isMe ? '나' : (e.email || '직원')) + ' · ' + (e.stale ? '마지막 위치 ' : '') + locTimeAgo(e.at);
+    if(_locMarkers[e.uid]){
+      _locMarkers[e.uid].marker.setPosition(pos);
+      _locMarkers[e.uid].marker.setOpacity(e.stale ? 0.45 : 1);
+      _locMarkers[e.uid].info.setContent(`<div style="padding:6px 10px;font-size:12px;white-space:nowrap;">${escapeHtml(label)}</div>`);
+    }else{
+      const marker = new kakao.maps.Marker({ position: pos, map, opacity: e.stale ? 0.45 : 1 });
+      const info = new kakao.maps.InfoWindow({ content: `<div style="padding:6px 10px;font-size:12px;white-space:nowrap;">${escapeHtml(label)}</div>` });
+      kakao.maps.event.addListener(marker, 'click', ()=> info.open(map, marker));
+      _locMarkers[e.uid] = { marker, info };
+    }
+  });
+  Object.keys(_locMarkers).forEach(uid=>{
+    if(!seen.has(uid)){ _locMarkers[uid].marker.setMap(null); delete _locMarkers[uid]; }
+  });
+  if(entries.length && !_locFitDone){
+    _locFitDone = true;
+    const bounds = new kakao.maps.LatLngBounds();
+    entries.forEach(e=> bounds.extend(new kakao.maps.LatLng(e.lat, e.lng)));
+    map.setBounds(bounds);
+  }
+}
+function renderLocList(){
+  const el = document.getElementById('locList');
+  if(!el) return;
+  const entries = locActiveEntries().sort((a,b)=> a.isMe ? -1 : (b.isMe ? 1 : 0));
+  if(entries.length === 0){
+    el.innerHTML = `<div class="empty">지금 위치를 공유 중인 직원이 없어요.</div>`;
+    return;
+  }
+  el.innerHTML = entries.map(e=>`
+    <div class="sched-list-row"${e.stale ? ' style="opacity:.55;"' : ''}>
+      <div class="t">${e.stale ? '⚪' : '🟢'} ${escapeHtml(e.isMe ? '나' : (e.email || '직원'))}${e.isMe ? ' <span style="color:var(--sub);font-size:11px;">(나)</span>' : ''}</div>
+      <div class="m">${e.stale ? '마지막 위치 · ' + escapeHtml(locTimeAgo(e.at)) + ' (앱이 꺼져 있거나 신호 없음)' : escapeHtml(locTimeAgo(e.at)) + ' 갱신'}</div>
+    </div>`).join('');
+}
+function startLocSync(){
+  const { ref, onValue, db } = window._fb;
+  onValue(ref(db, P('locationSettings')), (snap)=>{
+    const v = snap.exists() ? snap.val() : null;
+    const next = (v && v.start && v.end) ? { start: v.start, end: v.end } : { start: '09:00', end: '18:00' };
+    const changed = next.start !== _locHours.start || next.end !== _locHours.end;
+    _locHours = next;
+    // 시간이 바뀌어서 기존 동의가 무효가 됐으면, 공유 중이던 걸 멈추고 다시 동의를 받음
+    if(changed && !hasLocConsent() && (_locSharing || _locWatchId !== null)) stopLocationSharing(false);
+    refreshLocConsentUI(); setLocToggleBtnUI();
+  }, (err)=> console.warn('공유시간 설정 수신 실패:', err));
+  onValue(ref(db, P('locations')), (snap)=>{
+    _locations = snap.exists() ? (snap.val() || {}) : {};
+    updateLocBadge();
+    if(_locModalOpen){ renderLocMarkers(); renderLocList(); }
+  }, (err)=> console.error('위치 수신 실패:', err));
+}
+// 업무시간 자동 스케줄 + 동의 여부 관리
+// (todayStr()는 위쪽 일정관리에 이미 있는 것을 같이 씁니다)
+// 공유 시간은 관리자가 정하고 companies/{id}/locationSettings 에 저장됩니다. 기본 09:00~18:00
+let _locHours = { start: '09:00', end: '18:00' };
+function hhmmToMin(t){ const [h,m] = String(t||'').split(':').map(Number); return (h||0)*60 + (m||0); }
+function locHoursLabel(){ return `${_locHours.start}~${_locHours.end}`; }
+function locHoursEndLabel(){ return _locHours.end; }
+function applyLocHoursToUI(){
+  const c = document.getElementById('locConsentHours'); if(c) c.textContent = locHoursLabel();
+  const s = document.getElementById('locHoursStart'), e = document.getElementById('locHoursEnd');
+  if(s && document.activeElement !== s) s.value = _locHours.start;
+  if(e && document.activeElement !== e) e.value = _locHours.end;
+  const box = document.getElementById('locHoursBox');
+  if(box) box.style.display = (window.COMPANY_ROLE === 'owner' && hasLocConsent()) ? 'block' : 'none';
+}
+async function saveLocHours(){
+  if(window.COMPANY_ROLE !== 'owner'){ showToast('관리자만 바꿀 수 있어요'); return; }
+  const start = document.getElementById('locHoursStart').value;
+  const end = document.getElementById('locHoursEnd').value;
+  if(!start || !end){ showToast('시작/종료 시간을 입력해주세요'); return; }
+  if(start === end){ showToast('시작과 종료 시간이 같아요'); return; }
+  if(!confirm(`위치 공유 시간을 ${start}~${end}로 바꿀까요?\n\n바꾸면 모든 직원이 새 시간으로 다시 동의해야 공유가 다시 시작돼요.`)) return;
+  try{
+    const { ref, set, db } = window._fb;
+    await set(ref(db, P('locationSettings')), { start, end, updatedAt: new Date().toISOString() });
+    showToast('공유 시간을 바꿨어요');
+  }catch(e){ console.error(e); showToast('저장 실패 - 관리자 권한을 확인해주세요'); }
+}
+function locConsentKey(){
+  const uid = window.CURRENT_USER && window.CURRENT_USER.uid;
+  return 'fleetLocConsent_' + (window.COMPANY_ID || 'default') + '_' + (uid || '');
+}
+function locOffOverrideKey(){
+  const uid = window.CURRENT_USER && window.CURRENT_USER.uid;
+  return 'fleetLocOffToday_' + (window.COMPANY_ID || 'default') + '_' + (uid || '');
+}
+function hasLocConsent(){
+  // 동의한 시간대와 지금 설정된 시간대가 같아야 유효 (관리자가 시간을 바꾸면 다시 동의 필요)
+  return localStorage.getItem(locConsentKey()) === 'v2:' + locHoursLabel();
+}
+function isTurnedOffToday(){
+  return localStorage.getItem(locOffOverrideKey()) === todayStr();
+}
+function isWithinWorkHours(){
+  const d = new Date();
+  const mins = d.getHours() * 60 + d.getMinutes();
+  const s = hhmmToMin(_locHours.start), e = hhmmToMin(_locHours.end);
+  if(s === e) return false;
+  return s < e ? (mins >= s && mins < e)       // 예: 09:00~18:00
+               : (mins >= s || mins < e);      // 예: 20:00~06:00 (자정 넘김)
+}
+function refreshLocConsentUI(){
+  applyLocHoursToUI();
+  const consentBox = document.getElementById('locConsentBox');
+  const mainBox = document.getElementById('locMainBox');
+  const btn = document.getElementById('locToggleBtn');
+  const agreed = hasLocConsent();
+  if(consentBox) consentBox.style.display = agreed ? 'none' : 'block';
+  if(mainBox) mainBox.style.display = 'block';            // 동료 위치 보기는 동의 없이도 가능
+  if(btn) btn.style.display = agreed ? 'block' : 'none';  // 내 위치 공유 버튼만 동의 후
+}
+function agreeLocationConsent(){
+  const check = document.getElementById('locConsentCheck');
+  if(!check || !check.checked){ showToast('동의 체크박스를 눌러주세요'); return; }
+  localStorage.setItem(locConsentKey(), 'v2:' + locHoursLabel());
+  localStorage.removeItem(locOffOverrideKey());
+  refreshLocConsentUI();
+  renderLocMarkers(); renderLocList();
+  if(isWithinWorkHours()) startLocationSharing(true);
+  showToast('동의되었어요 · 업무시간엔 자동으로 공유돼요');
+}
+function locStatusMessage(){
+  if(_locSharing) return _locWatchMode === 'background'
+    ? `🟢 공유 중 · 앱을 닫아도 ${locHoursEndLabel()}까지 계속 공유돼요 (상단 알림 표시)`
+    : '🟢 지금 동료들에게 공유되고 있어요 (앱을 닫으면 멈춰요)';
+  if(!hasLocConsent()) return '👀 동료 위치만 보는 중 · 내 위치는 공유되지 않아요 (위에서 동의하면 공유 시간에 자동 공유)';
+  if(_locLastError) return '⚠️ 위치 권한을 확인해주세요 (브라우저/폰 설정에서 위치 접근 허용 필요)';
+  if(isTurnedOffToday()) return `오늘은 직접 꺼두셨어요 · 다음 ${_locHours.start}부터 다시 자동으로 켜져요`;
+  if(!isWithinWorkHours()) return `지금은 공유 시간(${locHoursLabel()})이 아니라서 꺼져있어요`;
+  return '곧 자동으로 켜져요...';
+}
+function setLocToggleBtnUI(){
+  const btn = document.getElementById('locToggleBtn');
+  if(btn){
+    btn.textContent = _locSharing ? '⏹ 내 위치 공유 끄기' : '📍 내 위치 공유 시작';
+    btn.style.background = _locSharing ? 'var(--panel2)' : 'var(--amber)';
+    btn.style.color = _locSharing ? 'var(--text)' : '#1a1a1a';
+  }
+  const statusEl = document.getElementById('locStatusMsg');
+  if(statusEl) statusEl.textContent = locStatusMessage();
+}
+async function writeMyLocation(pos){
+  const myUid = window.CURRENT_USER && window.CURRENT_USER.uid;
+  if(!myUid) return;
+  const { ref, set, db } = window._fb;
+  try{
+    // 앱을 닫아도 마지막 위치는 남겨둡니다 (동료가 '마지막으로 어디였는지' 볼 수 있게).
+    // 지워지는 건 ①직접 끄기 ②18:00 업무시간 종료 때뿐입니다.
+    const myRef = ref(db, P('locations/' + myUid));
+    await set(myRef, {
+      lat: pos.coords.latitude,
+      lng: pos.coords.longitude,
+      email: (window.CURRENT_USER && window.CURRENT_USER.email) || '',
+      at: new Date().toISOString()
+    });
+  }catch(e){ console.warn('위치 저장 실패:', e && e.code); }
+}
+
+// ── 백그라운드 위치 공유 (안드로이드 앱으로 설치했을 때만) ──────────────
+// 웹페이지는 화면이 꺼지면 위치 추적이 멈춰서, 앱(Capacitor)으로 설치한 경우엔
+// @capacitor-community/background-geolocation 플러그인으로 계속 추적합니다.
+// 안드로이드는 백그라운드 5분 뒤 웹 통신을 조이기 때문에, 저장은 앱 자체 통신
+// (CapacitorHttp → Firebase REST)으로 보냅니다. 로그인 토큰도 같은 방식으로 갱신합니다.
+const BG_MIN_MOVE_M = 30;           // 30m 이상 움직였거나
+const BG_MIN_INTERVAL_MS = 5*60*1000; // 제자리여도 5분마다 저장 (배터리·데이터 절약)
+let _bgPlugin = null, _bgLast = null, _bgToken = null; // _bgToken = {id, exp(ms)}
+function isNativeApp(){
+  return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+}
+function getBgPlugin(){
+  if(_bgPlugin) return _bgPlugin;
+  if(!isNativeApp() || !window.Capacitor.registerPlugin) return null;
+  try{ _bgPlugin = window.Capacitor.registerPlugin('BackgroundGeolocation'); }catch(e){ _bgPlugin = null; }
+  return _bgPlugin;
+}
+function nativeHttp(){ return window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorHttp; }
+function distMeters(a, b){
+  const R=6371000, toR=x=>x*Math.PI/180;
+  const dLat=toR(b.lat-a.lat), dLng=toR(b.lng-a.lng);
+  const h=Math.sin(dLat/2)**2 + Math.cos(toR(a.lat))*Math.cos(toR(b.lat))*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
+}
+// 로그인 토큰: 앞에서는 Firebase가 알아서 갱신, 백그라운드에서는 앱 자체 통신으로 갱신
+async function getBgIdToken(){
+  const now = Date.now();
+  if(_bgToken && _bgToken.exp - now > 5*60*1000) return _bgToken.id;
+  const user = window.CURRENT_USER;
+  if(!user) return null;
+  // 1순위: 앱이 앞에 있을 때 Firebase SDK로 받기
+  try{
+    if(document.visibilityState === 'visible'){
+      const r = await user.getIdTokenResult();
+      _bgToken = { id: r.token, exp: new Date(r.expirationTime).getTime() };
+      return _bgToken.id;
+    }
+  }catch(e){}
+  // 2순위(백그라운드): refreshToken으로 구글 토큰 서버에 직접 요청
+  const http = nativeHttp(), cfg = window._fbConfig;
+  if(!http || !cfg || !user.refreshToken) return _bgToken ? _bgToken.id : null;
+  try{
+    const res = await http.request({
+      method: 'POST',
+      url: 'https://securetoken.googleapis.com/v1/token?key=' + encodeURIComponent(cfg.apiKey),
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      data: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(user.refreshToken)
+    });
+    const d = typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
+    if(d && d.id_token){
+      _bgToken = { id: d.id_token, exp: now + (Number(d.expires_in)||3600)*1000 };
+      return _bgToken.id;
+    }
+  }catch(e){ console.warn('백그라운드 토큰 갱신 실패:', e); }
+  return _bgToken ? _bgToken.id : null;
+}
+function bgLocUrl(token){
+  const cfg = window._fbConfig, uid = window.CURRENT_USER && window.CURRENT_USER.uid;
+  return `${cfg.databaseURL}/${P('locations/' + uid)}.json?auth=${encodeURIComponent(token)}`;
+}
+async function bgWrite(lat, lng){
+  const http = nativeHttp(), token = await getBgIdToken();
+  if(!http || !token) return false;
+  try{
+    const res = await http.request({ method:'PUT', url: bgLocUrl(token),
+      headers:{'Content-Type':'application/json'},
+      data: { lat, lng, email:(window.CURRENT_USER && window.CURRENT_USER.email)||'', at:new Date().toISOString() } });
+    return res.status >= 200 && res.status < 300;
+  }catch(e){ console.warn('백그라운드 위치 저장 실패:', e); return false; }
+}
+async function bgDelete(){
+  const http = nativeHttp(), token = await getBgIdToken();
+  if(!http || !token) return;
+  try{ await http.request({ method:'DELETE', url: bgLocUrl(token) }); }catch(e){}
+}
+async function onBgLocation(location, error){
+  if(error){
+    console.warn('백그라운드 위치 오류:', error);
+    _locLastError = error;
+    if(error.code === 'NOT_AUTHORIZED'){
+      _locPermDenied = true;
+      stopLocationSharing(false);
+      if(confirm('위치 권한이 없어서 공유할 수 없어요.\n휴대폰 설정에서 위치 권한을 "항상 허용"으로 바꿔주세요.\n\n지금 설정 화면을 열까요?')){
+        try{ getBgPlugin().openSettings(); }catch(e){}
+      }
+    }
+    setLocToggleBtnUI();
+    return;
+  }
+  if(!location) return;
+  // 백그라운드에선 30초 타이머가 잘 안 돌아서, 위치가 올 때마다 업무시간을 같이 확인
+  if(!isWithinWorkHours()){ stopLocationSharing(false); return; }
+  const cur = { lat: location.latitude, lng: location.longitude, t: Date.now() };
+  const moved = !_bgLast || distMeters(_bgLast, cur) >= BG_MIN_MOVE_M;
+  const waited = !_bgLast || (cur.t - _bgLast.t) >= BG_MIN_INTERVAL_MS;
+  _locLastError = null; _locSharing = true;
+  if(moved || waited){
+    const ok = await bgWrite(cur.lat, cur.lng);
+    if(ok) _bgLast = cur;
+  }
+  setLocToggleBtnUI();
+}
+async function startBackgroundSharing(silent){
+  const plugin = getBgPlugin();
+  if(!plugin) return false;
+  // 안드로이드 13+: 상단 "위치 공유 중" 알림을 띄우려면 알림 권한이 필요
+  try{
+    const LN = window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
+    if(LN){ const st = await LN.checkPermissions(); if(st.display !== 'granted') await LN.requestPermissions(); }
+  }catch(e){}
+  try{
+    _locWatchMode = 'background';
+    _locWatchId = await plugin.addWatcher({
+      backgroundTitle: '위치 공유 중',
+      backgroundMessage: `업무시간 동안 동료에게 위치를 공유하고 있어요 (${locHoursEndLabel()}에 자동 종료)`,
+      requestPermissions: true,
+      stale: false,
+      distanceFilter: 0
+    }, onBgLocation);
+    localStorage.removeItem(locOffOverrideKey());
+    return true;
+  }catch(e){
+    console.warn('백그라운드 위치 시작 실패:', e);
+    _locWatchId = null; _locWatchMode = null;
+    if(!silent) showToast('위치 공유를 시작하지 못했어요');
+    return false;
+  }
+}
+
+function startLocationSharing(silent){
+  if(!hasLocConsent()){
+    if(!silent) showToast('먼저 위치 공유에 동의해주세요');
+    return;
+  }
+  if(_locWatchId !== null) return; // 이미 켜져있음
+  if(silent && _locPermDenied) return; // 권한 거부된 상태면 자동으로는 다시 안 물어봄
+  if(!silent) _locPermDenied = false;  // 직접 누른 경우엔 다시 시도
+
+  // 안드로이드 앱으로 설치된 경우: 앱을 꺼도 계속 공유되는 백그라운드 모드
+  if(getBgPlugin()){
+    _locWatchId = 'starting'; // 중복 시작 방지
+    startBackgroundSharing(silent).then(ok=>{ if(!ok){ _locWatchId = null; } });
+    return;
+  }
+
+  // Capacitor 앱(네이티브)으로 감싼 경우: @capacitor/geolocation 플러그인 사용
+  // (안드로이드 WebView는 navigator.geolocation만으론 권한 팝업이 제대로 안 뜨는 경우가 많음)
+  const capGeo = window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()
+    && window.Capacitor.Plugins && window.Capacitor.Plugins.Geolocation;
+  if(capGeo){
+    (async ()=>{
+      try{
+        const perm = await capGeo.requestPermissions();
+        if(perm.location !== 'granted' && perm.coarseLocation !== 'granted'){
+          throw new Error('permission-denied');
+        }
+        _locWatchMode = 'capacitor';
+        _locWatchId = await capGeo.watchPosition(
+          { enableHighAccuracy: false, timeout: 15000 },
+          (pos, err)=>{
+            if(err || !pos){
+              console.warn('위치 권한/수신 실패:', err);
+              _locLastError = err || new Error('no-position');
+              _locPermDenied = true;
+              if(!silent) showToast('위치 권한을 허용해주세요');
+              stopLocationSharing();
+              return;
+            }
+            _locLastError = null; _locSharing = true; setLocToggleBtnUI(); writeMyLocation(pos);
+          }
+        );
+        localStorage.removeItem(locOffOverrideKey());
+      }catch(err){
+        console.warn('위치 권한/수신 실패:', err);
+        _locLastError = err;
+        _locPermDenied = true;
+        if(!silent) showToast('위치 권한을 허용해주세요');
+        setLocToggleBtnUI();
+      }
+    })();
+    return;
+  }
+
+  // 일반 브라우저 / PWA (홈화면에 추가): 표준 웹 위치 API
+  if(!('geolocation' in navigator)){
+    if(!silent) showToast('이 브라우저는 위치 기능을 지원하지 않아요');
+    return;
+  }
+  _locWatchMode = 'web';
+  _locWatchId = navigator.geolocation.watchPosition(
+    (pos)=>{ _locLastError = null; _locSharing = true; setLocToggleBtnUI(); writeMyLocation(pos); },
+    (err)=>{
+      console.warn('위치 권한/수신 실패:', err);
+      _locLastError = err;
+      if(err && err.code === 1) _locPermDenied = true; // 1 = 사용자가 권한 거부
+      if(!silent) showToast('위치 권한을 허용해주세요');
+      stopLocationSharing();
+    },
+    { enableHighAccuracy: false, maximumAge: 20000, timeout: 15000 }
+  );
+  localStorage.removeItem(locOffOverrideKey());
+}
+async function stopLocationSharing(manual){
+  if(_locWatchId !== null){
+    try{
+      if(_locWatchMode === 'background'){
+        const plugin = getBgPlugin();
+        if(plugin && _locWatchId && _locWatchId !== 'starting') await plugin.removeWatcher({ id: _locWatchId });
+      }else if(_locWatchMode === 'capacitor'){
+        const capGeo = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Geolocation;
+        if(capGeo) await capGeo.clearWatch({ id: _locWatchId });
+      }else{
+        navigator.geolocation.clearWatch(_locWatchId);
+      }
+    }catch(e){ console.warn('위치 감시 해제 실패:', e); }
+    _locWatchId = null;
+    _locWatchMode = null;
+  }
+  _locSharing = false;
+  setLocToggleBtnUI();
+  // 직접 끈 경우엔, 오늘은 업무시간이어도 자동으로 다시 켜지지 않게 기록해둡니다.
+  if(manual) localStorage.setItem(locOffOverrideKey(), todayStr());
+  const myUid = window.CURRENT_USER && window.CURRENT_USER.uid;
+  _bgLast = null;
+  if(myUid){
+    if(isNativeApp()) await bgDelete(); // 백그라운드에서도 확실히 지워지도록 앱 자체 통신으로
+    try{ const { ref, remove, db } = window._fb; await remove(ref(db, P('locations/' + myUid))); }
+    catch(e){ console.warn('위치 삭제 실패:', e && e.code); }
+  }
+}
+function toggleLocationShare(){
+  if(_locSharing || _locWatchId !== null) stopLocationSharing(true);
+  else startLocationSharing(false);
+}
+function openLocModal(){
+  _locModalOpen = true;
+  _locFitDone = false;
+  document.getElementById('locModalBg').classList.add('open');
+  pushModalHistoryState('locModalBg');
+  refreshLocConsentUI();
+  setLocToggleBtnUI();
+  setTimeout(async ()=>{ await renderLocMarkers(); renderLocList(); }, 30);
+}
+function closeLocModal(){
+  _locModalOpen = false;
+  document.getElementById('locModalBg').classList.remove('open');
+  popModalHistoryIfNeeded('locModalBg');
+}
+// 동의했고, 오늘 직접 끄지 않았고, 지금이 업무시간(09:00~18:00)이면 자동으로 켭니다.
+// 18:00이 지났으면 자동으로 끕니다. 30초마다 검사해서 시간이 되는 순간 바로 반영됩니다.
+function checkLocSchedule(){
+  if(!hasLocConsent()) return;
+  const within = isWithinWorkHours();
+  if(within){
+    if(!_locSharing && !isTurnedOffToday()) startLocationSharing(true);
+  }else{
+    if(_locSharing) stopLocationSharing(false); // 시간이 지나서 자동으로 끄는 것 - 오늘 끔 기록은 안 남김
+  }
+}
+function resumeLocationShareIfNeeded(){
+  setInterval(checkLocSchedule, 30000);
+  checkLocSchedule();
+}
+
+async function startApp(){
+  setDate();
+  const ok = await loadData();
+  if(!ok) return; // 권한 없는 계정 - loadData 안에서 이미 로그아웃 처리됨
+  render();
+  startRealtimeSync();
+  await loadSchedules();
+  renderSchedBanner();
+  startScheduleSync();
+  startChatSync();
+  startLocSync();
+  resumeLocationShareIfNeeded();
+  await syncAllReturnSchedules();
+}
+
+// 앱 시작은 FleetAuth가 로그인+업체확인을 마친 뒤 onReady에서 startApp()을 호출합니다.
+</script>
+<script>
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', ()=>{
+      navigator.serviceWorker.register('sw.js').catch(err=>console.error('서비스워커 등록 실패:', err));
+    });
+  }
+</script>
+</body>
+</html>
