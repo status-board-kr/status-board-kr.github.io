@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <title>현황판</title>
 <link rel="manifest" href="manifest.json">
@@ -82,12 +82,12 @@
     if(m) m.setAttribute('content', APP_CONFIG.shortName);
   })();
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-  import { getDatabase, ref, get, set, update, onValue, push, remove, runTransaction } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+  import { getDatabase, ref, get, set, update, onValue, push, remove, runTransaction, query, orderByKey, orderByChild, limitToLast, endAt, startAt } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
   import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
   const auth = getAuth(app);
-  window._fb = { ref, get, set, update, onValue, push, remove, runTransaction, db };
+  window._fb = { ref, get, set, update, onValue, push, remove, runTransaction, query, orderByKey, orderByChild, limitToLast, endAt, startAt, db };
   window._fbConfig = firebaseConfig; // 앱(백그라운드) 위치 전송용
   window._auth = { auth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged };
   // 이메일/비밀번호로 로그인하고, 소속 업체(companies/{id})를 찾는 일은
@@ -126,11 +126,29 @@
     padding-bottom:40px;
   }
   .plate{font-family:"SFMono-Regular",Consolas,monospace;letter-spacing:0.5px;}
+  /* ── 기종별 화면 차이 보정 ── */
+  html{-webkit-text-size-adjust:100%;text-size-adjust:100%;}   /* 폰이 글자를 멋대로 키우는 것 방지 */
+  html,body{overflow-x:hidden;max-width:100%;}                 /* 옆으로 밀리는 화면 방지 */
+  *{-webkit-tap-highlight-color:transparent;}
+  body{padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);}
+  img,canvas,video{max-width:100%;}
+  @media (max-width:360px){                                    /* 작은 폰(갤럭시 A·미니 등) */
+    header{padding-left:10px;padding-right:10px;}
+    header h1{font-size:15px;}
+    .header-actions{grid-template-columns:repeat(3,1fr);gap:5px;}
+    .link-btn{font-size:11px;padding:8px 2px;}
+    .history-btn{padding:6px 7px;}
+    .search-row select{max-width:86px;padding:7px 6px !important;font-size:12px !important;}
+    .search-row input{min-width:0;font-size:13px;}
+  }
+  @media (min-width:700px){                                    /* 태블릿·폴드 펼침 */
+    .header-actions{grid-template-columns:repeat(auto-fit,minmax(110px,1fr));}
+  }
 
   header{
     position:sticky;top:0;z-index:20;
     background:linear-gradient(180deg,#0f172a 0%,#0f172a 85%,transparent 100%);
-    padding:10px 14px 7px;
+    padding:calc(10px + env(safe-area-inset-top)) 14px 7px;   /* 노치·펀치홀 폰 상단 여백 */
     border-bottom:1px solid var(--line);
   }
   header .title-row{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;}
@@ -143,6 +161,10 @@
     display:flex;align-items:center;justify-content:center;padding:0 4px;
   }
   .chat-msg{margin-bottom:12px;display:flex;flex-direction:column;}
+  .chat-tool-btn{background:var(--panel2);border:1px solid var(--line);color:var(--text);font-size:12px;padding:6px 10px;border-radius:8px;}
+  .chat-sr{padding:8px 10px;border-bottom:1px solid var(--line);font-size:13px;line-height:1.5;}
+  .chat-sr .m{color:var(--sub);font-size:11px;}
+  .chat-sr mark{background:rgba(245,166,35,.35);color:inherit;border-radius:3px;padding:0 1px;}
   .chat-msg .meta{font-size:11px;color:var(--sub);margin-bottom:3px;}
   .chat-msg .bubble{
     background:var(--panel2);border:1px solid var(--line);border-radius:12px;
@@ -309,7 +331,7 @@
   .modal{
     background:var(--panel);width:100%;max-width:480px;border-radius:16px 16px 0 0;
     padding:18px 16px calc(18px + env(safe-area-inset-bottom));border:1px solid var(--line);border-bottom:none;
-    max-height:94vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+    max-height:94vh;max-height:94dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;
     box-sizing:border-box;
   }
   .modal h3{margin:0 0 2px;font-size:16px;}
@@ -317,7 +339,7 @@
   .sched-modal-shell{
     background:var(--panel);width:100%;max-width:480px;border-radius:16px 16px 0 0;
     border:1px solid var(--line);border-bottom:none;
-    max-height:94vh;display:flex;flex-direction:column;overflow:hidden;
+    max-height:94vh;max-height:94dvh;display:flex;flex-direction:column;overflow:hidden;
   }
   .sched-modal-scroll{
     overflow-y:auto;-webkit-overflow-scrolling:touch;padding:18px 16px 14px;
@@ -377,7 +399,7 @@
   .toast.show{opacity:1;}
 
   .fab{
-    position:fixed;right:18px;bottom:24px;z-index:40;
+    position:fixed;right:calc(18px + env(safe-area-inset-right));bottom:calc(24px + env(safe-area-inset-bottom));z-index:40;
     width:52px;height:52px;border-radius:50%;border:none;
     background:var(--amber);color:#1a1a1a;font-size:26px;font-weight:700;
     box-shadow:0 6px 16px rgba(0,0,0,.4);line-height:1;
@@ -563,7 +585,7 @@
 
 <header>
   <div class="title-row">
-    <div></div>
+    <div><button class="history-btn" onclick="reload(true)" title="새로고침" aria-label="새로고침" style="font-size:18px;">↻</button></div>
     <div style="min-width:0;max-width:100%;text-align:center;">
       <h1 id="appTitle">🚗 현황판</h1>
       <div class="date" id="dateLine"></div>
@@ -576,12 +598,10 @@
   <div class="header-actions">
     <button class="link-btn telegram" onclick="openChatModal()" style="position:relative;">💬 메신저<span class="chat-badge" id="chatBadge" style="display:none;top:-6px;right:-6px;">0</span></button>
     <button class="link-btn" style="color:var(--pink,#f472b6);border:none;background:var(--panel2);position:relative;" onclick="openLocModal()">📍 동료위치보기<span class="chat-badge" id="locBadge" style="display:none;top:-6px;right:-6px;">0</span></button>
-    <a class="link-btn" style="color:var(--blue);" href="intent://t.me/+zgPlZTwlkk8wYWVl#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=https%3A%2F%2Ft.me%2F%2BzgPlZTwlkk8wYWVl;end">📱 텔레그램방</a>
     <a class="link-btn kakao" href="intent://#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=com.kakao.talk;S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.kakao.talk;end">💬 카카오톡</a>
     <a class="link-btn app" href="intent://#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=com.Rentcar.heaven819.gcmpush;S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.Rentcar.heaven819.gcmpush;end">🚗 팡팡렌트카</a>
     <button class="link-btn" style="color:var(--purple);border:none;background:var(--panel2);" onclick="openSchedModal()">📅 일정</button>
     <a class="link-btn" style="color:var(--amber);" href="payment.html">💳 결제일 알림</a>
-    <button class="refresh-btn" onclick="reload(true)">↻ 새로고침</button>
   </div>
   <div class="stats" id="statsRow"></div>
   <div class="sched-banner" id="schedBanner"></div>
@@ -931,15 +951,27 @@
 <div class="modal-bg" id="chatModalBg">
   <div class="sched-modal-shell">
     <div class="sched-modal-scroll" id="chatScroll">
-      <h3 style="display:flex;align-items:center;justify-content:space-between;">💬 직원 채팅
-        <button onclick="setupClaudeKey()" id="aiKeyBtn" style="background:none;border:1px solid var(--line);color:var(--sub);font-size:11px;padding:4px 8px;border-radius:6px;font-weight:400;">🤖 계기판 인식 설정</button></h3>
-      <div class="sub">이 업체 직원들끼리 나누는 대화입니다. 최근 200개까지 보관돼요.</div>
+      <h3 style="margin-bottom:6px;">💬 직원 메신저</h3>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
+        <button class="chat-tool-btn" onclick="toggleChatSearch()">🔍 검색</button>
+        <button class="chat-tool-btn" onclick="backupChat()">💾 백업</button>
+        <button class="chat-tool-btn" onclick="setupClaudeKey()" id="aiKeyBtn">🤖 AI 설정</button>
+      </div>
+      <div id="chatSearchBox" style="display:none;margin-bottom:10px;">
+        <div style="display:flex;gap:6px;">
+          <input id="chatSearchInput" placeholder="검색어 (예: 9585, 회수, 윤상)" style="flex:1;min-width:0;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:14px;"
+                 onkeydown="if(event.key==='Enter'){event.preventDefault();runChatSearch();}">
+          <button class="btn-save" style="padding:0 14px;font-size:13px;border-radius:8px;" onclick="runChatSearch()">찾기</button>
+        </div>
+        <div id="chatSearchResult" style="margin-top:8px;"></div>
+      </div>
+      <div class="sub">최근 300개를 보여줘요 · 대화는 2년간 보관 (예전 대화는 🔍검색·💾백업)</div>
       <div id="chatList"><div class="empty">불러오는 중...</div></div>
     </div>
     <div class="modal-footer-inflow">
       <div id="chatPhotoPreview" style="display:none;align-items:center;gap:10px;margin-bottom:8px;padding:8px;background:var(--panel2);border-radius:10px;">
         <img id="chatPhotoThumb" style="width:56px;height:56px;object-fit:cover;border-radius:8px;">
-        <div style="flex:1;font-size:12px;color:var(--sub);line-height:1.5;">사진 첨부됨 · "9588 회수"처럼 같이 보내면<br>계기판 주행거리를 읽어서 회수 처리해요</div>
+        <div style="flex:1;font-size:12px;color:var(--sub);line-height:1.5;">사진 첨부됨 · 번호 없이 "조완 보험 윤상"만 써도<br>사진 속 번호판을 읽어서 처리해요 (회수는 주행거리까지)</div>
         <button onclick="clearChatPhoto()" style="background:none;border:none;color:var(--sub);font-size:18px;padding:4px 8px;">✕</button>
       </div>
       <input type="file" id="chatPhotoInput" accept="image/*" style="display:none;" onchange="onChatPhotoPicked(this)">
@@ -2447,7 +2479,7 @@ async function removeStaffMember(uid, email){
 // ── 직원 채팅 ────────────────────────────────────────────────
 // 업체별 단톡방 1개. /companies/{업체ID}/chat 아래에 메시지가 쌓입니다.
 // 지금은 글만 가능하고, 나중에 사진을 붙일 수 있게 type 필드를 미리 둡니다.
-const CHAT_KEEP = 200;        // 화면에 보여줄 최근 메시지 수
+const CHAT_KEEP = 300;        // 화면에 보여줄 최근 메시지 수
 let _chatMessages = {};       // 실시간으로 받아온 메시지
 let _chatStarted = false;     // 실시간 수신 시작 여부
 let _chatLastRead = 0;        // 내가 마지막으로 읽은 시각(ms)
@@ -2545,7 +2577,8 @@ function startChatSync(){
       .then(s=>{ if(s.exists()) _chatLastRead = Number(s.val()) || 0; updateChatBadge(); })
       .catch(()=>{});
   }
-  onValue(ref(db, P('chat')), (snap)=>{
+  const { query, orderByKey, limitToLast } = window._fb;
+  onValue(query(ref(db, P('chat')), orderByKey(), limitToLast(CHAT_KEEP)), (snap)=>{
     _chatMessages = snap.exists() ? (snap.val() || {}) : {};
     if(_chatModalOpen){
       renderChatList();
@@ -2728,6 +2761,12 @@ async function applyChatCommand(cmd){
       if(cmd.newStatus!=='운행중') v.startDate=null;
     }
     if(cmd.note) v.note=cmd.note;
+    // 사진에 같이 찍힌 '우리 차량이 아닌 번호판'(피해차량 등)은 메모 맨 뒤에 붙입니다
+    if(cmd.extraPlates && cmd.extraPlates.length){
+      const base = (v.note || '').trim();
+      const add = cmd.extraPlates.filter(pl => base.indexOf(pl) === -1);
+      if(add.length) v.note = (base ? base + ' ' : '') + add.join(' ');
+    }
   }
 
   vehicles[idx]=v;
@@ -2740,7 +2779,8 @@ async function applyChatCommand(cmd){
   if(cmd.isRecall){
     try{
       const { ref, push, update, db } = window._fb;
-      const extra = { returnKm: (cmd.returnKm == null ? null : cmd.returnKm),
+      const extra = { otherPlates: (cmd.extraPlates && cmd.extraPlates.length) ? cmd.extraPlates.join(' ') : null,
+                      returnKm: (cmd.returnKm == null ? null : cmd.returnKm),
                       aiKm: (cmd.aiKm == null ? null : cmd.aiKm),
                       photoId: cmd.photoId || null };
       if(oldReturnDate){
@@ -2758,6 +2798,7 @@ async function applyChatCommand(cmd){
   try{
     const { ref, push, db } = window._fb;
     let hist = cmd.isRecall ? ('회수 처리 → 대기' + (cmd.returnKm ? ` · 종료 ${Number(cmd.returnKm).toLocaleString()}km` : '')) : '';
+    if(cmd.extraPlates && cmd.extraPlates.length) hist += (hist ? ' · ' : '') + '상대차량 ' + cmd.extraPlates.join(' ');
     if(!cmd.isRecall){
       if(cmd.typeToken) hist += cmd.typeToken;
       if(cmd.newStatus) hist += (hist?' / ':'') + cmd.newStatus;
@@ -2779,28 +2820,64 @@ async function applyChatCommand(cmd){
 // ── 사진 첨부 + 계기판 주행거리 자동 인식 (Claude API) ──────────────
 // 사진은 Realtime DB의 companies/{id}/photos 에 압축해서 저장합니다(무료 요금제용).
 // API 키는 이 기기(localStorage)에만 저장하고, 서버·코드에는 절대 넣지 않습니다.
-const CLAUDE_KEY_LS = 'fleetClaudeApiKey';
+const AI_KEY_LS = 'fleetAiApiKey';
+const OLD_CLAUDE_KEY_LS = 'fleetClaudeApiKey';
 const CLAUDE_MODEL = 'claude-sonnet-5';
+// 무료로 쓸 수 있고 실제 테스트에서 번호판·주행거리를 정확히 읽은 모델부터 순서대로 시도
+// (구글은 모델 이름이 자주 바뀌고, 바쁠 땐 "잠시 후 다시" 오류를 주기 때문에 여러 개를 준비)
+const GEMINI_MODELS = ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-flash-lite-latest', 'gemini-3.6-flash', 'gemini-flash-latest'];
 const PHOTO_MAX_B64 = 550000;   // DB 한 장 최대 약 400KB (보안규칙과 맞춤)
 let _chatPendingPhoto = null;   // 첨부 대기 중인 사진 (dataURL)
 const _photoCache = {};
-function getClaudeKey(){ return localStorage.getItem(CLAUDE_KEY_LS) || ''; }
+// 업체 공용 키(관리자가 한 번 넣으면 전 직원 사용) → 없으면 이 폰에만 넣은 키
+let _companyAiKey = '';
+function getAiKey(){ return _companyAiKey || localStorage.getItem(AI_KEY_LS) || localStorage.getItem(OLD_CLAUDE_KEY_LS) || ''; }
+function startAiKeySync(){
+  const { ref, onValue, db } = window._fb;
+  onValue(ref(db, P('aiSettings')), (snap)=>{
+    const v = snap.exists() ? snap.val() : null;
+    _companyAiKey = (v && typeof v.key === 'string') ? v.key : '';
+    updateAiKeyLabel();
+  }, (err)=> console.warn('AI 설정 수신 실패:', err && err.code));
+}
+function getClaudeKey(){ return getAiKey(); } // (예전 이름 호환)
+function aiProvider(key){ return /^sk-ant-/.test(key || '') ? 'claude' : (key ? 'gemini' : ''); }
 function updateAiKeyLabel(){
   const b = document.getElementById('aiKeyBtn');
-  if(b) b.textContent = getClaudeKey() ? '🤖 계기판 인식 켜짐' : '🤖 계기판 인식 설정';
+  const pv = aiProvider(getAiKey());
+  const shared = !!_companyAiKey ? '·공용' : '';
+  if(b) b.textContent = pv === 'gemini' ? `🤖 AI 켜짐(Gemini${shared})` : pv === 'claude' ? `🤖 AI 켜짐(Claude${shared})` : '🤖 AI 설정';
 }
-function setupClaudeKey(){
-  const cur = getClaudeKey();
+async function setupClaudeKey(){
+  const isOwner = window.COMPANY_ROLE === 'owner';
+  if(!isOwner){
+    // 직원은 관리자가 넣은 공용 키를 자동으로 씁니다
+    alert(_companyAiKey
+      ? '🤖 사진 자동 인식이 켜져 있어요.\n관리자가 업체 공용으로 설정해둔 키를 자동으로 쓰고 있어요.'
+      : '🤖 아직 사진 자동 인식이 설정되지 않았어요.\n관리자에게 "AI 설정"을 부탁해주세요. (관리자가 한 번 넣으면 모든 직원 폰에 적용돼요)');
+    return;
+  }
+  const cur = _companyAiKey;
   const v = prompt(
-    '계기판 주행거리 자동 인식에 쓸 Claude API 키를 붙여넣으세요.\n' +
-    '· 이 휴대폰에만 저장되고 서버에는 올라가지 않아요\n' +
+    '사진 자동 인식(번호판·주행거리)에 쓸 API 키를 붙여넣으세요.\n' +
+    '· 여기 넣으면 로그인한 모든 직원 폰에 자동 적용돼요 (업체 공용)\n' +
+    '· 구글 Gemini 키 또는 Claude 키(sk-ant-…) 모두 가능\n' +
     '· 지우려면 빈칸으로 확인\n\n' +
-    (cur ? '현재 키: ' + cur.slice(0, 12) + '…' + cur.slice(-4) : '현재 키: 없음'), '');
+    (cur ? '현재 공용 키: ' + cur.slice(0, 6) + '…' + cur.slice(-4) + ' (' + aiProvider(cur) + ')' : '현재 공용 키: 없음'), '');
   if(v === null) return;
   const t = v.trim();
-  if(!t){ localStorage.removeItem(CLAUDE_KEY_LS); showToast('API 키를 지웠어요'); }
-  else if(!/^sk-ant-/.test(t)){ showToast('키 형식이 달라요 (sk-ant- 로 시작해야 해요)'); return; }
-  else { localStorage.setItem(CLAUDE_KEY_LS, t); showToast('저장했어요 · 이 휴대폰에서만 쓰여요'); }
+  if(t && (t.length < 20 || t.length > 300 || /\s/.test(t))){ showToast('키 모양이 이상해요. 다시 복사해주세요'); return; }
+  try{
+    const { ref, set, remove, db } = window._fb;
+    if(!t){ await remove(ref(db, P('aiSettings'))); showToast('공용 API 키를 지웠어요'); }
+    else{
+      await set(ref(db, P('aiSettings')), { key: t, provider: aiProvider(t),
+        updatedAt: new Date().toISOString(), updatedBy: (window.CURRENT_USER && window.CURRENT_USER.email) || '' });
+      showToast('저장했어요 · 모든 직원 폰에 자동 적용돼요');
+    }
+    // 예전에 이 폰에만 넣어둔 키는 정리 (공용 키로 통일)
+    localStorage.removeItem(AI_KEY_LS); localStorage.removeItem(OLD_CLAUDE_KEY_LS);
+  }catch(e){ console.error(e); showToast('저장 실패 - 관리자 권한을 확인해주세요'); }
   updateAiKeyLabel();
 }
 function compressImage(file, maxSide, quality){
@@ -2882,91 +2959,183 @@ async function openPhotoViewer(id){
   ov.querySelector('img').src = d;
   ov.style.display = 'flex';
 }
-// Claude에게 계기판 사진을 보내 누적 주행거리(ODO)를 읽어옵니다
-async function readOdometerWithClaude(dataUrl){
-  const key = getClaudeKey();
-  if(!key) return { km: null, reason: 'nokey' };
-  const body = {
-    model: CLAUDE_MODEL,
-    max_tokens: 200,
-    messages: [{ role: 'user', content: [
-      { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: dataUrl.split(',')[1] } },
-      { type: 'text', text:
-        'This is a photo of a car instrument cluster (dashboard). Read the TOTAL odometer (ODO), ' +
-        'i.e. the cumulative distance the car has driven, in km. Ignore trip meters (TRIP A/B), ' +
-        'distance-to-empty / fuel range, speed, RPM and temperature. ' +
-        'Reply with JSON only, no other text: {"odometer_km": <integer or null>, "confidence": "high" or "low"}. ' +
-        'Use null if the odometer is not visible or not readable.' }
-    ]}]
-  };
-  const headers = {
-    'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json',
-    'anthropic-dangerous-direct-browser-access': 'true'
-  };
-  let status = 0, data = null;
-  try{
-    const http = (typeof nativeHttp === 'function' && typeof isNativeApp === 'function' && isNativeApp()) ? nativeHttp() : null;
-    if(http){
-      const r = await http.request({ method: 'POST', url: 'https://api.anthropic.com/v1/messages', headers, data: body });
-      status = r.status; data = typeof r.data === 'string' ? JSON.parse(r.data) : r.data;
-    }else{
-      const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers, body: JSON.stringify(body) });
-      status = r.status; data = await r.json().catch(()=>null);
-    }
-  }catch(e){ return { km: null, reason: '연결 실패: ' + (e.message || e) }; }
-  if(status < 200 || status >= 300){
-    const m = data && data.error && data.error.message;
-    return { km: null, reason: status === 401 ? 'API 키가 올바르지 않아요' : (m || ('오류 ' + status)) };
-  }
-  const text = ((data && data.content) || []).map(c => c.text || '').join('').trim();
-  let km = null, confidence = '';
-  try{
-    const j = JSON.parse((text.match(/\{[\s\S]*\}/) || [text])[0]);
-    if(j.odometer_km !== null && j.odometer_km !== undefined){
-      const n = Math.round(Number(String(j.odometer_km).replace(/[^0-9.]/g, '')));
-      if(Number.isFinite(n) && n > 0) km = n;
-    }
-    confidence = j.confidence || '';
-  }catch(e){ /* JSON이 아니면 인식 실패로 처리 */ }
-  return { km, confidence, reason: km ? '' : '계기판 숫자를 못 읽었어요' };
+// AI에게 사진을 보내 번호판과 누적 주행거리(ODO)를 한 번에 읽어옵니다
+const AI_PHOTO_PROMPT =
+  'This photo is from a Korean rental car company. It may show the car instrument cluster (dashboard) and/or the license plate. ' +
+  'Reply with JSON only, no other text: ' +
+  '{"plates": an array of ALL Korean license plates visible in the photo, exactly as printed like ["105하9585","12가3456"], most prominent first (empty array if none), ' +
+  '"odometer_km": the TOTAL odometer (ODO, cumulative distance) as an integer, or null — ignore trip meters (TRIP A/B), distance-to-empty/fuel range, speed and RPM, ' +
+  '"confidence": "high" or "low"}';
+function parseAiJson(text){
+  try{ return JSON.parse((String(text).match(/\{[\s\S]*\}/) || [text])[0]); }catch(e){ return null; }
 }
-// 사진과 함께 보내기 — "9588 회수"면 계기판 인식 → 사장님 확인 → 회수 처리
+function normalizeAiResult(j){
+  if(!j) return { plates: [], plate: null, km: null, confidence: '', reason: 'AI 응답을 이해하지 못했어요' };
+  let km = null;
+  if(j.odometer_km !== null && j.odometer_km !== undefined){
+    const n = Math.round(Number(String(j.odometer_km).replace(/[^0-9.]/g, '')));
+    if(Number.isFinite(n) && n > 0) km = n;
+  }
+  let plates = [];
+  if(Array.isArray(j.plates)) plates = j.plates;
+  else if(j.plate) plates = [j.plate];
+  plates = plates.filter(Boolean).map(x => String(x).replace(/\s+/g, '')).filter((x, i, a) => a.indexOf(x) === i);
+  const plate = plates[0] || null;
+  return { plates, plate, km, confidence: j.confidence || '',
+           reason: (km || plates.length) ? '' : '사진에서 번호판·주행거리를 못 읽었어요' };
+}
+async function aiHttpPost(url, headers, body, timeoutMs){
+  const http = (typeof nativeHttp === 'function' && typeof isNativeApp === 'function' && isNativeApp()) ? nativeHttp() : null;
+  if(http){
+    const r = await http.request({ method: 'POST', url, headers, data: body, connectTimeout: timeoutMs, readTimeout: timeoutMs });
+    return { status: r.status, data: typeof r.data === 'string' ? JSON.parse(r.data) : r.data };
+  }
+  const ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+  const t = ctl ? setTimeout(()=>ctl.abort(), timeoutMs) : null;
+  try{
+    const r = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body), signal: ctl ? ctl.signal : undefined });
+    return { status: r.status, data: await r.json().catch(()=>null) };
+  }finally{ if(t) clearTimeout(t); }
+}
+async function readPhotoWithAI(dataUrl){
+  const key = getAiKey();
+  if(!key) return { plate: null, km: null, reason: 'nokey' };
+  const b64 = dataUrl.split(',')[1];
+  if(aiProvider(key) === 'claude'){
+    try{
+      const r = await aiHttpPost('https://api.anthropic.com/v1/messages', {
+        'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      }, { model: CLAUDE_MODEL, max_tokens: 200, messages: [{ role: 'user', content: [
+        { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } },
+        { type: 'text', text: AI_PHOTO_PROMPT } ] }] }, 30000);
+      if(r.status < 200 || r.status >= 300){
+        const m = r.data && r.data.error && r.data.error.message;
+        return { plate: null, km: null, reason: r.status === 401 ? 'API 키가 올바르지 않아요' : (m || ('오류 ' + r.status)) };
+      }
+      return normalizeAiResult(parseAiJson(((r.data && r.data.content) || []).map(c => c.text || '').join('')));
+    }catch(e){ return { plate: null, km: null, reason: '연결 실패: ' + (e.message || e) }; }
+  }
+  // Gemini: 되는 모델을 순서대로 시도 (바쁨·없어짐·한도초과면 다음 모델로)
+  let lastReason = '';
+  for(const model of GEMINI_MODELS){
+    try{
+      const r = await aiHttpPost(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+        { 'x-goog-api-key': key, 'content-type': 'application/json' },
+        { contents: [{ parts: [ { inline_data: { mime_type: 'image/jpeg', data: b64 } }, { text: AI_PHOTO_PROMPT } ] }],
+          generationConfig: { responseMimeType: 'application/json', temperature: 0 } }, 25000);
+      if(r.status >= 200 && r.status < 300){
+        const cand = r.data && r.data.candidates && r.data.candidates[0];
+        const text = cand && cand.content ? (cand.content.parts || []).map(p => p.text || '').join('') : '';
+        return normalizeAiResult(parseAiJson(text));
+      }
+      const e = r.data && r.data.error;
+      if(r.status === 400 && e && /API key|API_KEY/i.test(e.message || '')) return { plate: null, km: null, reason: 'API 키가 올바르지 않아요' };
+      if(r.status === 401 || r.status === 403) return { plate: null, km: null, reason: 'API 키 권한이 없어요' };
+      lastReason = r.status === 429 ? '오늘 무료 사용량을 다 썼어요' : r.status === 503 ? 'AI가 바빠요' : ('오류 ' + r.status);
+      // 404(모델 없어짐)·429(한도)·503(바쁨)·500 → 다음 모델 시도
+    }catch(e){ lastReason = (e && e.name === 'AbortError') ? '응답이 너무 늦어요' : ('연결 실패: ' + (e.message || e)); }
+  }
+  return { plate: null, km: null, reason: lastReason || '자동 인식 실패' };
+}
+// 옛 이름 호환 (다른 곳에서 부르던 이름)
+async function readOdometerWithClaude(dataUrl){ return readPhotoWithAI(dataUrl); }
+// AI가 읽은 번호판을 우리 차량과 맞춰봄 (전체 일치 → 뒤 4자리 일치 순)
+function matchVehicleByPlate(plate){
+  if(!plate) return null;
+  const p = String(plate).replace(/\s+/g, '');
+  const all = vehicles.filter(v => v && v.plate);
+  const exact = all.find(v => v.plate.replace(/\s+/g, '') === p);
+  if(exact) return exact;
+  const tail = (p.match(/(\d{4})\D*$/) || [])[1];
+  if(!tail) return null;
+  const hits = all.filter(v => v.plate.endsWith(tail));
+  return hits.length === 1 ? hits[0] : null;
+}
+
+// 사진과 함께 보내기
+//  · "9588 회수" + 계기판 사진 → 주행거리 인식 → 확인 → 회수 처리
+//  · "조완 보험 윤상" (번호 없이) + 차량 사진 → 번호판 인식 → 차량 확인 → 명령 적용
+//  · 글 없이 사진만 → 그냥 사진 메시지
 async function sendChatPhoto(text){
   const { ref, push, db } = window._fb;
   const user = window.CURRENT_USER;
   const photo = _chatPendingPhoto;
   clearChatPhoto();
-  const cmd = text ? parseChatCommand(text) : null;
-  const veh = cmd ? vehicles.find(v => v && v.plate && v.plate.endsWith(cmd.plateToken)) : null;
+  let cmd = text ? parseChatCommand(text) : null;          // 글 맨 앞에 번호가 있으면 명령
+  let veh = cmd ? vehicles.find(v => v && v.plate && v.plate.endsWith(cmd.plateToken)) : null;
+  const needPlate = !!text && !cmd;                        // 번호 없이 명령만 쓴 경우
+  const recallWords = /(^|\s)(회수|ㅎㅅ)(\s|$)/.test(text || '');
+
+  // 사진은 먼저 저장해서, 이후 과정에서 취소해도 사진은 남게 함
   const photoId = await savePhoto(photo, veh ? veh.plate : null);
   await push(ref(db, P('chat')), {
     text: text || '📷 사진', uid: user.uid, email: user.email || '',
     at: new Date().toISOString(), type: 'photo', photoId
   });
   setTimeout(scrollChatToBottom, 50);
-  if(!cmd) return;               // 그냥 사진이면 여기까지
-  if(!veh){                      // 번호가 없는 차량
+  if(!text) return;
+
+  // AI에 한 번만 물어봄 (번호판·주행거리·같이 찍힌 상대차량 번호를 한 번에)
+  let ai = null;
+  if(needPlate || recallWords || cmd){
+    if(getAiKey()){
+      showToast('🤖 사진 읽는 중...');
+      try{ ai = await readPhotoWithAI(photo); }catch(e){ ai = { plate:null, km:null, reason: e.message || '' }; }
+    }else{
+      ai = { plate:null, km:null, reason:'nokey' };
+    }
+  }
+
+  // 사진 속 번호판들을 우리 차량 / 우리 차량 아님(피해차량 등)으로 나눔
+  const seenPlates = (ai && ai.plates) ? ai.plates : [];
+  const ourFromPhoto = seenPlates.map(pl => matchVehicleByPlate(pl)).filter(Boolean);
+  const otherPlates = seenPlates.filter(pl => !matchVehicleByPlate(pl));
+
+  // 번호 없이 보낸 경우: 사진 속 번호판으로 차량 찾기 → 확인받기
+  if(needPlate){
+    const guess = ourFromPhoto[0] || null;
+    let msg;
+    const otherLine = otherPlates.length ? `\n(같이 찍힌 다른 번호판: ${otherPlates.join(', ')} → 메모 끝에 넣어둘게요)` : '';
+    if(guess) msg = `📷 사진 속 우리 차량: ${guess.plate} (${guess.model || ''})${otherLine}\n\n맞으면 [확인], 다른 차량이면 번호 뒷 4자리를 입력하세요.`;
+    else if(otherPlates.length) msg = `📷 읽은 번호판 "${otherPlates.join(', ')}"은(는) 우리 차량이 아니에요.\n\n우리 차량번호 뒷 4자리를 입력하세요. (읽은 번호는 메모 끝에 넣어둘게요)`;
+    else msg = `${ai && ai.reason === 'nokey' ? '🤖 AI 설정(API 키)이 없어서 번호판을 못 읽었어요.' : '⚠️ ' + ((ai && ai.reason) || '번호판을 못 읽었어요')}\n\n차량번호 뒷 4자리를 입력하세요.`;
+    const ans = prompt(`"${text}"\n\n${msg}`, guess ? guess.plate.slice(-4) : '');
+    const tail = String(ans || '').replace(/[^0-9]/g, '').slice(-4);
+    if(!ans || tail.length !== 4){
+      await push(ref(db, P('chat')), { text: '📷 차량을 정하지 않아서 사진만 올렸어요. (명령은 적용 안 됨)',
+        uid: 'system', email: '현황판', at: new Date().toISOString(), type: 'system' });
+      setTimeout(scrollChatToBottom, 50);
+      return;
+    }
+    cmd = parseChatCommand(`${tail} ${text}`);
+    veh = cmd ? vehicles.find(v => v && v.plate && v.plate.endsWith(cmd.plateToken)) : null;
+  }
+  if(!cmd) return;
+  if(!veh){
     await push(ref(db, P('chat')), { text: `❌ 뒷자리 ${cmd.plateToken} 차량을 찾을 수 없어요.`,
       uid: 'system', email: '현황판', at: new Date().toISOString(), type: 'system' });
     return;
   }
   cmd.photoId = photoId;
+  // 우리 차량으로 확정된 차 말고, 같이 찍힌 다른 번호판은 메모 맨 뒤에 기록
+  cmd.extraPlates = otherPlates.filter(pl => pl.replace(/\s+/g,'') !== veh.plate.replace(/\s+/g,''));
+
+  // 회수면 주행거리 확인
   if(cmd.isRecall){
-    showToast('🤖 계기판 읽는 중...');
-    let ai = { km: null, reason: '' };
-    try{ ai = await readOdometerWithClaude(photo); }catch(e){ ai = { km: null, reason: e.message || '' }; }
-    const head = ai.km
-      ? `📷 계기판에서 읽은 누적 주행거리: ${ai.km.toLocaleString()} km${ai.confidence === 'low' ? '  (⚠️ 흐릿해서 확실하지 않아요)' : ''}\n\n맞으면 [확인], 다르면 숫자를 고쳐서 [확인]하세요.`
-      : `${ai.reason === 'nokey' ? '🤖 계기판 인식 설정(API 키)이 없어서 자동으로 못 읽었어요.' : '⚠️ ' + (ai.reason || '자동 인식 실패')}\n\n종료 주행거리(km)를 직접 입력하세요. (모르면 빈칸)`;
-    const ans = prompt(`${veh.plate} 회수\n\n${head}`, ai.km ? String(ai.km) : '');
+    const km = ai ? ai.km : null;
+    const head = km
+      ? `📷 계기판에서 읽은 누적 주행거리: ${km.toLocaleString()} km${ai.confidence === 'low' ? '  (⚠️ 흐릿해서 확실하지 않아요)' : ''}\n\n맞으면 [확인], 다르면 숫자를 고쳐서 [확인]하세요.`
+      : `${ai && ai.reason === 'nokey' ? '🤖 AI 설정(API 키)이 없어서 자동으로 못 읽었어요.' : '⚠️ ' + ((ai && ai.reason) || '주행거리를 못 읽었어요')}\n\n종료 주행거리(km)를 직접 입력하세요. (모르면 빈칸)`;
+    const ans = prompt(`${veh.plate} 회수\n\n${head}`, km ? String(km) : '');
     const num = ans == null ? NaN : Number(String(ans).replace(/[^0-9]/g, ''));
     cmd.returnKm = (Number.isFinite(num) && num > 0) ? num : null;
-    cmd.aiKm = ai.km;
+    cmd.aiKm = km;
   }
   let result;
   try{ result = await applyChatCommand(cmd); }
   catch(err){ console.error(err); result = { ok:false, msg:'⚠️ 처리 중 오류가 발생했어요: ' + (err.message || err) }; }
-  if(!cmd.isRecall && result.ok){
+  if(!cmd.isRecall && result.ok && !result.query){
     // 회수가 아니어도 차량 이력에 사진은 남겨둠
     try{
       const now = new Date();
@@ -3057,6 +3226,98 @@ async function deleteChatMessage(msgId){
   }
 }
 
+
+// ── 메신저: 검색 / 백업 / 2년 지난 대화 자동 정리 ─────────────────
+const CHAT_RETENTION_DAYS = 730;   // 2년
+function chatCutoffISO(){ return new Date(Date.now() - CHAT_RETENTION_DAYS*86400000).toISOString(); }
+async function fetchAllChat(){
+  const { ref, get, db } = window._fb;
+  const snap = await get(ref(db, P('chat')));
+  const v = snap.exists() ? (snap.val() || {}) : {};
+  return Object.entries(v).filter(([,m]) => m && m.text)
+    .sort((a,b) => (a[1].at || '').localeCompare(b[1].at || ''));
+}
+function toggleChatSearch(){
+  const box = document.getElementById('chatSearchBox');
+  const show = box.style.display === 'none';
+  box.style.display = show ? 'block' : 'none';
+  if(show) setTimeout(()=>document.getElementById('chatSearchInput').focus(), 50);
+}
+function fmtChatDateTime(iso){ const d = new Date(iso); return isNaN(d) ? '' : `${d.getFullYear()}.${pad2(d.getMonth()+1)}.${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`; }
+async function runChatSearch(){
+  const q = (document.getElementById('chatSearchInput').value || '').trim();
+  const out = document.getElementById('chatSearchResult');
+  if(!q){ out.innerHTML = ''; return; }
+  out.innerHTML = '<div class="empty">찾는 중...</div>';
+  try{
+    const all = await fetchAllChat();
+    const low = q.toLowerCase();
+    const hits = all.filter(([,m]) => String(m.text).toLowerCase().includes(low)).reverse().slice(0, 100);
+    if(!hits.length){ out.innerHTML = `<div class="empty">"${escapeHtml(q)}" 검색 결과가 없어요.</div>`; return; }
+    const esc = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    out.innerHTML = `<div style="font-size:11px;color:var(--sub);margin-bottom:4px;">${hits.length}건${hits.length===100?' (최근 100건만 표시)':''}</div>` +
+      hits.map(([id,m]) => {
+        const who = (m.uid === 'system') ? '현황판' : (m.email || '');
+        const body = escapeHtml(m.text).replace(new RegExp(escapeHtml(esc), 'gi'), x => `<mark>${x}</mark>`);
+        const pic = (m.type === 'photo' && m.photoId) ? ` <a href="javascript:void(0)" onclick="openPhotoViewer('${escapeHtml(m.photoId)}')">📷</a>` : '';
+        return `<div class="chat-sr"><div class="m">${escapeHtml(fmtChatDateTime(m.at))} · ${escapeHtml(who)}</div>${body}${pic}</div>`;
+      }).join('');
+  }catch(e){ console.error(e); out.innerHTML = '<div class="empty">검색 실패 - 다시 시도해주세요</div>'; }
+}
+// 대화 전체를 글 파일(.txt)로 내보내기 — 사진은 [사진]으로 표시
+async function backupChat(){
+  try{
+    showToast('백업 파일 만드는 중...');
+    const all = await fetchAllChat();
+    if(!all.length){ showToast('백업할 대화가 없어요'); return; }
+    const title = (document.title || '현황판');
+    const lines = [`${title} 메신저 백업 · ${fmtChatDateTime(new Date().toISOString())} · ${all.length}건`, ''];
+    let lastDay = '';
+    all.forEach(([,m]) => {
+      const day = (m.at || '').slice(0, 10);
+      if(day !== lastDay){ lines.push('', `──── ${day} ────`); lastDay = day; }
+      const who = (m.uid === 'system') ? '[현황판]' : (m.email || '알 수 없음');
+      const tm = fmtChatDateTime(m.at).slice(11);
+      const body = String(m.text).replace(/\n/g, '\n        ');
+      lines.push(`${tm} ${who}: ${m.type === 'photo' ? '[사진] ' : ''}${body}`);
+    });
+    const text = lines.join('\n');
+    const d = new Date(); const fname = `메신저백업_${d.getFullYear()}${pad2(d.getMonth()+1)}${pad2(d.getDate())}.txt`;
+    const Fs = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Filesystem;
+    const Share = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Share;
+    if(isNativeApp() && Fs && Share){
+      // 앱에서는 파일로 저장한 뒤 공유창(카톡·드라이브·메일 등)으로 보냄
+      const w = await Fs.writeFile({ path: fname, data: text, directory: 'CACHE', encoding: 'utf8' });
+      await Share.share({ title: fname, files: [w.uri] });
+    }else{
+      const blob = new Blob(['\ufeff' + text], { type: 'text/plain;charset=utf-8' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fname;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 3000);
+    }
+    showToast(`${all.length}건 백업했어요`);
+  }catch(e){ console.error(e); showToast('백업 실패 - 다시 시도해주세요'); }
+}
+// 관리자 폰에서 하루 한 번: 2년 지난 대화와 사진을 정리
+async function pruneOldChat(){
+  if(window.COMPANY_ROLE !== 'owner') return;
+  const k = 'fleetChatPrune_' + window.COMPANY_ID;
+  if(localStorage.getItem(k) === todayStr()) return;
+  try{
+    const { ref, get, update, query, orderByChild, endAt, db } = window._fb;
+    const cutoff = chatCutoffISO();
+    const ups = {}, pups = {};
+    const cs = await get(query(ref(db, P('chat')), orderByChild('at'), endAt(cutoff)));
+    if(cs.exists()) Object.entries(cs.val() || {}).forEach(([id,m]) => { if(m && (m.at || '') <= cutoff) ups[id] = null; });
+    const ps = await get(query(ref(db, P('photos')), orderByChild('at'), endAt(cutoff)));
+    if(ps.exists()) Object.entries(ps.val() || {}).forEach(([id,m]) => { if(m && (m.at || '') <= cutoff) pups[id] = null; });
+    if(Object.keys(ups).length) await update(ref(db, P('chat')), ups);
+    if(Object.keys(pups).length) await update(ref(db, P('photos')), pups);
+    localStorage.setItem(k, todayStr());
+    if(Object.keys(ups).length || Object.keys(pups).length) console.log(`2년 지난 대화 ${Object.keys(ups).length}건, 사진 ${Object.keys(pups).length}장 정리`);
+  }catch(e){ console.warn('오래된 대화 정리 실패(무시):', e && e.code); }
+}
+
 function formatHistoryTime(ts){
   const d = new Date(ts);
   const days=['일','월','화','수','목','금','토'];
@@ -3139,12 +3400,19 @@ function loadKakaoMaps(){
       reject(new Error('카카오맵 키가 설정되지 않았어요 (APP_CONFIG.kakaoMapKey)'));
       return;
     }
+    // 10초 안에 안 뜨면 포기 (도메인 미등록·네트워크 문제로 무한정 기다리던 문제 방지)
+    const timer = setTimeout(()=> reject(new Error('카카오맵 응답 없음')), 10000);
     const script = document.createElement('script');
-    script.src = `//dapi.kakao.com/v2/maps/sdk.js?appkey=${key}&autoload=false&libraries=services`;
-    script.onload = ()=> window.kakao.maps.load(()=> resolve(window.kakao));
-    script.onerror = ()=> reject(new Error('카카오맵 스크립트 로딩 실패'));
+    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${key}&autoload=false&libraries=services`;
+    script.onload = ()=>{
+      try{ window.kakao.maps.load(()=>{ clearTimeout(timer); resolve(window.kakao); }); }
+      catch(e){ clearTimeout(timer); reject(e); }
+    };
+    script.onerror = ()=>{ clearTimeout(timer); reject(new Error('카카오맵 스크립트 로딩 실패')); };
     document.head.appendChild(script);
   });
+  // 실패하면 다음에 창을 열 때 다시 시도할 수 있게
+  _kakaoLoadPromise.catch(()=>{ _kakaoLoadPromise = null; });
   return _kakaoLoadPromise;
 }
 function locTimeAgo(iso){
@@ -3155,10 +3423,14 @@ function locTimeAgo(iso){
   if(diffMin < 60) return diffMin + '분 전';
   return Math.round(diffMin / 60) + '시간 전';
 }
+// 관리자는 항상 모든 직원 위치를 볼 수 있고, 직원은 본인이 위치 공유에 동의해야 동료 위치가 보입니다.
+function canViewOthersLoc(){ return window.COMPANY_ROLE === 'owner' || hasLocConsent(); }
 function locActiveEntries(){
   // 10분 넘게 갱신이 없어도 목록에서 빼지 않고 '마지막 위치'로 표시합니다 (stale=true).
   const myUid = window.CURRENT_USER && window.CURRENT_USER.uid;
+  const viewAll = canViewOthersLoc();
   return Object.entries(_locations || {})
+    .filter(([uid]) => viewAll || uid === myUid)
     .filter(([uid, v]) => v && typeof v === 'object' && typeof v.lat === 'number' && typeof v.lng === 'number')
     .map(([uid, v]) => ({ uid, ...v, isMe: uid === myUid,
       stale: !(Date.now() - new Date(v.at).getTime() <= LOC_STALE_MS) }));
@@ -3183,7 +3455,7 @@ async function ensureLocMap(){
   }catch(e){
     console.error(e);
     const container = document.getElementById('locMap');
-    if(container) container.innerHTML = `<div class="empty" style="padding:20px;">지도를 불러올 수 없어요.<br>(카카오맵 키 설정 필요)</div>`;
+    if(container) container.innerHTML = `<div class="empty" style="padding:20px;">지도를 불러올 수 없어요.<br><span style="font-size:11px;">(카카오 개발자 사이트에 이 주소(${escapeHtml(location.origin)})가 등록돼 있어야 해요)</span><br>아래 목록으로 위치를 확인하세요.</div>`;
     return null;
   }
 }
@@ -3222,6 +3494,10 @@ function renderLocList(){
   const el = document.getElementById('locList');
   if(!el) return;
   const entries = locActiveEntries().sort((a,b)=> a.isMe ? -1 : (b.isMe ? 1 : 0));
+  if(!canViewOthersLoc()){
+    el.innerHTML = `<div class="empty">내 위치 공유에 동의하면 동료들의 위치를 볼 수 있어요.<br><span style="font-size:11px;">(관리자는 동의 없이도 볼 수 있어요)</span></div>`;
+    return;
+  }
   if(entries.length === 0){
     el.innerHTML = `<div class="empty">지금 위치를 공유 중인 직원이 없어요.</div>`;
     return;
@@ -3246,7 +3522,7 @@ function startLocSync(){
   onValue(ref(db, P('locations')), (snap)=>{
     _locations = snap.exists() ? (snap.val() || {}) : {};
     updateLocBadge();
-    if(_locModalOpen){ renderLocMarkers(); renderLocList(); }
+    if(_locModalOpen){ renderLocList(); renderLocMarkers(); }
   }, (err)=> console.error('위치 수신 실패:', err));
 }
 // 업무시간 자동 스케줄 + 동의 여부 관리
@@ -3316,7 +3592,7 @@ function agreeLocationConsent(){
   localStorage.setItem(locConsentKey(), 'v2:' + locHoursLabel());
   localStorage.removeItem(locOffOverrideKey());
   refreshLocConsentUI();
-  renderLocMarkers(); renderLocList();
+  renderLocList(); renderLocMarkers();
   if(isWithinWorkHours()) startLocationSharing(true);
   showToast('동의되었어요 · 업무시간엔 자동으로 공유돼요');
 }
@@ -3324,7 +3600,7 @@ function locStatusMessage(){
   if(_locSharing) return _locWatchMode === 'background'
     ? `🟢 공유 중 · 앱을 닫아도 ${locHoursEndLabel()}까지 계속 공유돼요 (상단 알림 표시)`
     : '🟢 지금 동료들에게 공유되고 있어요 (앱을 닫으면 멈춰요)';
-  if(!hasLocConsent()) return '👀 동료 위치만 보는 중 · 내 위치는 공유되지 않아요 (위에서 동의하면 공유 시간에 자동 공유)';
+  if(!hasLocConsent()) return window.COMPANY_ROLE === 'owner' ? '👑 관리자 보기 · 내 위치는 공유되지 않아요 (위에서 동의하면 공유 시간에 자동 공유)' : '내 위치 공유에 동의하면 동료 위치를 함께 볼 수 있어요';
   if(_locLastError) return '⚠️ 위치 권한을 확인해주세요 (브라우저/폰 설정에서 위치 접근 허용 필요)';
   if(isTurnedOffToday()) return `오늘은 직접 꺼두셨어요 · 다음 ${_locHours.start}부터 다시 자동으로 켜져요`;
   if(!isWithinWorkHours()) return `지금은 공유 시간(${locHoursLabel()})이 아니라서 꺼져있어요`;
@@ -3518,11 +3794,17 @@ function startLocationSharing(silent){
           { enableHighAccuracy: false, timeout: 15000 },
           (pos, err)=>{
             if(err || !pos){
-              console.warn('위치 권한/수신 실패:', err);
+              console.warn('위치 수신 문제:', err);
               _locLastError = err || new Error('no-position');
-              _locPermDenied = true;
-              if(!silent) showToast('위치 권한을 허용해주세요');
-              stopLocationSharing();
+              // 권한 문제일 때만 끄고, 신호 약함·시간 초과는 계속 기다림
+              const msg = String((err && (err.message || err.code)) || '').toLowerCase();
+              if(/denied|permission|not authorized|disabled/.test(msg)){
+                _locPermDenied = true;
+                if(!silent) showToast('위치 권한을 허용해주세요');
+                stopLocationSharing();
+              }else{
+                setLocToggleBtnUI();
+              }
               return;
             }
             _locLastError = null; _locSharing = true; setLocToggleBtnUI(); writeMyLocation(pos);
@@ -3549,13 +3831,19 @@ function startLocationSharing(silent){
   _locWatchId = navigator.geolocation.watchPosition(
     (pos)=>{ _locLastError = null; _locSharing = true; setLocToggleBtnUI(); writeMyLocation(pos); },
     (err)=>{
-      console.warn('위치 권한/수신 실패:', err);
+      console.warn('위치 수신 문제:', err);
       _locLastError = err;
-      if(err && err.code === 1) _locPermDenied = true; // 1 = 사용자가 권한 거부
-      if(!silent) showToast('위치 권한을 허용해주세요');
-      stopLocationSharing();
+      // 권한 거부(1)일 때만 끕니다. 신호 약함(2)·시간 초과(3)는 휴대폰이 계속 다시 시도하므로
+      // 끄지 않고 기다립니다. (예전엔 실내·새로고침 직후 15초 안에 못 잡으면 공유가 꺼지고 위치까지 지워졌음)
+      if(err && err.code === 1){
+        _locPermDenied = true;
+        if(!silent) showToast('위치 권한을 허용해주세요');
+        stopLocationSharing();
+      }else{
+        setLocToggleBtnUI();
+      }
     },
-    { enableHighAccuracy: false, maximumAge: 20000, timeout: 15000 }
+    { enableHighAccuracy: false, maximumAge: 20000, timeout: 30000 }
   );
   localStorage.removeItem(locOffOverrideKey());
 }
@@ -3598,7 +3886,7 @@ function openLocModal(){
   pushModalHistoryState('locModalBg');
   refreshLocConsentUI();
   setLocToggleBtnUI();
-  setTimeout(async ()=>{ await renderLocMarkers(); renderLocList(); }, 30);
+  setTimeout(()=>{ renderLocList(); renderLocMarkers(); }, 30); // 목록 먼저 (지도가 늦거나 실패해도 목록은 보이게)
 }
 function closeLocModal(){
   _locModalOpen = false;
@@ -3631,6 +3919,8 @@ async function startApp(){
   renderSchedBanner();
   startScheduleSync();
   startChatSync();
+  startAiKeySync();
+  setTimeout(pruneOldChat, 8000); // 앱 켜지고 조금 뒤에 조용히 정리
   startLocSync();
   resumeLocationShareIfNeeded();
   await syncAllReturnSchedules();
