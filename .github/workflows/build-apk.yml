@@ -25,27 +25,27 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: 패키지 설치
-        working-directory: status-board-app
+        working-directory: status-board-app/status-board-app
         run: npm install
 
       - name: 안드로이드 프로젝트 만들기
-        working-directory: status-board-app
+        working-directory: status-board-app/status-board-app
         run: npx cap add android
 
       - name: 권한 설정
-        working-directory: status-board-app
+        working-directory: status-board-app/status-board-app
         run: node scripts/setup-android.js
 
       - name: 앱 아이콘 생성
-        working-directory: status-board-app
+        working-directory: status-board-app/status-board-app
         run: npx @capacitor/assets generate --android
 
       - name: 화면 파일 반영
-        working-directory: status-board-app
+        working-directory: status-board-app/status-board-app
         run: npx cap sync android
 
       - name: APK 빌드
-        working-directory: status-board-app/android
+        working-directory: status-board-app/status-board-app/android
         run: |
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
@@ -54,5 +54,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: status-board-apk
-          path: status-board-app/android/app/build/outputs/apk/debug/*.apk
+          path: status-board-app/status-board-app/android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
