@@ -95,7 +95,19 @@
   FleetAuth.init({
     fb: window._fb,
     auth: window._auth,
-    onReady: function(){ startApp(); }
+    onReady: async function(info){
+      // 업체명을 제목에 표시 (예: "🚗 OOO렌트카 현황판")
+      try{
+        const snap = await get(ref(db, 'companies/' + info.companyId + '/profile/name'));
+        const name = snap.exists() ? String(snap.val() || '').trim() : '';
+        if(name){
+          document.title = name + ' 현황판';
+          const t = document.getElementById('appTitle');
+          if(t) t.textContent = '🚗 ' + name + ' 현황판';
+        }
+      }catch(e){ /* 이름을 못 불러와도 앱은 그대로 동작 */ }
+      startApp();
+    }
   });
 </script>
 <style>
@@ -140,6 +152,10 @@
     .history-btn{padding:6px 7px;}
     .search-row select{max-width:86px;padding:7px 6px !important;font-size:12px !important;}
     .search-row input{min-width:0;font-size:13px;}
+    /* 채팅 입력줄: 사진 버튼 2개 + 입력칸 + 전송이 한 줄에 들어가게 */
+    #chatModalBg .modal-footer-inflow button[title]{width:38px !important;font-size:17px !important;}
+    #chatSendBtn{width:50px !important;font-size:13px !important;}
+    #chatInput{min-width:0;font-size:13px;padding:11px 8px !important;}
   }
   @media (min-width:700px){                                    /* 태블릿·폴드 펼침 */
     .header-actions{grid-template-columns:repeat(auto-fit,minmax(110px,1fr));}
@@ -599,7 +615,7 @@
     <button class="link-btn telegram" onclick="openChatModal()" style="position:relative;">💬 메신저<span class="chat-badge" id="chatBadge" style="display:none;top:-6px;right:-6px;">0</span></button>
     <button class="link-btn" style="color:var(--pink,#f472b6);border:none;background:var(--panel2);position:relative;" onclick="openLocModal()">📍 동료위치보기<span class="chat-badge" id="locBadge" style="display:none;top:-6px;right:-6px;">0</span></button>
     <a class="link-btn kakao" href="intent://#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=com.kakao.talk;S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.kakao.talk;end">💬 카카오톡</a>
-    <a class="link-btn app" href="intent://#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=com.Rentcar.heaven819.gcmpush;S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.Rentcar.heaven819.gcmpush;end">🚗 팡팡렌트카</a>
+    <button class="link-btn" id="quickAppBtn" onclick="openQuickApp()">⭐ 자주 쓰는 앱</button>
     <button class="link-btn" style="color:var(--purple);border:none;background:var(--panel2);" onclick="openSchedModal()">📅 일정</button>
     <a class="link-btn" style="color:var(--amber);" href="payment.html">💳 결제일 알림</a>
   </div>
@@ -927,6 +943,9 @@
     <div class="sub">이 업체에 속한 직원 목록입니다. 새 직원은 초대코드로 참여시킬 수 있어요.</div>
     <div id="staffList"><div class="empty">불러오는 중...</div></div>
 
+    <div id="quickAppSetupRow" style="display:none;margin-top:14px;">
+      <button class="btn-cancel" style="width:100%;font-size:13px;" onclick="setupQuickApp()">⭐ 자주 쓰는 앱 연결하기 (화면 위 버튼)</button>
+    </div>
     <div id="staffInviteBox" style="display:none;margin-top:16px;padding-top:14px;border-top:1px solid var(--line);">
       <label style="font-size:13px;color:var(--sub);">새 직원 초대</label>
       <div style="font-size:12px;color:var(--sub);margin:6px 0 10px;line-height:1.5;">
@@ -966,18 +985,26 @@
         <div id="chatSearchResult" style="margin-top:8px;"></div>
       </div>
       <div class="sub">최근 300개를 보여줘요 · 대화는 2년간 보관 (예전 대화는 🔍검색·💾백업)</div>
+      <div id="chatHistoryBanner" style="display:none;align-items:center;gap:8px;background:rgba(245,166,35,.12);border:1px solid var(--amber);border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:12px;">
+        <span style="flex:1;">📜 예전 대화를 보고 있어요</span>
+        <button class="chat-tool-btn" onclick="backToRecentChat()">최근 대화로 ›</button>
+      </div>
       <div id="chatList"><div class="empty">불러오는 중...</div></div>
     </div>
     <div class="modal-footer-inflow">
-      <div id="chatPhotoPreview" style="display:none;align-items:center;gap:10px;margin-bottom:8px;padding:8px;background:var(--panel2);border-radius:10px;">
-        <img id="chatPhotoThumb" style="width:56px;height:56px;object-fit:cover;border-radius:8px;">
-        <div style="flex:1;font-size:12px;color:var(--sub);line-height:1.5;">사진 첨부됨 · 번호 없이 "조완 보험 윤상"만 써도<br>사진 속 번호판을 읽어서 처리해요 (회수는 주행거리까지)</div>
-        <button onclick="clearChatPhoto()" style="background:none;border:none;color:var(--sub);font-size:18px;padding:4px 8px;">✕</button>
+      <div id="chatPhotoPreview" style="display:none;margin-bottom:8px;padding:8px;background:var(--panel2);border-radius:10px;">
+        <div id="chatPhotoThumbs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;"></div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="flex:1;font-size:12px;color:var(--sub);line-height:1.5;">번호 없이 "조완 보험 윤상"만 써도 사진 속<br>번호판을 읽어서 처리해요 (피해차량 번호는 메모 뒤에)</div>
+          <button onclick="clearChatPhoto()" style="background:none;border:none;color:var(--sub);font-size:18px;padding:4px 8px;">✕</button>
+        </div>
       </div>
-      <input type="file" id="chatPhotoInput" accept="image/*" style="display:none;" onchange="onChatPhotoPicked(this)">
+      <input type="file" id="chatCameraInput" accept="image/*" capture="environment" style="display:none;" onchange="onChatPhotoPicked(this)">
+      <input type="file" id="chatPhotoInput" accept="image/*" multiple style="display:none;" onchange="onChatPhotoPicked(this)">
       <div style="display:flex;gap:8px;margin-bottom:8px;">
-        <button class="btn-cancel" id="chatPhotoBtn" title="사진 첨부" style="width:48px;padding:0;font-size:20px;border-radius:10px;" onclick="document.getElementById('chatPhotoInput').click()">📷</button>
-        <input id="chatInput" placeholder="메시지를 입력하세요" maxlength="2000"
+        <button class="btn-cancel" title="카메라로 찍기" style="width:44px;padding:0;font-size:19px;border-radius:10px;" onclick="document.getElementById('chatCameraInput').click()">📷</button>
+        <button class="btn-cancel" title="앨범에서 고르기(여러 장)" style="width:44px;padding:0;font-size:19px;border-radius:10px;" onclick="document.getElementById('chatPhotoInput').click()">🖼️</button>
+        <input id="chatInput" placeholder="메시지를 입력하세요" maxlength="2000" style="min-width:0;"
                style="flex:1;padding:13px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:14px;"
                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChatMessage();}">
         <button class="btn-save" id="chatSendBtn" style="width:64px;padding:0;font-size:14px;font-weight:700;border-radius:10px;" onclick="sendChatMessage()">전송</button>
@@ -2406,7 +2433,10 @@ function renderStaffList(members){
     const canDelete = isOwner && !isMe;
     return `
     <div class="sched-list-row">
-      <div class="t">${escapeHtml(m.email||'(이메일 없음)')} ${roleTag}${isMe?' <span style="color:var(--sub);font-size:11px;">(나)</span>':''}</div>
+      <div class="t">${escapeHtml(m.name || '(이름 없음)')} ${roleTag}${isMe?' <span style="color:var(--sub);font-size:11px;">(나)</span>':''}
+        <div class="m" style="font-size:11px;color:var(--sub);">${escapeHtml(m.email||'(이메일 없음)')}</div>
+      </div>
+      ${(isOwner || isMe)?`<button class="del" style="color:var(--blue);" onclick="setMemberName('${uid}', ${JSON.stringify(m.name||'')})">✏️ 이름</button>`:''}
       ${canDelete?`<button class="del" onclick="removeStaffMember('${uid}','${escapeHtml(m.email||'')}')">✕ 내보내기</button>`:''}
     </div>`;
   }).join('');
@@ -2419,6 +2449,8 @@ async function openStaffModal(){
   // 초대코드 영역은 관리자에게만 보여줌
   const inviteBox = document.getElementById('staffInviteBox');
   if(inviteBox) inviteBox.style.display = (window.COMPANY_ROLE==='owner') ? 'block' : 'none';
+  const qrow = document.getElementById('quickAppSetupRow');
+  if(qrow) qrow.style.display = (window.COMPANY_ROLE==='owner') ? 'block' : 'none';
   const { ref, get, db } = window._fb;
   try{
     const snap = await get(ref(db, P('members')));
@@ -2476,6 +2508,76 @@ async function removeStaffMember(uid, email){
     showToast('내보내기 실패 - 다시 시도해주세요');
   }
 }
+// ── 자주 쓰는 앱 (업체가 직접 연결) ───────────────────────────
+// 관리자가 주소(홈페이지·업무 사이트·플레이스토어 등)를 한 번 넣으면 전 직원 버튼에 적용됩니다.
+let _quickApp = null;
+function startQuickAppSync(){
+  const { ref, onValue, db } = window._fb;
+  onValue(ref(db, P('quickApp')), (snap)=>{
+    _quickApp = snap.exists() ? snap.val() : null;
+    const b = document.getElementById('quickAppBtn');
+    if(b) b.textContent = (_quickApp && _quickApp.label) ? ('⭐ ' + _quickApp.label) : '⭐ 자주 쓰는 앱';
+  }, (err)=> console.warn('자주쓰는앱 수신 실패:', err && err.code));
+}
+function openQuickApp(){
+  if(_quickApp && _quickApp.url){ window.open(_quickApp.url, '_blank', 'noopener'); return; }
+  if(window.COMPANY_ROLE === 'owner') setupQuickApp();
+  else showToast('관리자가 아직 연결하지 않았어요');
+}
+async function setupQuickApp(){
+  if(window.COMPANY_ROLE !== 'owner'){ showToast('관리자만 바꿀 수 있어요'); return; }
+  const label = prompt('버튼에 표시할 이름을 적어주세요. (예: 팡팡렌트카, 보험사, 카카오내비)\n지우려면 빈칸으로 확인', (_quickApp && _quickApp.label) || '');
+  if(label === null) return;
+  if(!label.trim()){
+    try{ const { ref, remove, db } = window._fb; await remove(ref(db, P('quickApp'))); showToast('연결을 지웠어요'); }
+    catch(e){ showToast('저장 실패'); }
+    return;
+  }
+  const url = prompt('열 주소를 붙여넣으세요.\n· 홈페이지: https://...\n· 안드로이드 앱: 플레이스토어 주소도 됩니다', (_quickApp && _quickApp.url) || 'https://');
+  if(url === null) return;
+  const u = url.trim();
+  if(!/^https?:\/\//i.test(u)){ showToast('https:// 로 시작하는 주소를 넣어주세요'); return; }
+  try{
+    const { ref, set, db } = window._fb;
+    await set(ref(db, P('quickApp')), { label: label.trim().slice(0, 12), url: u, updatedAt: new Date().toISOString() });
+    showToast('저장했어요 · 모든 직원 화면에 적용돼요');
+  }catch(e){ console.error(e); showToast('저장 실패 - 관리자 권한을 확인해주세요'); }
+}
+
+// ── 직원 이름(표시용) ─────────────────────────────────────────
+// 이메일만 보면 누군지 모르니, 직원마다 이름을 붙여서 보여줍니다.
+let _members = {};
+function memberLabel(uid, fallbackEmail){
+  const m = _members[uid];
+  if(m && m.name) return m.name;
+  const email = (m && m.email) || fallbackEmail || '';
+  return email || '알 수 없음';
+}
+function startMembersSync(){
+  const { ref, onValue, db } = window._fb;
+  onValue(ref(db, P('members')), (snap)=>{
+    _members = snap.exists() ? (snap.val() || {}) : {};
+    if(_chatModalOpen) renderChatList();
+    if(_locModalOpen) renderLocList();
+  }, (err)=> console.warn('직원 목록 수신 실패:', err && err.code));
+}
+async function setMemberName(uid, currentName){
+  const isOwner = window.COMPANY_ROLE === 'owner';
+  const isMe = uid === (window.CURRENT_USER && window.CURRENT_USER.uid);
+  if(!isOwner && !isMe){ showToast('본인 이름만 바꿀 수 있어요'); return; }
+  const v = prompt('메신저·위치에 표시할 이름을 입력하세요. (예: 나용봉, 사장님, 김기사)', currentName || '');
+  if(v === null) return;
+  const name = v.trim().slice(0, 20);
+  try{
+    const { ref, update, db } = window._fb;
+    await update(ref(db, P('members/' + uid)), { name: name || null });
+    showToast(name ? '이름을 저장했어요' : '이름을 지웠어요');
+    const { get } = window._fb;
+    const snap = await get(ref(db, P('members')));
+    renderStaffList(snap.exists() ? snap.val() : {});
+  }catch(e){ console.error(e); showToast('저장 실패 - 권한을 확인해주세요'); }
+}
+
 // ── 직원 채팅 ────────────────────────────────────────────────
 // 업체별 단톡방 1개. /companies/{업체ID}/chat 아래에 메시지가 쌓입니다.
 // 지금은 글만 가능하고, 나중에 사진을 붙일 수 있게 type 필드를 미리 둡니다.
@@ -2523,20 +2625,22 @@ function renderChatList(){
     // 현황판이 자동으로 남긴 결과 메시지
     if(m.type === 'system' || m.uid === 'system'){
       return sep + `
-        <div class="chat-msg system">
+        <div class="chat-msg system" data-msgid="${escapeHtml(id)}">
           <div class="bubble sysbubble">${escapeHtml(m.text)}</div>
         </div>`;
     }
     const mine = m.uid === myUid;
     // 내 메시지이거나 관리자면 삭제 가능
     const canDel = mine || isOwner;
-    const who = mine ? '나' : (m.email || '알 수 없음');
-    const photoHtml = (m.type === 'photo' && m.photoId)
-      ? `<img data-photo="${escapeHtml(m.photoId)}" alt="사진" onclick="openPhotoViewer('${escapeHtml(m.photoId)}')" style="display:block;width:180px;max-width:100%;min-height:60px;border-radius:8px;margin-bottom:${m.text && m.text!=='📷 사진'?'6px':'0'};background:var(--panel);cursor:pointer;">`
+    const who = mine ? '나' : memberLabel(m.uid, m.email);
+    const ids = (m.type === 'photo') ? (m.photoIds || (m.photoId ? [m.photoId] : [])) : [];
+    const photoHtml = ids.length
+      ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:${/^📷 사진( \d+장)?$/.test(m.text||'') ? '0' : '6px'};">` +
+        ids.map(id => `<img data-photo="${escapeHtml(id)}" alt="사진" onclick="openPhotoViewer('${escapeHtml(id)}')" style="display:block;width:${ids.length>1?'88px':'180px'};height:${ids.length>1?'88px':'auto'};object-fit:cover;max-width:100%;min-height:60px;border-radius:8px;background:var(--panel);cursor:pointer;">`).join('') + '</div>'
       : '';
-    const textHtml = (m.type === 'photo' && m.text === '📷 사진') ? '' : escapeHtml(m.text);
+    const textHtml = (m.type === 'photo' && /^📷 사진( \d+장)?$/.test(m.text || '')) ? '' : escapeHtml(m.text);
     return sep + `
-      <div class="chat-msg${mine?' mine':''}">
+      <div class="chat-msg${mine?' mine':''}" data-msgid="${escapeHtml(id)}">
         <div class="meta">${escapeHtml(who)} · ${escapeHtml(chatTimeLabel(m.at))}</div>
         <div class="bubble">${photoHtml}${textHtml}</div>
         ${canDel?`<button class="del-msg" onclick="deleteChatMessage('${escapeHtml(id)}')">삭제</button>`:''}
@@ -2566,8 +2670,8 @@ function updateChatBadge(){
   }
 }
 // 실시간 수신 시작 (앱 시작 시 1회)
-function startChatSync(){
-  if(_chatStarted) return;
+function startChatSync(force){
+  if(_chatStarted && !force) return;
   _chatStarted = true;
   const { ref, onValue, get, db } = window._fb;
   // 내가 마지막으로 읽은 시각 먼저 불러오기
@@ -2579,6 +2683,7 @@ function startChatSync(){
   }
   const { query, orderByKey, limitToLast } = window._fb;
   onValue(query(ref(db, P('chat')), orderByKey(), limitToLast(CHAT_KEEP)), (snap)=>{
+    if(_chatHistoryMode) return;   // 예전 대화를 보는 중에는 화면을 바꾸지 않음
     _chatMessages = snap.exists() ? (snap.val() || {}) : {};
     if(_chatModalOpen){
       renderChatList();
@@ -2618,6 +2723,7 @@ function closeChatModal(){
 // 텔레그램 봇처럼, 채팅창에 "9585 보험 선명 쏘나타" 라고 치면
 // 현황판 차량 정보가 실제로 바뀝니다. 명령이 아니면 그냥 대화로 저장됩니다.
 const CHAT_TYPE_KEYWORDS = ['보험', '서비스', '일반', LONG_BRANCH];
+const TYPE_KEYWORDS_FOR_CHAT = CHAT_TYPE_KEYWORDS;
 const CHAT_STATUS_KEYWORDS = {
   '준비중':'준비중', '준비':'준비중', '대기':'대기', '대기중':'대기', '운행중':'운행중', '운행':'운행중'
 };
@@ -2761,6 +2867,10 @@ async function applyChatCommand(cmd){
       if(cmd.newStatus!=='운행중') v.startDate=null;
     }
     if(cmd.note) v.note=cmd.note;
+    // "9738 차고지"처럼 차고지로 들어왔다고만 쓰면 상태를 대기로 바꿔줍니다
+    if(!cmd.newStatus && !cmd.typeToken && cmd.note && /차고지|입고|들어옴/.test(cmd.note)){
+      v.status = '대기'; v.startDate = null;
+    }
     // 사진에 같이 찍힌 '우리 차량이 아닌 번호판'(피해차량 등)은 메모 맨 뒤에 붙입니다
     if(cmd.extraPlates && cmd.extraPlates.length){
       const base = (v.note || '').trim();
@@ -2827,7 +2937,8 @@ const CLAUDE_MODEL = 'claude-sonnet-5';
 // (구글은 모델 이름이 자주 바뀌고, 바쁠 땐 "잠시 후 다시" 오류를 주기 때문에 여러 개를 준비)
 const GEMINI_MODELS = ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-flash-lite-latest', 'gemini-3.6-flash', 'gemini-flash-latest'];
 const PHOTO_MAX_B64 = 550000;   // DB 한 장 최대 약 400KB (보안규칙과 맞춤)
-let _chatPendingPhoto = null;   // 첨부 대기 중인 사진 (dataURL)
+const CHAT_PHOTO_MAX = 4;       // 한 번에 보낼 수 있는 사진 수
+let _chatPendingPhotos = [];    // 첨부 대기 중인 사진들 (dataURL 배열)
 const _photoCache = {};
 // 업체 공용 키(관리자가 한 번 넣으면 전 직원 사용) → 없으면 이 폰에만 넣은 키
 let _companyAiKey = '';
@@ -2898,24 +3009,38 @@ function compressImage(file, maxSide, quality){
   });
 }
 async function onChatPhotoPicked(input){
-  const f = input.files && input.files[0];
+  const files = [...(input.files || [])];
   input.value = '';
-  if(!f) return;
-  try{
-    // 숫자가 잘 읽히는 크기로 압축 → 너무 크면 한 번 더 줄임
-    let d = await compressImage(f, 1280, 0.72);
-    if(d.length > PHOTO_MAX_B64) d = await compressImage(f, 1024, 0.6);
-    if(d.length > PHOTO_MAX_B64){ showToast('사진이 너무 커요'); return; }
-    _chatPendingPhoto = d;
-    document.getElementById('chatPhotoThumb').src = d;
-    document.getElementById('chatPhotoPreview').style.display = 'flex';
-    const inp = document.getElementById('chatInput'); if(inp) inp.focus();
-  }catch(e){ console.error(e); showToast(e.message || '사진 첨부 실패'); }
+  if(!files.length) return;
+  let skipped = 0;
+  for(const f of files){
+    if(_chatPendingPhotos.length >= CHAT_PHOTO_MAX){ skipped++; continue; }
+    try{
+      // 숫자가 잘 읽히는 크기로 압축 → 너무 크면 한 번 더 줄임
+      let d = await compressImage(f, 1280, 0.72);
+      if(d.length > PHOTO_MAX_B64) d = await compressImage(f, 1024, 0.6);
+      if(d.length > PHOTO_MAX_B64){ skipped++; continue; }
+      _chatPendingPhotos.push(d);
+    }catch(e){ console.error(e); skipped++; }
+  }
+  if(skipped) showToast(`사진 ${skipped}장은 못 넣었어요 (최대 ${CHAT_PHOTO_MAX}장)`);
+  renderChatPhotoPreview();
+  const inp = document.getElementById('chatInput'); if(inp) inp.focus();
 }
-function clearChatPhoto(){
-  _chatPendingPhoto = null;
-  const pv = document.getElementById('chatPhotoPreview'); if(pv) pv.style.display = 'none';
+function renderChatPhotoPreview(){
+  const box = document.getElementById('chatPhotoPreview');
+  const thumbs = document.getElementById('chatPhotoThumbs');
+  if(!box || !thumbs) return;
+  if(!_chatPendingPhotos.length){ box.style.display = 'none'; thumbs.innerHTML = ''; return; }
+  box.style.display = 'block';
+  thumbs.innerHTML = _chatPendingPhotos.map((d, i) => `
+    <div style="position:relative;">
+      <img src="${d}" style="width:56px;height:56px;object-fit:cover;border-radius:8px;">
+      <button onclick="removeChatPhoto(${i})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;border:none;background:var(--red);color:#fff;font-size:12px;line-height:1;padding:0;">✕</button>
+    </div>`).join('');
 }
+function removeChatPhoto(i){ _chatPendingPhotos.splice(i, 1); renderChatPhotoPreview(); }
+function clearChatPhoto(){ _chatPendingPhotos = []; renderChatPhotoPreview(); }
 async function savePhoto(dataUrl, plate){
   const { ref, push, db } = window._fb;
   const r = await push(ref(db, P('photos')), {
@@ -2961,7 +3086,7 @@ async function openPhotoViewer(id){
 }
 // AI에게 사진을 보내 번호판과 누적 주행거리(ODO)를 한 번에 읽어옵니다
 const AI_PHOTO_PROMPT =
-  'This photo is from a Korean rental car company. It may show the car instrument cluster (dashboard) and/or the license plate. ' +
+  'These photos are from a Korean rental car company. They may show the car instrument cluster (dashboard), the license plate of our car, and the other party\'s damaged car. ' +
   'Reply with JSON only, no other text: ' +
   '{"plates": an array of ALL Korean license plates visible in the photo, exactly as printed like ["105하9585","12가3456"], most prominent first (empty array if none), ' +
   '"odometer_km": the TOTAL odometer (ODO, cumulative distance) as an integer, or null — ignore trip meters (TRIP A/B), distance-to-empty/fuel range, speed and RPM, ' +
@@ -2997,17 +3122,19 @@ async function aiHttpPost(url, headers, body, timeoutMs){
     return { status: r.status, data: await r.json().catch(()=>null) };
   }finally{ if(t) clearTimeout(t); }
 }
-async function readPhotoWithAI(dataUrl){
+async function readPhotoWithAI(dataUrls){
+  const list = Array.isArray(dataUrls) ? dataUrls.slice(0, 3) : [dataUrls];  // 최대 3장까지 같이 보고 판단
   const key = getAiKey();
-  if(!key) return { plate: null, km: null, reason: 'nokey' };
-  const b64 = dataUrl.split(',')[1];
+  if(!key) return { plates: [], plate: null, km: null, reason: 'nokey' };
+  const b64 = list[0].split(',')[1];
+  const b64s = list.map(d => d.split(',')[1]);
   if(aiProvider(key) === 'claude'){
     try{
       const r = await aiHttpPost('https://api.anthropic.com/v1/messages', {
         'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json',
         'anthropic-dangerous-direct-browser-access': 'true'
-      }, { model: CLAUDE_MODEL, max_tokens: 200, messages: [{ role: 'user', content: [
-        { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } },
+      }, { model: CLAUDE_MODEL, max_tokens: 300, messages: [{ role: 'user', content: [
+        ...b64s.map(d => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: d } })),
         { type: 'text', text: AI_PHOTO_PROMPT } ] }] }, 30000);
       if(r.status < 200 || r.status >= 300){
         const m = r.data && r.data.error && r.data.error.message;
@@ -3022,7 +3149,7 @@ async function readPhotoWithAI(dataUrl){
     try{
       const r = await aiHttpPost(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
         { 'x-goog-api-key': key, 'content-type': 'application/json' },
-        { contents: [{ parts: [ { inline_data: { mime_type: 'image/jpeg', data: b64 } }, { text: AI_PHOTO_PROMPT } ] }],
+        { contents: [{ parts: [ ...b64s.map(d => ({ inline_data: { mime_type: 'image/jpeg', data: d } })), { text: AI_PHOTO_PROMPT } ] }],
           generationConfig: { responseMimeType: 'application/json', temperature: 0 } }, 25000);
       if(r.status >= 200 && r.status < 300){
         const cand = r.data && r.data.candidates && r.data.candidates[0];
@@ -3060,18 +3187,24 @@ function matchVehicleByPlate(plate){
 async function sendChatPhoto(text){
   const { ref, push, db } = window._fb;
   const user = window.CURRENT_USER;
-  const photo = _chatPendingPhoto;
+  const photos = _chatPendingPhotos.slice();
   clearChatPhoto();
   let cmd = text ? parseChatCommand(text) : null;          // 글 맨 앞에 번호가 있으면 명령
   let veh = cmd ? vehicles.find(v => v && v.plate && v.plate.endsWith(cmd.plateToken)) : null;
-  const needPlate = !!text && !cmd;                        // 번호 없이 명령만 쓴 경우
+  // 그냥 설명글("계기판 사진")이 아니라 명령처럼 보일 때만 차량을 물어봅니다
+  const CMD_WORDS = ['회수','ㅎㅅ','조완','ㅈㅇ','조치완료','차고지','입고', ...TYPE_KEYWORDS_FOR_CHAT, ...Object.keys(CHAT_STATUS_KEYWORDS)];
+  const looksLikeCommand = !!text && text.split(/\s+/).some(w => CMD_WORDS.includes(w));
+  const needPlate = looksLikeCommand && !cmd;             // 번호 없이 명령만 쓴 경우
   const recallWords = /(^|\s)(회수|ㅎㅅ)(\s|$)/.test(text || '');
 
   // 사진은 먼저 저장해서, 이후 과정에서 취소해도 사진은 남게 함
-  const photoId = await savePhoto(photo, veh ? veh.plate : null);
+  const photoIds = [];
+  for(const ph of photos) photoIds.push(await savePhoto(ph, veh ? veh.plate : null));
+  const photoId = photoIds[0];
   await push(ref(db, P('chat')), {
-    text: text || '📷 사진', uid: user.uid, email: user.email || '',
-    at: new Date().toISOString(), type: 'photo', photoId
+    text: text || (photos.length > 1 ? `📷 사진 ${photos.length}장` : '📷 사진'),
+    uid: user.uid, email: user.email || '', at: new Date().toISOString(),
+    type: 'photo', photoId, photoIds: photoIds.length > 1 ? photoIds : null
   });
   setTimeout(scrollChatToBottom, 50);
   if(!text) return;
@@ -3081,9 +3214,9 @@ async function sendChatPhoto(text){
   if(needPlate || recallWords || cmd){
     if(getAiKey()){
       showToast('🤖 사진 읽는 중...');
-      try{ ai = await readPhotoWithAI(photo); }catch(e){ ai = { plate:null, km:null, reason: e.message || '' }; }
+      try{ ai = await readPhotoWithAI(photos); }catch(e){ ai = { plates:[], plate:null, km:null, reason: e.message || '' }; }
     }else{
-      ai = { plate:null, km:null, reason:'nokey' };
+      ai = { plates:[], plate:null, km:null, reason:'nokey' };
     }
   }
 
@@ -3154,7 +3287,7 @@ async function sendChatMessage(){
   const inp = document.getElementById('chatInput');
   const btn = document.getElementById('chatSendBtn');
   const text = (inp.value || '').trim();
-  if(_chatPendingPhoto){         // 사진이 첨부돼 있으면 사진 전송 흐름으로
+  if(_chatPendingPhotos.length){ // 사진이 첨부돼 있으면 사진 전송 흐름으로
     if(!window.CURRENT_USER){ showToast('로그인 상태를 확인해주세요'); return; }
     inp.value = '';
     if(btn) btn.disabled = true;
@@ -3228,6 +3361,35 @@ async function deleteChatMessage(msgId){
 
 
 // ── 메신저: 검색 / 백업 / 2년 지난 대화 자동 정리 ─────────────────
+// 검색 결과를 누르면 그 시점 대화로 이동 (앞뒤 25개씩 같이 보여줌)
+let _chatHistoryMode = false;
+async function jumpToChat(msgId){
+  try{
+    const all = await fetchAllChat();
+    const idx = all.findIndex(([id]) => id === msgId);
+    if(idx < 0){ showToast('그 대화를 찾지 못했어요'); return; }
+    const from = Math.max(0, idx - 25), to = Math.min(all.length, idx + 26);
+    _chatHistoryMode = true;
+    _chatMessages = Object.fromEntries(all.slice(from, to));
+    const box = document.getElementById('chatSearchBox'); if(box) box.style.display = 'none';
+    renderChatList();
+    const banner = document.getElementById('chatHistoryBanner'); if(banner) banner.style.display = 'flex';
+    setTimeout(()=>{
+      const el = document.querySelector('#chatList [data-msgid="' + msgId + '"]');
+      if(el){
+        el.scrollIntoView({ block: 'center' });
+        el.style.transition = 'background .4s'; el.style.background = 'rgba(245,166,35,.25)'; el.style.borderRadius = '10px';
+        setTimeout(()=>{ el.style.background = ''; }, 2500);
+      }
+    }, 80);
+  }catch(e){ console.error(e); showToast('이동 실패 - 다시 시도해주세요'); }
+}
+function backToRecentChat(){
+  _chatHistoryMode = false;
+  const banner = document.getElementById('chatHistoryBanner'); if(banner) banner.style.display = 'none';
+  startChatSync(true);
+  setTimeout(()=>{ renderChatList(); scrollChatToBottom(); }, 250);
+}
 const CHAT_RETENTION_DAYS = 730;   // 2년
 function chatCutoffISO(){ return new Date(Date.now() - CHAT_RETENTION_DAYS*86400000).toISOString(); }
 async function fetchAllChat(){
@@ -3257,10 +3419,10 @@ async function runChatSearch(){
     const esc = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     out.innerHTML = `<div style="font-size:11px;color:var(--sub);margin-bottom:4px;">${hits.length}건${hits.length===100?' (최근 100건만 표시)':''}</div>` +
       hits.map(([id,m]) => {
-        const who = (m.uid === 'system') ? '현황판' : (m.email || '');
+        const who = (m.uid === 'system') ? '현황판' : memberLabel(m.uid, m.email);
         const body = escapeHtml(m.text).replace(new RegExp(escapeHtml(esc), 'gi'), x => `<mark>${x}</mark>`);
-        const pic = (m.type === 'photo' && m.photoId) ? ` <a href="javascript:void(0)" onclick="openPhotoViewer('${escapeHtml(m.photoId)}')">📷</a>` : '';
-        return `<div class="chat-sr"><div class="m">${escapeHtml(fmtChatDateTime(m.at))} · ${escapeHtml(who)}</div>${body}${pic}</div>`;
+        const pic = (m.type === 'photo') ? ' 📷' : '';
+        return `<div class="chat-sr" style="cursor:pointer;" onclick="jumpToChat('${id}')"><div class="m">${escapeHtml(fmtChatDateTime(m.at))} · ${escapeHtml(who)}${pic}</div>${body}<div class="m" style="color:var(--blue);">그때 대화 보기 ›</div></div>`;
       }).join('');
   }catch(e){ console.error(e); out.innerHTML = '<div class="empty">검색 실패 - 다시 시도해주세요</div>'; }
 }
@@ -3276,7 +3438,7 @@ async function backupChat(){
     all.forEach(([,m]) => {
       const day = (m.at || '').slice(0, 10);
       if(day !== lastDay){ lines.push('', `──── ${day} ────`); lastDay = day; }
-      const who = (m.uid === 'system') ? '[현황판]' : (m.email || '알 수 없음');
+      const who = (m.uid === 'system') ? '[현황판]' : memberLabel(m.uid, m.email);
       const tm = fmtChatDateTime(m.at).slice(11);
       const body = String(m.text).replace(/\n/g, '\n        ');
       lines.push(`${tm} ${who}: ${m.type === 'photo' ? '[사진] ' : ''}${body}`);
@@ -3468,7 +3630,7 @@ async function renderLocMarkers(){
   entries.forEach(e=>{
     seen.add(e.uid);
     const pos = new kakao.maps.LatLng(e.lat, e.lng);
-    const label = (e.isMe ? '나' : (e.email || '직원')) + ' · ' + (e.stale ? '마지막 위치 ' : '') + locTimeAgo(e.at);
+    const label = (e.isMe ? '나' : memberLabel(e.uid, e.email)) + ' · ' + (e.stale ? '마지막 위치 ' : '') + locTimeAgo(e.at);
     if(_locMarkers[e.uid]){
       _locMarkers[e.uid].marker.setPosition(pos);
       _locMarkers[e.uid].marker.setOpacity(e.stale ? 0.45 : 1);
@@ -3504,7 +3666,7 @@ function renderLocList(){
   }
   el.innerHTML = entries.map(e=>`
     <div class="sched-list-row"${e.stale ? ' style="opacity:.55;"' : ''}>
-      <div class="t">${e.stale ? '⚪' : '🟢'} ${escapeHtml(e.isMe ? '나' : (e.email || '직원'))}${e.isMe ? ' <span style="color:var(--sub);font-size:11px;">(나)</span>' : ''}</div>
+      <div class="t">${e.stale ? '⚪' : '🟢'} ${escapeHtml(e.isMe ? '나' : memberLabel(e.uid, e.email))}${e.isMe ? ' <span style="color:var(--sub);font-size:11px;">(나)</span>' : ''}</div>
       <div class="m">${e.stale ? '마지막 위치 · ' + escapeHtml(locTimeAgo(e.at)) + ' (앱이 꺼져 있거나 신호 없음)' : escapeHtml(locTimeAgo(e.at)) + ' 갱신'}</div>
     </div>`).join('');
 }
@@ -3919,6 +4081,8 @@ async function startApp(){
   renderSchedBanner();
   startScheduleSync();
   startChatSync();
+  startMembersSync();
+  startQuickAppSync();
   startAiKeySync();
   setTimeout(pruneOldChat, 8000); // 앱 켜지고 조금 뒤에 조용히 정리
   startLocSync();
