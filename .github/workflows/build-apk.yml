@@ -21,8 +21,10 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: 안드로이드 SDK 준비
-        uses: android-actions/setup-android@v3
+      - name: 안드로이드 SDK 확인
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls $ANDROID_HOME/platform-tools || true
 
       - name: 패키지 설치
         working-directory: status-board-app/status-board-app
@@ -48,7 +50,7 @@ jobs:
         working-directory: status-board-app/status-board-app/android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: APK 올리기
         uses: actions/upload-artifact@v4
