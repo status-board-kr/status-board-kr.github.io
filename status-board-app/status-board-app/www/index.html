@@ -613,11 +613,11 @@
   </div>
   <div class="header-actions">
     <button class="link-btn telegram" onclick="openChatModal()" style="position:relative;">💬 메신저<span class="chat-badge" id="chatBadge" style="display:none;top:-6px;right:-6px;">0</span></button>
-    <button class="link-btn" style="color:var(--pink,#f472b6);border:none;background:var(--panel2);position:relative;" onclick="openLocModal()">📍 동료위치보기<span class="chat-badge" id="locBadge" style="display:none;top:-6px;right:-6px;">0</span></button>
+    <button class="link-btn" style="color:#f472b6;border:1px solid rgba(244,114,182,.5);position:relative;" onclick="openLocModal()">📍 위치보기<span class="chat-badge" id="locBadge" style="display:none;top:-6px;right:-6px;">0</span></button>
     <a class="link-btn kakao" href="intent://#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=com.kakao.talk;S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.kakao.talk;end">💬 카카오톡</a>
-    <button class="link-btn" id="quickAppBtn" onclick="openQuickApp()">⭐ 자주 쓰는 앱</button>
-    <button class="link-btn" style="color:var(--purple);border:none;background:var(--panel2);" onclick="openSchedModal()">📅 일정</button>
-    <a class="link-btn" style="color:var(--amber);" href="payment.html">💳 결제일 알림</a>
+    <button class="link-btn" id="quickAppBtn" style="color:#fbbf24;border:1px solid rgba(251,191,36,.5);" onclick="openQuickApp()" oncontextmenu="if(window.COMPANY_ROLE==='owner'){event.preventDefault();setupQuickApp();}">⭐ 자주 쓰는 앱</button>
+    <button class="link-btn" style="color:var(--purple);border:1px solid rgba(167,139,250,.5);" onclick="openSchedModal()">📅 일정</button>
+    <a class="link-btn" style="color:var(--amber);border:1px solid rgba(245,166,35,.5);" href="payment.html">💳 결제일 알림</a>
   </div>
   <div class="stats" id="statsRow"></div>
   <div class="sched-banner" id="schedBanner"></div>
@@ -943,9 +943,20 @@
     <div class="sub">이 업체에 속한 직원 목록입니다. 새 직원은 초대코드로 참여시킬 수 있어요.</div>
     <div id="staffList"><div class="empty">불러오는 중...</div></div>
 
-    <div id="quickAppSetupRow" style="display:none;margin-top:14px;">
-      <button class="btn-cancel" style="width:100%;font-size:13px;" onclick="setupQuickApp()">⭐ 자주 쓰는 앱 연결하기 (화면 위 버튼)</button>
+    <div id="quickAppCard" style="display:none;margin-top:16px;padding:14px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:40px;height:40px;border-radius:10px;background:rgba(251,191,36,.15);border:1px solid rgba(251,191,36,.45);display:flex;align-items:center;justify-content:center;font-size:19px;">⭐</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:700;color:var(--text);">자주 쓰는 앱</div>
+          <div id="quickAppState" style="font-size:11px;color:var(--sub);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">연결 안 됨</div>
+        </div>
+        <button id="quickAppEditBtn" style="background:var(--panel);border:1px solid var(--line);color:var(--blue);font-size:12px;font-weight:600;padding:8px 12px;border-radius:8px;white-space:nowrap;" onclick="setupQuickApp()">연결하기</button>
+      </div>
+      <div style="font-size:11px;color:var(--sub);margin-top:8px;line-height:1.5;">
+        화면 위 ⭐ 버튼에 자주 쓰는 앱·사이트를 걸어둘 수 있어요. 관리자만 바꿀 수 있고, 모든 직원에게 똑같이 적용됩니다.
+      </div>
     </div>
+
     <div id="staffInviteBox" style="display:none;margin-top:16px;padding-top:14px;border-top:1px solid var(--line);">
       <label style="font-size:13px;color:var(--sub);">새 직원 초대</label>
       <div style="font-size:12px;color:var(--sub);margin:6px 0 10px;line-height:1.5;">
@@ -1047,6 +1058,19 @@
       <button class="btn-save" id="locToggleBtn" style="width:100%;padding:13px;font-size:14px;font-weight:700;border-radius:10px;margin-bottom:8px;display:none;" onclick="toggleLocationShare()">📍 내 위치 공유 시작</button>
       <button class="btn-cancel" onclick="closeLocModal()">닫기</button>
     </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="appDialogBg" style="z-index:1500;">
+  <div class="modal" style="max-width:340px;">
+    <h3 id="appDialogTitle" style="margin-bottom:6px;"></h3>
+    <div id="appDialogMsg" style="font-size:13px;color:var(--sub);line-height:1.6;white-space:pre-wrap;margin-bottom:14px;"></div>
+    <div id="appDialogPhoto" style="display:none;margin-bottom:12px;"></div>
+    <div id="appDialogInputWrap" style="display:none;margin-bottom:14px;">
+      <input id="appDialogInput" style="width:100%;padding:13px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:16px;box-sizing:border-box;">
+      <div id="appDialogHint" style="font-size:11px;color:var(--sub);margin-top:6px;"></div>
+    </div>
+    <div id="appDialogBtns" style="display:flex;flex-direction:column;gap:8px;"></div>
   </div>
 </div>
 
@@ -1591,19 +1615,28 @@ function escapeHtml(s){
 // 모달을 열 때마다 히스토리를 하나 쌓아두고, 뒤로가기가 오면 페이지를 벗어나는
 // 대신 열려있는 모달만 닫히게 합니다. 앱 내 닫기/취소/저장 버튼으로 닫을 때도
 // 쌓아둔 히스토리를 같이 되돌려서 스택이 계속 쌓이지 않게 맞춰줍니다.
-const MODAL_IDS = ['modalBg','schedModalBg','addModalBg','historyModalBg','staffModalBg','chatModalBg','locModalBg'];
+const MODAL_IDS = ['modalBg','schedModalBg','addModalBg','historyModalBg','staffModalBg','chatModalBg','locModalBg','appDialogBg'];
 function pushModalHistoryState(id){
   history.pushState({ modalId: id }, '');
 }
 function popModalHistoryIfNeeded(id){
   if(history.state && history.state.modalId === id) history.back();
 }
+let _backExitAt = 0;
 window.addEventListener('popstate', (e)=>{
+  let closedAny = false;
   MODAL_IDS.forEach(id=>{
     if(e.state && e.state.modalId === id) return; // 이 모달 상태로 되돌아온 경우는 그대로 둠
     const el = document.getElementById(id);
-    if(el && el.classList.contains('open')) el.classList.remove('open');
+    if(el && el.classList.contains('open')){ el.classList.remove('open'); closedAny = true; }
   });
+  if(closedAny) return;
+  // 열린 화면이 없을 때 뒤로가기를 누르면 앱이 꺼져버리므로, 한 번 더 눌러야 종료되게 함
+  const now = Date.now();
+  if(now - _backExitAt < 2000) { history.back(); return; }
+  _backExitAt = now;
+  history.pushState({ appRoot: true }, '');
+  showToast('뒤로가기를 한 번 더 누르면 종료돼요');
 });
 
 function toggleAddForm(){
@@ -2436,7 +2469,7 @@ function renderStaffList(members){
       <div class="t">${escapeHtml(m.name || '(이름 없음)')} ${roleTag}${isMe?' <span style="color:var(--sub);font-size:11px;">(나)</span>':''}
         <div class="m" style="font-size:11px;color:var(--sub);">${escapeHtml(m.email||'(이메일 없음)')}</div>
       </div>
-      ${(isOwner || isMe)?`<button class="del" style="color:var(--blue);" onclick="setMemberName('${uid}', ${JSON.stringify(m.name||'')})">✏️ 이름</button>`:''}
+      ${(isOwner || isMe)?`<button class="del" style="color:var(--blue);" data-name-uid="${escapeHtml(uid)}" data-name-cur="${escapeHtml(m.name||'')}" onclick="setMemberName(this.dataset.nameUid, this.dataset.nameCur)">✏️ 이름</button>`:''}
       ${canDelete?`<button class="del" onclick="removeStaffMember('${uid}','${escapeHtml(m.email||'')}')">✕ 내보내기</button>`:''}
     </div>`;
   }).join('');
@@ -2449,8 +2482,8 @@ async function openStaffModal(){
   // 초대코드 영역은 관리자에게만 보여줌
   const inviteBox = document.getElementById('staffInviteBox');
   if(inviteBox) inviteBox.style.display = (window.COMPANY_ROLE==='owner') ? 'block' : 'none';
-  const qrow = document.getElementById('quickAppSetupRow');
-  if(qrow) qrow.style.display = (window.COMPANY_ROLE==='owner') ? 'block' : 'none';
+  updateQuickAppCard();
+
   const { ref, get, db } = window._fb;
   try{
     const snap = await get(ref(db, P('members')));
@@ -2508,6 +2541,66 @@ async function removeStaffMember(uid, email){
     showToast('내보내기 실패 - 다시 시도해주세요');
   }
 }
+// ── 앱 안에서 쓰는 확인·입력창 ────────────────────────────────
+// 휴대폰 기본 입력창(prompt)은 기종에 따라 미리 채운 값이 사라지는 문제가 있어서 직접 만들었습니다.
+let _appDialogResolve = null;
+function closeAppDialog(value){
+  document.getElementById('appDialogBg').classList.remove('open');
+  const r = _appDialogResolve; _appDialogResolve = null;
+  if(r) r(value);
+}
+function showAppDialog(opts){
+  return new Promise((resolve)=>{
+    _appDialogResolve = resolve;
+    const bg = document.getElementById('appDialogBg');
+    document.getElementById('appDialogTitle').textContent = opts.title || '';
+    document.getElementById('appDialogMsg').textContent = opts.message || '';
+    const pw = document.getElementById('appDialogPhoto');
+    pw.innerHTML = (opts.photos && opts.photos.length)
+      ? `<div style="display:flex;gap:6px;flex-wrap:wrap;">${opts.photos.slice(0,4).map(d=>`<img src="${d}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;">`).join('')}</div>` : '';
+    pw.style.display = (opts.photos && opts.photos.length) ? 'block' : 'none';
+    const iw = document.getElementById('appDialogInputWrap');
+    const inp = document.getElementById('appDialogInput');
+    iw.style.display = opts.input ? 'block' : 'none';
+    if(opts.input){
+      inp.value = opts.value || '';
+      inp.placeholder = opts.placeholder || '';
+      inp.type = opts.inputType || 'text';
+      inp.inputMode = opts.inputMode || 'text';
+      document.getElementById('appDialogHint').textContent = opts.hint || '';
+    }
+    const btns = document.getElementById('appDialogBtns');
+    const list = opts.buttons || [{ text: '확인', value: true, primary: true }, { text: '취소', value: null }];
+    btns.innerHTML = '';
+    list.forEach((b)=>{
+      const el = document.createElement('button');
+      el.className = b.primary ? 'btn-save' : 'btn-cancel';
+      el.style.cssText = 'width:100%;padding:13px;border-radius:10px;font-size:14px;font-weight:600;' + (b.danger ? 'color:var(--red);' : '');
+      el.textContent = b.text;
+      el.onclick = ()=>{
+        if(b.value === '__input__') closeAppDialog({ input: inp.value.trim() });
+        else closeAppDialog(b.value);
+      };
+      btns.appendChild(el);
+    });
+    bg.classList.add('open');
+    if(opts.input) setTimeout(()=>{ inp.focus(); inp.select(); }, 120);
+  });
+}
+// 간단 버전 (기존 confirm/prompt 대체)
+async function appConfirm(title, message, okText){
+  const r = await showAppDialog({ title, message, buttons: [
+    { text: okText || '확인', value: true, primary: true }, { text: '취소', value: null }] });
+  return r === true;
+}
+async function appPrompt(title, message, value, opts){
+  const o = opts || {};
+  const r = await showAppDialog({ title, message, input: true, value, placeholder: o.placeholder,
+    hint: o.hint, inputMode: o.inputMode, buttons: [
+    { text: o.okText || '확인', value: '__input__', primary: true }, { text: '취소', value: null }] });
+  return (r && typeof r === 'object') ? r.input : null;
+}
+
 // ── 자주 쓰는 앱 (업체가 직접 연결) ───────────────────────────
 // 관리자가 주소(홈페이지·업무 사이트·플레이스토어 등)를 한 번 넣으면 전 직원 버튼에 적용됩니다.
 let _quickApp = null;
@@ -2517,7 +2610,23 @@ function startQuickAppSync(){
     _quickApp = snap.exists() ? snap.val() : null;
     const b = document.getElementById('quickAppBtn');
     if(b) b.textContent = (_quickApp && _quickApp.label) ? ('⭐ ' + _quickApp.label) : '⭐ 자주 쓰는 앱';
+    updateQuickAppCard();
   }, (err)=> console.warn('자주쓰는앱 수신 실패:', err && err.code));
+}
+// 직원 관리 화면의 '자주 쓰는 앱' 카드 (관리자에게만 보임)
+function updateQuickAppCard(){
+  const card = document.getElementById('quickAppCard');
+  if(!card) return;
+  card.style.display = (window.COMPANY_ROLE === 'owner') ? 'block' : 'none';
+  const st = document.getElementById('quickAppState');
+  const btn = document.getElementById('quickAppEditBtn');
+  if(_quickApp && _quickApp.label){
+    if(st) st.textContent = `${_quickApp.label} · ${(_quickApp.url || '').replace(/^https?:\/\//, '').slice(0, 30)}`;
+    if(btn) btn.textContent = '바꾸기';
+  }else{
+    if(st) st.textContent = '아직 연결 안 됨';
+    if(btn) btn.textContent = '연결하기';
+  }
 }
 function openQuickApp(){
   if(_quickApp && _quickApp.url){ window.open(_quickApp.url, '_blank', 'noopener'); return; }
@@ -2526,14 +2635,16 @@ function openQuickApp(){
 }
 async function setupQuickApp(){
   if(window.COMPANY_ROLE !== 'owner'){ showToast('관리자만 바꿀 수 있어요'); return; }
-  const label = prompt('버튼에 표시할 이름을 적어주세요. (예: 팡팡렌트카, 보험사, 카카오내비)\n지우려면 빈칸으로 확인', (_quickApp && _quickApp.label) || '');
+  const label = await appPrompt('자주 쓰는 앱 연결', '화면 위 버튼에 표시할 이름이에요.', (_quickApp && _quickApp.label) || '',
+    { placeholder:'예: 팡팡렌트카, 보험사', hint:'비워두고 확인하면 연결을 지웁니다' });
   if(label === null) return;
   if(!label.trim()){
     try{ const { ref, remove, db } = window._fb; await remove(ref(db, P('quickApp'))); showToast('연결을 지웠어요'); }
     catch(e){ showToast('저장 실패'); }
     return;
   }
-  const url = prompt('열 주소를 붙여넣으세요.\n· 홈페이지: https://...\n· 안드로이드 앱: 플레이스토어 주소도 됩니다', (_quickApp && _quickApp.url) || 'https://');
+  const url = await appPrompt('주소 입력', '열고 싶은 주소를 붙여넣으세요.\n앱이라면 플레이스토어 주소도 됩니다.', (_quickApp && _quickApp.url) || 'https://',
+    { placeholder:'https://...' });
   if(url === null) return;
   const u = url.trim();
   if(!/^https?:\/\//i.test(u)){ showToast('https:// 로 시작하는 주소를 넣어주세요'); return; }
@@ -2565,9 +2676,10 @@ async function setMemberName(uid, currentName){
   const isOwner = window.COMPANY_ROLE === 'owner';
   const isMe = uid === (window.CURRENT_USER && window.CURRENT_USER.uid);
   if(!isOwner && !isMe){ showToast('본인 이름만 바꿀 수 있어요'); return; }
-  const v = prompt('메신저·위치에 표시할 이름을 입력하세요. (예: 나용봉, 사장님, 김기사)', currentName || '');
+  const v = await appPrompt('이름 정하기', '메신저와 위치 화면에 표시할 이름이에요.', currentName || '',
+    { placeholder:'예: 나용봉, 사장님, 김기사', hint:'비워두고 확인하면 이름을 지웁니다' });
   if(v === null) return;
-  const name = v.trim().slice(0, 20);
+  const name = String(v).trim().slice(0, 20);
   try{
     const { ref, update, db } = window._fb;
     await update(ref(db, P('members/' + uid)), { name: name || null });
@@ -2937,7 +3049,7 @@ const CLAUDE_MODEL = 'claude-sonnet-5';
 // (구글은 모델 이름이 자주 바뀌고, 바쁠 땐 "잠시 후 다시" 오류를 주기 때문에 여러 개를 준비)
 const GEMINI_MODELS = ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-flash-lite-latest', 'gemini-3.6-flash', 'gemini-flash-latest'];
 const PHOTO_MAX_B64 = 550000;   // DB 한 장 최대 약 400KB (보안규칙과 맞춤)
-const CHAT_PHOTO_MAX = 4;       // 한 번에 보낼 수 있는 사진 수
+const CHAT_PHOTO_MAX = 12;      // 한 번에 보낼 수 있는 사진 수 (AI 판독은 앞의 4장만 사용)
 let _chatPendingPhotos = [];    // 첨부 대기 중인 사진들 (dataURL 배열)
 const _photoCache = {};
 // 업체 공용 키(관리자가 한 번 넣으면 전 직원 사용) → 없으면 이 폰에만 넣은 키
@@ -2969,12 +3081,10 @@ async function setupClaudeKey(){
     return;
   }
   const cur = _companyAiKey;
-  const v = prompt(
-    '사진 자동 인식(번호판·주행거리)에 쓸 API 키를 붙여넣으세요.\n' +
-    '· 여기 넣으면 로그인한 모든 직원 폰에 자동 적용돼요 (업체 공용)\n' +
-    '· 구글 Gemini 키 또는 Claude 키(sk-ant-…) 모두 가능\n' +
-    '· 지우려면 빈칸으로 확인\n\n' +
-    (cur ? '현재 공용 키: ' + cur.slice(0, 6) + '…' + cur.slice(-4) + ' (' + aiProvider(cur) + ')' : '현재 공용 키: 없음'), '');
+  const v = await appPrompt('AI 설정 (사진 자동 인식)',
+    '여기 넣으면 모든 직원 폰에 자동 적용돼요.\n구글 Gemini 키 또는 Claude 키 모두 가능합니다.\n\n' +
+    (cur ? '현재 키: ' + cur.slice(0, 6) + '…' + cur.slice(-4) + ' (' + aiProvider(cur) + ')' : '현재 키: 없음'),
+    '', { placeholder:'키 붙여넣기', hint:'비워두고 확인하면 키를 지웁니다' });
   if(v === null) return;
   const t = v.trim();
   if(t && (t.length < 20 || t.length > 300 || /\s/.test(t))){ showToast('키 모양이 이상해요. 다시 복사해주세요'); return; }
@@ -3123,7 +3233,7 @@ async function aiHttpPost(url, headers, body, timeoutMs){
   }finally{ if(t) clearTimeout(t); }
 }
 async function readPhotoWithAI(dataUrls){
-  const list = Array.isArray(dataUrls) ? dataUrls.slice(0, 3) : [dataUrls];  // 최대 3장까지 같이 보고 판단
+  const list = Array.isArray(dataUrls) ? dataUrls.slice(0, 4) : [dataUrls];  // 앞의 4장까지 같이 보고 판단
   const key = getAiKey();
   if(!key) return { plates: [], plate: null, km: null, reason: 'nokey' };
   const b64 = list[0].split(',')[1];
@@ -3228,14 +3338,33 @@ async function sendChatPhoto(text){
   // 번호 없이 보낸 경우: 사진 속 번호판으로 차량 찾기 → 확인받기
   if(needPlate){
     const guess = ourFromPhoto[0] || null;
-    let msg;
-    const otherLine = otherPlates.length ? `\n(같이 찍힌 다른 번호판: ${otherPlates.join(', ')} → 메모 끝에 넣어둘게요)` : '';
-    if(guess) msg = `📷 사진 속 우리 차량: ${guess.plate} (${guess.model || ''})${otherLine}\n\n맞으면 [확인], 다른 차량이면 번호 뒷 4자리를 입력하세요.`;
-    else if(otherPlates.length) msg = `📷 읽은 번호판 "${otherPlates.join(', ')}"은(는) 우리 차량이 아니에요.\n\n우리 차량번호 뒷 4자리를 입력하세요. (읽은 번호는 메모 끝에 넣어둘게요)`;
-    else msg = `${ai && ai.reason === 'nokey' ? '🤖 AI 설정(API 키)이 없어서 번호판을 못 읽었어요.' : '⚠️ ' + ((ai && ai.reason) || '번호판을 못 읽었어요')}\n\n차량번호 뒷 4자리를 입력하세요.`;
-    const ans = prompt(`"${text}"\n\n${msg}`, guess ? guess.plate.slice(-4) : '');
-    const tail = String(ans || '').replace(/[^0-9]/g, '').slice(-4);
-    if(!ans || tail.length !== 4){
+    const otherLine = otherPlates.length ? `\n같이 찍힌 다른 번호판: ${otherPlates.join(', ')}\n(메모 끝에 넣어둘게요)` : '';
+    let tail = null;
+    if(guess){
+      const r = await showAppDialog({
+        title: '이 차량이 맞나요?',
+        message: `${guess.plate}  ·  ${guess.model || ''}\n\n보낼 내용: "${text}"${otherLine}`,
+        photos: photos,
+        buttons: [
+          { text: `네, ${guess.plate} 맞아요`, value: 'ok', primary: true },
+          { text: '아니요, 직접 고를게요', value: 'manual' },
+          { text: '취소 (사진만 올리기)', value: null }
+        ]});
+      if(r === 'ok') tail = guess.plate.slice(-4);
+      else if(r !== 'manual') tail = null;
+      if(r === 'manual'){
+        const v = await appPrompt('차량번호', '차량번호 뒷 4자리를 입력하세요.', '', { inputMode:'numeric', placeholder:'예: 9585' });
+        tail = v ? String(v).replace(/[^0-9]/g, '').slice(-4) : null;
+      }
+    }else{
+      const head = otherPlates.length
+        ? `읽은 번호판: ${otherPlates.join(', ')}\n우리 차량 목록에 없어요. (메모 끝에 넣어둘게요)`
+        : ((ai && ai.reason === 'nokey') ? 'AI 설정(API 키)이 없어서 번호판을 못 읽었어요.' : ((ai && ai.reason) || '번호판을 못 읽었어요.'));
+      const v = await appPrompt('차량번호를 알려주세요', `보낼 내용: "${text}"\n\n${head}`, '',
+        { inputMode:'numeric', placeholder:'뒷 4자리 (예: 9585)' });
+      tail = v ? String(v).replace(/[^0-9]/g, '').slice(-4) : null;
+    }
+    if(!tail || tail.length !== 4){
       await push(ref(db, P('chat')), { text: '📷 차량을 정하지 않아서 사진만 올렸어요. (명령은 적용 안 됨)',
         uid: 'system', email: '현황판', at: new Date().toISOString(), type: 'system' });
       setTimeout(scrollChatToBottom, 50);
@@ -3260,7 +3389,8 @@ async function sendChatPhoto(text){
     const head = km
       ? `📷 계기판에서 읽은 누적 주행거리: ${km.toLocaleString()} km${ai.confidence === 'low' ? '  (⚠️ 흐릿해서 확실하지 않아요)' : ''}\n\n맞으면 [확인], 다르면 숫자를 고쳐서 [확인]하세요.`
       : `${ai && ai.reason === 'nokey' ? '🤖 AI 설정(API 키)이 없어서 자동으로 못 읽었어요.' : '⚠️ ' + ((ai && ai.reason) || '주행거리를 못 읽었어요')}\n\n종료 주행거리(km)를 직접 입력하세요. (모르면 빈칸)`;
-    const ans = prompt(`${veh.plate} 회수\n\n${head}`, km ? String(km) : '');
+    const ans = await appPrompt(`${veh.plate} 회수`, head, km ? String(km) : '',
+      { inputMode:'numeric', placeholder:'종료 주행거리 (km)', hint:'모르면 비워두고 확인을 누르세요' });
     const num = ans == null ? NaN : Number(String(ans).replace(/[^0-9]/g, ''));
     cmd.returnKm = (Number.isFinite(num) && num > 0) ? num : null;
     cmd.aiKm = km;
@@ -4089,6 +4219,9 @@ async function startApp(){
   resumeLocationShareIfNeeded();
   await syncAllReturnSchedules();
 }
+
+// 뒤로가기로 앱이 바로 꺼지지 않도록 기준 상태를 하나 넣어둡니다
+history.pushState({ appRoot: true }, '');
 
 // 앱 시작은 FleetAuth가 로그인+업체확인을 마친 뒤 onReady에서 startApp()을 호출합니다.
 </script>
