@@ -3,6 +3,9 @@ name: APK 만들기
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -20,11 +23,6 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '21'
-
-      - name: 안드로이드 SDK 확인
-        run: |
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          ls $ANDROID_HOME/platform-tools || true
 
       - name: 패키지 설치
         working-directory: status-board-app/status-board-app
@@ -50,9 +48,20 @@ jobs:
         working-directory: status-board-app/status-board-app/android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          ./gradlew assembleDebug --no-daemon
 
-      - name: APK 올리기
+      - name: 폰에서 바로 받도록 사이트에 올리기
+        run: |
+          mkdir -p apk
+          cp status-board-app/status-board-app/android/app/build/outputs/apk/debug/app-debug.apk apk/status-board.apk
+          printf '%s\n' "$(date '+%Y-%m-%d %H:%M') 빌드" > apk/version.txt
+          git config user.name 'github-actions'
+          git config user.email 'actions@github.com'
+          git add apk/status-board.apk apk/version.txt
+          git commit -m 'APK 업데이트' || echo '변경 없음'
+          git push
+
+      - name: APK 올리기(보관용)
         uses: actions/upload-artifact@v4
         with:
           name: status-board-apk
