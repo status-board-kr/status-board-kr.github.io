@@ -152,10 +152,10 @@
     .history-btn{padding:6px 7px;}
     .search-row select{max-width:86px;padding:7px 6px !important;font-size:12px !important;}
     .search-row input{min-width:0;font-size:13px;}
-    /* 채팅 입력줄: 사진 버튼 2개 + 입력칸 + 전송이 한 줄에 들어가게 */
-    #chatModalBg .modal-footer-inflow button[title]{width:38px !important;font-size:17px !important;}
-    #chatSendBtn{width:50px !important;font-size:13px !important;}
-    #chatInput{min-width:0;font-size:13px;padding:11px 8px !important;}
+    /* 작은 화면: 채팅 입력줄 살짝 줄이기 */
+    .chat-icon-btn{width:34px;height:34px;flex:0 0 34px;font-size:17px;}
+    .chat-send-btn{width:34px;height:34px;flex:0 0 34px;font-size:14px;}
+    .chat-text-input{font-size:14px;padding:9px 6px;}
   }
   @media (min-width:700px){                                    /* 태블릿·폴드 펼침 */
     .header-actions{grid-template-columns:repeat(auto-fit,minmax(110px,1fr));}
@@ -175,6 +175,30 @@
     position:absolute;top:-4px;right:-4px;background:var(--red);color:#fff;
     font-size:10px;font-weight:700;min-width:16px;height:16px;border-radius:8px;
     display:flex;align-items:center;justify-content:center;padding:0 4px;
+  }
+  .chat-inputbar{
+    display:flex;align-items:center;gap:2px;margin-bottom:8px;padding:5px 6px;
+    background:var(--panel2);border:1px solid var(--line);border-radius:24px;
+  }
+  .chat-icon-btn{
+    width:40px;height:40px;flex:0 0 40px;border:none;background:transparent;color:var(--sub);
+    font-size:19px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  }
+  .chat-icon-btn:active{background:var(--panel);}
+  .chat-text-input{
+    flex:1;min-width:0;border:none;background:transparent;color:var(--text);
+    font-size:15px;padding:11px 8px;outline:none;
+  }
+  .chat-text-input::placeholder{color:var(--sub);}
+  .chat-send-btn{
+    width:40px;height:40px;flex:0 0 40px;border:none;border-radius:50%;
+    background:var(--amber);color:#1a1a1a;
+    display:flex;align-items:center;justify-content:center;padding:0;
+  }
+  .chat-send-btn:disabled{opacity:.45;}
+  .chat-close-btn{
+    width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);
+    background:transparent;color:var(--sub);font-size:13px;font-weight:600;
   }
   .chat-msg{margin-bottom:12px;display:flex;flex-direction:column;}
   .chat-tool-btn{background:var(--panel2);border:1px solid var(--line);color:var(--text);font-size:12px;padding:6px 10px;border-radius:8px;}
@@ -1012,15 +1036,14 @@
       </div>
       <input type="file" id="chatCameraInput" accept="image/*" capture="environment" style="display:none;" onchange="onChatPhotoPicked(this)">
       <input type="file" id="chatPhotoInput" accept="image/*" multiple style="display:none;" onchange="onChatPhotoPicked(this)">
-      <div style="display:flex;gap:8px;margin-bottom:8px;">
-        <button class="btn-cancel" title="카메라로 찍기" style="width:44px;padding:0;font-size:19px;border-radius:10px;" onclick="document.getElementById('chatCameraInput').click()">📷</button>
-        <button class="btn-cancel" title="앨범에서 고르기(여러 장)" style="width:44px;padding:0;font-size:19px;border-radius:10px;" onclick="document.getElementById('chatPhotoInput').click()">🖼️</button>
-        <input id="chatInput" placeholder="메시지를 입력하세요" maxlength="2000" style="min-width:0;"
-               style="flex:1;padding:13px;border-radius:10px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:14px;"
+      <div class="chat-inputbar">
+        <button class="chat-icon-btn" title="카메라로 찍기" aria-label="카메라로 찍기" onclick="document.getElementById('chatCameraInput').click()"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></button>
+        <button class="chat-icon-btn" title="앨범에서 고르기(여러 장)" aria-label="사진 고르기" onclick="document.getElementById('chatPhotoInput').click()"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></button>
+        <input id="chatInput" class="chat-text-input" placeholder="메시지를 입력하세요" maxlength="2000"
                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChatMessage();}">
-        <button class="btn-save" id="chatSendBtn" style="width:64px;padding:0;font-size:14px;font-weight:700;border-radius:10px;" onclick="sendChatMessage()">전송</button>
+        <button class="chat-send-btn" id="chatSendBtn" title="보내기" aria-label="보내기" onclick="sendChatMessage()"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg></button>
       </div>
-      <button class="btn-cancel" onclick="closeChatModal()">닫기</button>
+      <button class="chat-close-btn" onclick="closeChatModal()">닫기</button>
     </div>
   </div>
 </div>
@@ -2782,6 +2805,99 @@ function updateChatBadge(){
   }
 }
 // 실시간 수신 시작 (앱 시작 시 1회)
+// ── 첫 설치 때 해야 할 폰 설정 도우미 (앱에서만) ───────────────
+// 버튼을 누르면 해당 설정 화면이 바로 열립니다.
+function openAndroidSettings(kind){
+  if(kind === 'app'){
+    const plugin = getBgPlugin();
+    if(plugin && plugin.openSettings){ try{ plugin.openSettings(); return true; }catch(e){} }
+  }
+  const intents = {
+    app: 'intent://#Intent;action=android.settings.APPLICATION_DETAILS_SETTINGS;S.android.provider.extra.APP_PACKAGE=com.jangsung.fleet;end',
+    battery: 'intent://#Intent;action=android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS;end',
+    notification: 'intent://#Intent;action=android.settings.APP_NOTIFICATION_SETTINGS;S.android.provider.extra.APP_PACKAGE=com.jangsung.fleet;end'
+  };
+  try{ window.location.href = intents[kind] || intents.app; return true; }catch(e){ return false; }
+}
+function setupDoneKey(){ return 'fleetSetupDone_' + (window.CURRENT_USER ? window.CURRENT_USER.uid : ''); }
+async function openPhoneSetup(force){
+  if(!isNativeApp()){
+    if(force) showToast('앱으로 설치했을 때 필요한 설정이에요');
+    return;
+  }
+  if(!force && localStorage.getItem(setupDoneKey()) === '1') return;
+  const r = await showAppDialog({
+    title: '📱 처음 한 번 설정해주세요',
+    message: '이 3가지를 해두어야 앱을 닫아도 위치가 계속 공유되고, 메신저 알림이 옵니다.\n\n① 위치 권한 → 허용\n② 알림 권한 → 허용\n③ 배터리 → 제한 없음 (삼성폰 필수)\n\n버튼을 누르면 해당 설정 화면이 바로 열려요.',
+    buttons: [
+      { text: '① 위치·앱 권한 설정 열기', value: 'app', primary: true },
+      { text: '② 알림 설정 열기', value: 'notification' },
+      { text: '③ 배터리 설정 열기', value: 'battery' },
+      { text: '다 했어요', value: 'done' }
+    ]});
+  if(r === 'done' || r === null){
+    if(r === 'done') localStorage.setItem(setupDoneKey(), '1');
+    return;
+  }
+  openAndroidSettings(r);
+  setTimeout(()=> openPhoneSetup(true), 1500);
+}
+// ── 메신저 알림 ───────────────────────────────────────────────
+// 앱: 휴대폰 알림으로 / 브라우저: 알림 권한이 있으면 알림, 없으면 화면 안내로
+let _notifSeen = 0;          // 이미 알린 메시지 시각
+let _notifReady = false;
+async function initChatNotify(){
+  _notifSeen = Date.now();   // 앱을 켠 뒤에 온 메시지부터 알림
+  try{
+    const LN = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
+    if(LN){
+      const st = await LN.checkPermissions();
+      if(st.display !== 'granted') await LN.requestPermissions();
+      _notifReady = true;
+      return;
+    }
+    if('Notification' in window && Notification.permission === 'default'){
+      // 브라우저는 사용자가 화면을 한 번 누른 뒤에 물어봐야 허용이 잘 됩니다
+      document.addEventListener('click', ()=>{ Notification.requestPermission().catch(()=>{}); }, { once: true });
+    }
+    _notifReady = ('Notification' in window);
+  }catch(e){ /* 알림을 못 써도 앱은 그대로 동작 */ }
+}
+async function notifyNewChat(msg){
+  const who = (msg.uid === 'system') ? '현황판' : memberLabel(msg.uid, msg.email);
+  const body = String(msg.text || '').slice(0, 80);
+  try{
+    const LN = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
+    if(LN){
+      await LN.schedule({ notifications: [{
+        id: Math.floor(Math.random() * 100000),
+        title: `💬 ${who}`,
+        body,
+        smallIcon: 'ic_tracking',
+        extra: { chat: true }
+      }]});
+      return;
+    }
+    if('Notification' in window && Notification.permission === 'granted'){
+      const n = new Notification(`💬 ${who}`, { body, icon: 'icon-192.png', tag: 'fleet-chat', renotify: true });
+      n.onclick = ()=>{ window.focus(); openChatModal(); n.close(); };
+      return;
+    }
+  }catch(e){ console.warn('알림 실패:', e); }
+  // 알림을 못 쓰면 화면 위에 잠깐 표시
+  showToast(`💬 ${who}: ${body.slice(0, 24)}`);
+}
+function checkChatNotify(){
+  if(_chatModalOpen) return;                       // 채팅을 보고 있으면 알림 안 함
+  const myUid = window.CURRENT_USER && window.CURRENT_USER.uid;
+  const fresh = Object.values(_chatMessages || {})
+    .filter(m => m && m.at && new Date(m.at).getTime() > _notifSeen && m.uid !== myUid)
+    .sort((a,b) => String(a.at).localeCompare(String(b.at)));
+  if(!fresh.length) return;
+  _notifSeen = new Date(fresh[fresh.length - 1].at).getTime();
+  // 여러 개면 마지막 것만 (알림 폭탄 방지)
+  notifyNewChat(fresh[fresh.length - 1]);
+}
 function startChatSync(force){
   if(_chatStarted && !force) return;
   _chatStarted = true;
@@ -2803,6 +2919,7 @@ function startChatSync(force){
       markChatRead();
     }
     updateChatBadge();
+    checkChatNotify();
   }, (err)=>{ console.error('채팅 수신 실패:', err); });
 }
 async function markChatRead(){
@@ -2934,12 +3051,16 @@ function parseChatCommand(text){
   const rest = first[2] ? [first[2], ...raw.slice(1)] : raw.slice(1);
 
   const isRecall = rest.includes('회수') || rest.includes('ㅎㅅ');
+  // "9588 키로 37960" / "9588 km 37960" → 마지막 회수 기록의 종료 주행거리 수정
+  const kmIdx = rest.findIndex(t => /^(키로|킬로|km|KM|주행거리)$/.test(t));
+  const kmFix = (kmIdx >= 0) ? Number(String(rest[kmIdx + 1] || '').replace(/[^0-9]/g, '')) : NaN;
   const statusToken = rest.find(t => CHAT_STATUS_KEYWORDS[t]);
   const typeToken = rest.find(t => CHAT_TYPE_KEYWORDS.includes(t));
   const noteTokens = rest.filter(t =>
     t !== typeToken && t !== statusToken &&
     t !== '회수' && t !== 'ㅎㅅ' && t !== '조완' && t !== 'ㅈㅇ' && t !== '조치완료'
   );
+  if(Number.isFinite(kmFix) && kmFix > 0) return { plateToken, kmFix };
   return {
     plateToken,
     isRecall,
@@ -2954,6 +3075,23 @@ async function applyChatCommand(cmd){
   const idx = vehicles.findIndex(v => v && v.plate && v.plate.endsWith(cmd.plateToken));
   if(idx === -1) return { ok:false, msg:`❌ 뒷자리 ${cmd.plateToken} 차량을 찾을 수 없어요.` };
   const v = Object.assign({}, vehicles[idx]);
+
+  // "9588 키로 37960" → 가장 최근 회수 기록의 종료 주행거리 고치기
+  if(cmd.kmFix){
+    try{
+      const { ref, get, update, db } = window._fb;
+      const snap = await get(ref(db, P('schedules')));
+      const all = snap.exists() ? (snap.val() || {}) : {};
+      const hits = Object.entries(all)
+        .filter(([,x]) => x && x.plate === v.plate && x.done && (x.auto || x.manual))
+        .sort((a,b) => String(b[1].doneAt || '').localeCompare(String(a[1].doneAt || '')));
+      if(!hits.length) return { ok:false, msg:`❌ ${v.plate}의 회수 기록이 없어요. 먼저 회수를 해주세요.` };
+      const [key, rec] = hits[0];
+      await update(ref(db, P('schedules/' + key)), { returnKm: cmd.kmFix, kmFixedAt: new Date().toISOString() });
+      const before = rec.returnKm ? Number(rec.returnKm).toLocaleString() + 'km' : '미입력';
+      return { ok:true, msg:`✏️ ${v.plate} 종료 주행거리를 고쳤어요\n- 이전: ${before}\n- 지금: ${cmd.kmFix.toLocaleString()}km` };
+    }catch(e){ console.error(e); return { ok:false, msg:'⚠️ 주행거리 수정 실패 - 다시 시도해주세요' }; }
+  }
 
   // 번호만 입력 → 조회만 (저장 안 함)
   if(cmd.isQueryOnly){
@@ -3035,7 +3173,7 @@ async function applyChatCommand(cmd){
 
   return { ok:true,
     msg:`✅ ${v.plate} (${v.model||'-'}) ${cmd.isRecall ? '회수 완료' : '변경됨'}\n- 구분: ${v.type||'-'}\n- 상태: ${v.status||'-'}\n- 메모: ${v.note||'-'}`
-      + (cmd.isRecall ? `\n- 종료 주행거리: ${cmd.returnKm ? Number(cmd.returnKm).toLocaleString()+'km' : '미입력'}\n📋 미청구(회수 기록) 목록에 추가됨` : '') };
+      + (cmd.isRecall ? `\n- 종료 주행거리: ${cmd.returnKm ? Number(cmd.returnKm).toLocaleString()+'km' : '미입력'}\n📋 미청구(회수 기록) 목록에 추가됨${cmd.aiKm ? `\n✏️ 주행거리가 다르면 "${String(v.plate).slice(-4)} 키로 37960" 처럼 보내면 고쳐져요` : ''}` : '') };
 }
 
 
@@ -3340,7 +3478,12 @@ async function sendChatPhoto(text){
     const guess = ourFromPhoto[0] || null;
     const otherLine = otherPlates.length ? `\n같이 찍힌 다른 번호판: ${otherPlates.join(', ')}\n(메모 끝에 넣어둘게요)` : '';
     let tail = null;
-    if(guess){
+    // AI가 우리 차량 번호판을 또렷하게 읽었으면 묻지 않고 바로 적용합니다.
+    // (잘못 읽었으면 나중에 차량 카드를 눌러 고칠 수 있어요)
+    const confident = guess && ai && ai.confidence !== 'low' && ourFromPhoto.length === 1;
+    if(confident){
+      tail = guess.plate.slice(-4);
+    }else if(guess){
       const r = await showAppDialog({
         title: '이 차량이 맞나요?',
         message: `${guess.plate}  ·  ${guess.model || ''}\n\n보낼 내용: "${text}"${otherLine}`,
@@ -3386,6 +3529,10 @@ async function sendChatPhoto(text){
   // 회수면 주행거리 확인
   if(cmd.isRecall){
     const km = ai ? ai.km : null;
+    if(km && ai && ai.confidence !== 'low'){
+      // 주행거리를 또렷하게 읽었으면 그대로 입력 (나중에 수정 가능)
+      cmd.returnKm = km; cmd.aiKm = km;
+    }else{
     const head = km
       ? `📷 계기판에서 읽은 누적 주행거리: ${km.toLocaleString()} km${ai.confidence === 'low' ? '  (⚠️ 흐릿해서 확실하지 않아요)' : ''}\n\n맞으면 [확인], 다르면 숫자를 고쳐서 [확인]하세요.`
       : `${ai && ai.reason === 'nokey' ? '🤖 AI 설정(API 키)이 없어서 자동으로 못 읽었어요.' : '⚠️ ' + ((ai && ai.reason) || '주행거리를 못 읽었어요')}\n\n종료 주행거리(km)를 직접 입력하세요. (모르면 빈칸)`;
@@ -3394,6 +3541,7 @@ async function sendChatPhoto(text){
     const num = ans == null ? NaN : Number(String(ans).replace(/[^0-9]/g, ''));
     cmd.returnKm = (Number.isFinite(num) && num > 0) ? num : null;
     cmd.aiKm = km;
+    }
   }
   let result;
   try{ result = await applyChatCommand(cmd); }
@@ -3782,6 +3930,50 @@ async function renderLocMarkers(){
     map.setBounds(bounds);
   }
 }
+// ── 좌표 → "어디 주변" 주소로 바꾸기 (카카오 주소 변환) ──────────
+const _addrCache = {};
+function addrKey(lat, lng){ return lat.toFixed(4) + ',' + lng.toFixed(4); }
+async function lookupAddress(lat, lng){
+  const key = addrKey(lat, lng);
+  if(_addrCache[key] !== undefined) return _addrCache[key];
+  _addrCache[key] = null; // 중복 요청 방지
+  try{
+    // 이미 지도를 불러왔으면 그걸 그대로 사용 (지도를 안 열어도 주소는 나오게)
+    const kakao = (window.kakao && window.kakao.maps && window.kakao.maps.services)
+      ? window.kakao : await loadKakaoMaps();
+    if(!kakao || !kakao.maps || !kakao.maps.services) return null;
+    const geocoder = new kakao.maps.services.Geocoder();
+    const text = await new Promise((resolve)=>{
+      geocoder.coord2Address(lng, lat, (res, status)=>{
+        if(status !== kakao.maps.services.Status.OK || !res || !res[0]) return resolve(null);
+        const r = res[0];
+        // 건물 이름이 있으면 그게 제일 알아보기 쉬움 (예: "장성터미널")
+        const building = r.road_address && r.road_address.building_name;
+        const a = r.address || {};
+        const dong = [a.region_2depth_name, a.region_3depth_name].filter(Boolean).join(' ');
+        resolve(building ? `${building} 근처` : (dong ? `${dong} 근처` : null));
+      });
+    });
+    _addrCache[key] = text;
+    return text;
+  }catch(e){ return null; }
+}
+// 목록에 주소를 채워 넣음 (지도가 안 떠도 주소만은 나오게)
+function fillLocAddresses(){
+  document.querySelectorAll('#locList [data-addr]').forEach(async (el)=>{
+    const [lat, lng] = el.dataset.addr.split(',').map(Number);
+    if(!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    const cached = _addrCache[addrKey(lat, lng)];
+    if(cached){ el.textContent = cached; return; }
+    const t = await lookupAddress(lat, lng);
+    if(t) el.textContent = t;
+    else if(el.textContent === '위치 확인 중...'){
+      // 카카오 지도 주소 변환을 못 쓰는 경우엔 좌표라도 보여줌
+      el.textContent = `위도 ${lat.toFixed(4)}, 경도 ${lng.toFixed(4)}`;
+      el.style.color = 'var(--sub)';
+    }
+  });
+}
 function renderLocList(){
   const el = document.getElementById('locList');
   if(!el) return;
@@ -3795,10 +3987,17 @@ function renderLocList(){
     return;
   }
   el.innerHTML = entries.map(e=>`
-    <div class="sched-list-row"${e.stale ? ' style="opacity:.55;"' : ''}>
-      <div class="t">${e.stale ? '⚪' : '🟢'} ${escapeHtml(e.isMe ? '나' : memberLabel(e.uid, e.email))}${e.isMe ? ' <span style="color:var(--sub);font-size:11px;">(나)</span>' : ''}</div>
-      <div class="m">${e.stale ? '마지막 위치 · ' + escapeHtml(locTimeAgo(e.at)) + ' (앱이 꺼져 있거나 신호 없음)' : escapeHtml(locTimeAgo(e.at)) + ' 갱신'}</div>
+    <div class="sched-list-row" style="align-items:flex-start;${e.stale ? 'opacity:.6;' : ''}">
+      <div style="flex:1;min-width:0;">
+        <div class="t" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          ${e.stale ? '⚪' : '🟢'} ${escapeHtml(e.isMe ? '나' : memberLabel(e.uid, e.email))}${e.isMe ? ' <span style="color:var(--sub);font-size:11px;">(나)</span>' : ''}
+        </div>
+        <div style="color:var(--text);font-size:12.5px;margin-top:3px;line-height:1.4;" data-addr="${e.lat},${e.lng}">위치 확인 중...</div>
+        ${e.stale ? '<div style="color:var(--sub);font-size:11px;margin-top:2px;">앱이 꺼져 있거나 신호가 없어요</div>' : ''}
+      </div>
+      <div style="color:var(--sub);font-size:11px;white-space:nowrap;padding-top:2px;">${e.stale ? '마지막 · ' : ''}${escapeHtml(locTimeAgo(e.at))}</div>
     </div>`).join('');
+  fillLocAddresses();
 }
 function startLocSync(){
   const { ref, onValue, db } = window._fb;
@@ -4211,6 +4410,8 @@ async function startApp(){
   renderSchedBanner();
   startScheduleSync();
   startChatSync();
+  initChatNotify();
+  setTimeout(()=> openPhoneSetup(false), 2500);   // 앱 첫 실행이면 설정 안내
   startMembersSync();
   startQuickAppSync();
   startAiKeySync();
