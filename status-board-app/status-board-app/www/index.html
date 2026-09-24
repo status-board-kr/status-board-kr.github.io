@@ -625,7 +625,10 @@
 
 <header>
   <div class="title-row">
-    <div><button class="history-btn" onclick="reload(true)" title="새로고침" aria-label="새로고침" style="font-size:18px;">↻</button></div>
+    <div style="display:flex;gap:6px;">
+      <button class="history-btn" onclick="reload(true)" title="새로고침" aria-label="새로고침" style="font-size:18px;">↻</button>
+      <button class="history-btn" onclick="openPhoneSetup(true)" title="설정" aria-label="설정" style="font-size:17px;">⚙️</button>
+    </div>
     <div style="min-width:0;max-width:100%;text-align:center;">
       <h1 id="appTitle">🚗 현황판</h1>
       <div class="date" id="dateLine"></div>
@@ -1646,6 +1649,43 @@ function popModalHistoryIfNeeded(id){
   if(history.state && history.state.modalId === id) history.back();
 }
 let _backExitAt = 0;
+// 화면별 닫기 함수 (뒤로가기로 닫을 때 상태값도 같이 정리)
+const MODAL_CLOSERS = {
+  modalBg: () => (typeof closeModal === 'function') && closeModal(),
+  schedModalBg: () => (typeof closeSchedModal === 'function') && closeSchedModal(),
+  addModalBg: () => (typeof closeAddModal === 'function') && closeAddModal(),
+  historyModalBg: () => (typeof closeHistoryModal === 'function') && closeHistoryModal(),
+  staffModalBg: () => (typeof closeStaffModal === 'function') && closeStaffModal(),
+  chatModalBg: () => (typeof closeChatModal === 'function') && closeChatModal(),
+  locModalBg: () => (typeof closeLocModal === 'function') && closeLocModal(),
+  appDialogBg: () => (typeof closeAppDialog === 'function') && closeAppDialog(null)
+};
+function closeTopModal(){
+  // 위에 열린 창부터 닫습니다 (확인창이 가장 위)
+  const order = ['appDialogBg','addModalBg','historyModalBg','modalBg','schedModalBg','staffModalBg','chatModalBg','locModalBg'];
+  for(const id of order){
+    const el = document.getElementById(id);
+    if(el && el.classList.contains('open')){
+      const fn = MODAL_CLOSERS[id];
+      if(fn) fn(); else el.classList.remove('open');
+      return true;
+    }
+  }
+  return false;
+}
+// 안드로이드 앱의 뒤로가기 버튼 (웹의 popstate로는 잡히지 않아서 따로 처리)
+function initAppBackButton(){
+  const App = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+  if(!App || !App.addListener) return false;
+  App.addListener('backButton', ()=>{
+    if(closeTopModal()){ _backExitAt = 0; return; }   // 열린 창이 있으면 그것만 닫기
+    const now = Date.now();
+    if(now - _backExitAt < 2000){ App.exitApp(); return; }
+    _backExitAt = now;
+    showToast('뒤로가기를 한 번 더 누르면 종료돼요');
+  });
+  return true;
+}
 window.addEventListener('popstate', (e)=>{
   let closedAny = false;
   MODAL_IDS.forEach(id=>{
@@ -1654,7 +1694,9 @@ window.addEventListener('popstate', (e)=>{
     if(el && el.classList.contains('open')){ el.classList.remove('open'); closedAny = true; }
   });
   if(closedAny) return;
-  // 열린 화면이 없을 때 뒤로가기를 누르면 앱이 꺼져버리므로, 한 번 더 눌러야 종료되게 함
+  // 앱(안드로이드)에서는 위의 backButton 처리가 담당하므로 여기서는 아무것도 하지 않음
+  if(typeof isNativeApp === 'function' && isNativeApp()) return;
+  // 브라우저: 열린 화면이 없을 때 뒤로가기를 누르면 앱이 꺼져버리므로, 한 번 더 눌러야 종료되게 함
   const now = Date.now();
   if(now - _backExitAt < 2000) { history.back(); return; }
   _backExitAt = now;
@@ -2808,16 +2850,15 @@ function updateChatBadge(){
 // ── 첫 설치 때 해야 할 폰 설정 도우미 (앱에서만) ───────────────
 // 버튼을 누르면 해당 설정 화면이 바로 열립니다.
 function openAndroidSettings(kind){
-  if(kind === 'app'){
-    const plugin = getBgPlugin();
-    if(plugin && plugin.openSettings){ try{ plugin.openSettings(); return true; }catch(e){} }
+  // 1순위: 앱에 내장된 설정 열기 기능 (앱 정보 / 알림 / 배터리)
+  if(window.AndroidSettings && window.AndroidSettings.open){
+    try{ window.AndroidSettings.open(kind || 'app'); return true; }catch(e){ console.warn('설정 열기 실패:', e); }
   }
-  const intents = {
-    app: 'intent://#Intent;action=android.settings.APPLICATION_DETAILS_SETTINGS;S.android.provider.extra.APP_PACKAGE=com.jangsung.fleet;end',
-    battery: 'intent://#Intent;action=android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS;end',
-    notification: 'intent://#Intent;action=android.settings.APP_NOTIFICATION_SETTINGS;S.android.provider.extra.APP_PACKAGE=com.jangsung.fleet;end'
-  };
-  try{ window.location.href = intents[kind] || intents.app; return true; }catch(e){ return false; }
+  // 2순위: 위치 플러그인이 제공하는 앱 설정 열기
+  const plugin = (typeof getBgPlugin === 'function') ? getBgPlugin() : null;
+  if(plugin && plugin.openSettings){ try{ plugin.openSettings(); return true; }catch(e){} }
+  showToast('설정 화면을 열지 못했어요. 폰 설정 → 애플리케이션 → 현황판에서 바꿔주세요');
+  return false;
 }
 function setupDoneKey(){ return 'fleetSetupDone_' + (window.CURRENT_USER ? window.CURRENT_USER.uid : ''); }
 async function openPhoneSetup(force){
@@ -2839,8 +2880,9 @@ async function openPhoneSetup(force){
     if(r === 'done') localStorage.setItem(setupDoneKey(), '1');
     return;
   }
-  openAndroidSettings(r);
-  setTimeout(()=> openPhoneSetup(true), 1500);
+  const opened = openAndroidSettings(r);
+  if(opened) setTimeout(()=> openPhoneSetup(true), 1500);   // 설정 다녀오면 다시 안내
+  else setTimeout(()=> openPhoneSetup(true), 300);
 }
 // ── 메신저 알림 ───────────────────────────────────────────────
 // 앱: 휴대폰 알림으로 / 브라우저: 알림 권한이 있으면 알림, 없으면 화면 안내로
@@ -4411,6 +4453,7 @@ async function startApp(){
   startScheduleSync();
   startChatSync();
   initChatNotify();
+  initAppBackButton();   // 앱 뒤로가기 버튼 연결
   setTimeout(()=> openPhoneSetup(false), 2500);   // 앱 첫 실행이면 설정 안내
   startMembersSync();
   startQuickAppSync();
