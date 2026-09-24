@@ -14,7 +14,8 @@
     "@capacitor/local-notifications": "^7.0.0",
     "@capacitor-community/background-geolocation": "^1.2.25",
     "@capacitor/filesystem": "^7.0.0",
-    "@capacitor/share": "^7.0.0"
+    "@capacitor/share": "^7.0.0",
+    "@capacitor/app": "^7.0.0"
   },
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
