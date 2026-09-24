@@ -641,7 +641,7 @@
   <div class="header-actions">
     <button class="link-btn telegram" onclick="openChatModal()" style="position:relative;">💬 메신저<span class="chat-badge" id="chatBadge" style="display:none;top:-6px;right:-6px;">0</span></button>
     <button class="link-btn" style="color:#f472b6;border:1px solid rgba(244,114,182,.5);position:relative;" onclick="openLocModal()">📍 위치보기<span class="chat-badge" id="locBadge" style="display:none;top:-6px;right:-6px;">0</span></button>
-    <a class="link-btn kakao" href="intent://#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=com.kakao.talk;S.browser_fallback_url=https%3A%2F%2Fplay.google.com%2Fstore%2Fapps%2Fdetails%3Fid%3Dcom.kakao.talk;end">💬 카카오톡</a>
+    <button class="link-btn kakao" style="color:#fde047;border:1px solid rgba(253,224,71,.45);" onclick="openKakaoTalk()">💬 카카오톡</button>
     <button class="link-btn" id="quickAppBtn" style="color:#fbbf24;border:1px solid rgba(251,191,36,.5);" onclick="openQuickApp()" oncontextmenu="if(window.COMPANY_ROLE==='owner'){event.preventDefault();setupQuickApp();}">⭐ 자주 쓰는 앱</button>
     <button class="link-btn" style="color:var(--purple);border:1px solid rgba(167,139,250,.5);" onclick="openSchedModal()">📅 일정</button>
     <a class="link-btn" style="color:var(--amber);border:1px solid rgba(245,166,35,.5);" href="payment.html">💳 결제일 알림</a>
@@ -2667,6 +2667,24 @@ async function appPrompt(title, message, value, opts){
   return (r && typeof r === 'object') ? r.input : null;
 }
 
+// ── 다른 앱 열기 (앱에서는 웹 링크가 막혀서 안드로이드 기능으로 직접 엽니다) ──
+function openExternalApp(packageName, fallbackUrl){
+  if(window.AndroidSettings && window.AndroidSettings.openApp){
+    try{ window.AndroidSettings.openApp(packageName || '', fallbackUrl || ''); return true; }catch(e){ console.warn(e); }
+  }
+  if(fallbackUrl){ window.open(fallbackUrl, '_blank', 'noopener'); return true; }
+  return false;
+}
+function openKakaoTalk(){
+  if(!openExternalApp('com.kakao.talk', 'https://play.google.com/store/apps/details?id=com.kakao.talk'))
+    showToast('카카오톡을 열지 못했어요');
+}
+function openExternalUrl(url){
+  if(window.AndroidSettings && window.AndroidSettings.openUrl){
+    try{ window.AndroidSettings.openUrl(url); return; }catch(e){ console.warn(e); }
+  }
+  window.open(url, '_blank', 'noopener');
+}
 // ── 자주 쓰는 앱 (업체가 직접 연결) ───────────────────────────
 // 관리자가 주소(홈페이지·업무 사이트·플레이스토어 등)를 한 번 넣으면 전 직원 버튼에 적용됩니다.
 let _quickApp = null;
@@ -2695,7 +2713,7 @@ function updateQuickAppCard(){
   }
 }
 function openQuickApp(){
-  if(_quickApp && _quickApp.url){ window.open(_quickApp.url, '_blank', 'noopener'); return; }
+  if(_quickApp && _quickApp.url){ openExternalUrl(_quickApp.url); return; }
   if(window.COMPANY_ROLE === 'owner') setupQuickApp();
   else showToast('관리자가 아직 연결하지 않았어요');
 }
