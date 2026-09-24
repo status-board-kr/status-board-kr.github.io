@@ -24,6 +24,19 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
+      - name: 서명키 준비 (항상 같은 키로 서명해야 덮어쓰기 설치가 됨)
+        run: |
+          mkdir -p ~/.android
+          if [ -f apk/debug.keystore ]; then
+            cp apk/debug.keystore ~/.android/debug.keystore
+            echo '기존 서명키 사용'
+          else
+            keytool -genkeypair -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname 'CN=Android Debug,O=Android,C=US'
+            mkdir -p apk
+            cp ~/.android/debug.keystore apk/debug.keystore
+            echo '서명키 새로 만들어 저장'
+          fi
+
       - name: 패키지 설치
         working-directory: status-board-app/status-board-app
         run: npm install
@@ -32,7 +45,7 @@ jobs:
         working-directory: status-board-app/status-board-app
         run: npx cap add android
 
-      - name: 권한 설정
+      - name: 권한·뒤로가기·설정 적용
         working-directory: status-board-app/status-board-app
         run: node scripts/setup-android.js
 
@@ -54,10 +67,10 @@ jobs:
         run: |
           mkdir -p apk
           cp status-board-app/status-board-app/android/app/build/outputs/apk/debug/app-debug.apk apk/status-board.apk
-          printf '%s\n' "$(date '+%Y-%m-%d %H:%M') 빌드" > apk/version.txt
+          date '+%Y-%m-%d %H:%M 빌드' > apk/version.txt
           git config user.name 'github-actions'
           git config user.email 'actions@github.com'
-          git add apk/status-board.apk apk/version.txt
+          git add apk/status-board.apk apk/version.txt apk/debug.keystore
           git commit -m 'APK 업데이트' || echo '변경 없음'
           git push
 
