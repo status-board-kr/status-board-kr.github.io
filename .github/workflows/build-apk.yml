@@ -37,6 +37,14 @@ jobs:
             echo '서명키 새로 만들어 저장'
           fi
 
+      - name: 사이트 화면 파일을 앱 폴더로 자동 복사
+        run: |
+          APPW=status-board-app/status-board-app/www
+          mkdir -p $APPW
+          for f in index.html payment.html fleet-auth.js manifest.json sw.js icon-192.png icon-512.png icon-512-maskable.png apple-touch-icon.png; do
+            if [ -f "$f" ]; then cp "$f" "$APPW/$f"; echo "copied $f"; fi
+          done
+
       - name: 패키지 설치
         working-directory: status-board-app/status-board-app
         run: npm install
