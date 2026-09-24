@@ -1943,6 +1943,7 @@ function renderStats(){
 }
 
 function render(){
+  scheduleFleetAlarms();   // 자료가 바뀔 때마다 알림 예약 갱신
   renderStats();
   renderSchedBanner();
   const q = document.getElementById('searchInput').value.trim().toLowerCase();
@@ -2883,6 +2884,93 @@ async function openPhoneSetup(force){
   const opened = openAndroidSettings(r);
   if(opened) setTimeout(()=> openPhoneSetup(true), 1500);   // 설정 다녀오면 다시 안내
   else setTimeout(()=> openPhoneSetup(true), 300);
+}
+// ── 반납일·결제일·미청구 알림 (앱에서만) ──────────────────────
+// 폰에 미리 "예약 알림"을 걸어두는 방식이라, 앱을 닫아둬도 정해진 시간에 울립니다.
+// 앱을 열 때마다 최신 자료로 다시 계산해서 예약을 새로 겁니다.
+const ALARM_ID_KEY = 'fleetAlarmIds';
+const ALARM_DAYS_AHEAD = 30;        // 앞으로 30일치까지 예약
+const ALARM_UNBILLED_DAYS = 1;      // 회수 후 1일 지나도 청구 안 하면 알림
+function alarmTime(dateStr, hour, minute){
+  const [y, m, d] = String(dateStr).split('-').map(Number);
+  if(!y || !m || !d) return null;
+  return new Date(y, m - 1, d, hour, minute || 0, 0);
+}
+function alarmId(seed){
+  let h = 0;
+  for(let i = 0; i < seed.length; i++){ h = (h * 31 + seed.charCodeAt(i)) % 2000000; }
+  return 100000 + h;   // 다른 알림과 겹치지 않게 큰 번호대 사용
+}
+function buildFleetAlarms(){
+  const out = [];
+  const now = Date.now();
+  const limit = now + ALARM_DAYS_AHEAD * 86400000;
+  const push = (seed, at, title, body) => {
+    if(!at || at.getTime() <= now || at.getTime() > limit) return;
+    out.push({ id: alarmId(seed), title, body, schedule: { at }, smallIcon: 'ic_tracking' });
+  };
+  // 1) 반납일: 하루 전 오후 6시 + 당일 오전 9시
+  (vehicles || []).forEach(v => {
+    if(!v || !v.returnDate || !v.plate) return;
+    const who = [v.customerName, v.amount ? v.amount + '만원' : ''].filter(Boolean).join(' · ');
+    const day = alarmTime(v.returnDate, 9, 0);
+    if(!day) return;
+    const prev = new Date(day.getTime() - 86400000); prev.setHours(18, 0, 0, 0);
+    push('ret1-' + v.plate + v.returnDate, prev, '⏰ 내일 반납 예정',
+         `${v.plate} (${v.model || ''})${who ? ' · ' + who : ''}`);
+    push('ret0-' + v.plate + v.returnDate, day, '🚗 오늘 반납일',
+         `${v.plate} (${v.model || ''})${who ? ' · ' + who : ''}`);
+  });
+  // 2) 결제일: 장기 차량의 매월 결제일 오전 9시 (다음 2개월치)
+  const pays = {};
+  (vehicles || []).forEach(v => {
+    if(!v || !v.payDay || !v.amount) return;
+    const d = Number(v.payDay);
+    if(!(d >= 1 && d <= 31)) return;
+    const today = new Date();
+    for(let k = 0; k < 3; k++){
+      const t = new Date(today.getFullYear(), today.getMonth() + k, d, 9, 0, 0);
+      if(t.getTime() <= now || t.getTime() > limit) continue;
+      const key = `${t.getFullYear()}-${t.getMonth()}-${d}`;
+      pays[key] = pays[key] || { at: t, cars: [], sum: 0 };
+      pays[key].cars.push(v.plate);
+      pays[key].sum += Number(v.amount) || 0;
+    }
+  });
+  Object.entries(pays).forEach(([key, p]) => {
+    push('pay-' + key, p.at, '💳 오늘 결제일',
+         `${p.cars.length}대 · ${p.sum.toLocaleString()}만원 (${p.cars.slice(0, 3).join(', ')}${p.cars.length > 3 ? ' 외' : ''})`);
+  });
+  // 3) 미청구: 회수 후 1일이 지났는데 아직 청구 안 한 건 → 내일 오전 9시 안내
+  const cutoff = now - ALARM_UNBILLED_DAYS * 86400000;
+  const unbilled = Object.values(schedules || {}).filter(s =>
+    s && s.done && (s.auto || s.manual) && !s.billed && s.type !== '일반' &&
+    s.doneAt && new Date(s.doneAt).getTime() <= cutoff);
+  if(unbilled.length){
+    const t = new Date(); t.setDate(t.getDate() + 1); t.setHours(9, 0, 0, 0);
+    push('unbilled-' + new Date().toDateString(), t, '📋 청구하지 않은 회수 건',
+         `${unbilled.length}건이 아직 청구 전이에요 (${unbilled.slice(0, 3).map(s => s.plate).join(', ')}${unbilled.length > 3 ? ' 외' : ''})`);
+  }
+  return out;
+}
+let _alarmTimer = null;
+function scheduleFleetAlarms(){
+  clearTimeout(_alarmTimer);
+  _alarmTimer = setTimeout(async ()=>{
+    const LN = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
+    if(!LN || !(typeof isNativeApp === 'function' && isNativeApp())) return;   // 앱에서만
+    try{
+      const st = await LN.checkPermissions();
+      if(st.display !== 'granted') return;
+      // 예전에 걸어둔 예약 지우기
+      const old = JSON.parse(localStorage.getItem(ALARM_ID_KEY) || '[]');
+      if(old.length) await LN.cancel({ notifications: old.map(id => ({ id })) });
+      const list = buildFleetAlarms();
+      if(list.length) await LN.schedule({ notifications: list });
+      localStorage.setItem(ALARM_ID_KEY, JSON.stringify(list.map(n => n.id)));
+      console.log(`알림 ${list.length}건 예약`);
+    }catch(e){ console.warn('알림 예약 실패:', e); }
+  }, 1500);   // 자료가 여러 번 바뀌어도 마지막에 한 번만 계산
 }
 // ── 메신저 알림 ───────────────────────────────────────────────
 // 앱: 휴대폰 알림으로 / 브라우저: 알림 권한이 있으면 알림, 없으면 화면 안내로
