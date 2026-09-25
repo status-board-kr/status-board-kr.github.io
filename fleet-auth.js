@@ -72,9 +72,35 @@ window.FleetAuth = (function () {
       const node = el(p);
       if (node) node.style.display = (p === name) ? 'flex' : 'none';
     });
+    applyLoggedInMode(name);
     // 화면이 자동으로 넘어간 경우엔, 왜 그렇게 됐는지 알 수 있게 에러를 이어서 보여줌
     showError(_pendingError);
     _pendingError = '';
+  }
+
+  function currentAccount() {
+    return window.CURRENT_USER || (_auth && _auth.auth && _auth.auth.currentUser) || null;
+  }
+  function isSignedInNoCompany() {
+    return !!currentAccount() && !window.COMPANY_ID;
+  }
+  function applyLoggedInMode(name) {
+    const on = isSignedInNoCompany();
+    const sets = { authJoin: ['authJoinEmail', 'authJoinPw'], authSignup: ['authSignupEmail', 'authSignupPw'] };
+    Object.keys(sets).forEach(function (panel) {
+      sets[panel].forEach(function (id) {
+        const node = el(id);
+        if (node) node.style.display = on ? 'none' : '';
+      });
+    });
+    const note = el('authAccountNote');
+    if (note) {
+      if (on && (name === 'authJoin' || name === 'authSignup')) {
+        const acc = currentAccount();
+        note.textContent = '현재 계정(' + ((acc && acc.email) || '') + ')으로 진행합니다. 코드만 입력하면 돼요.';
+        note.style.display = 'block';
+      } else { note.style.display = 'none'; }
+    }
   }
 
   // ── 로그인/가입 동작 ──────────────────────────
@@ -95,14 +121,17 @@ window.FleetAuth = (function () {
 
   async function doSignupCompany() {
     const companyName = el('authCompanyName').value.trim();
-    const email = el('authSignupEmail').value.trim();
-    const pw = el('authSignupPw').value;
+    const already = isSignedInNoCompany() ? currentAccount() : null;
+    const email = already ? (already.email || '') : el('authSignupEmail').value.trim();
+    const pw = already ? '' : el('authSignupPw').value;
     if (!companyName) { showError('업체명을 입력해주세요.'); return; }
-    if (!email || !pw) { showError('이메일과 비밀번호를 입력해주세요.'); return; }
-    if (pw.length < 6) { showError('비밀번호는 6자 이상으로 해주세요.'); return; }
+    if (!already) {
+      if (!email || !pw) { showError('이메일과 비밀번호를 입력해주세요.'); return; }
+      if (pw.length < 6) { showError('비밀번호는 6자 이상으로 해주세요.'); return; }
+    }
     setBusy(true);
     try {
-      const cred = await _auth.createUserWithEmailAndPassword(_auth.auth, email, pw);
+      const cred = already ? { user: already } : await _auth.createUserWithEmailAndPassword(_auth.auth, email, pw);
       const uid = cred.user.uid;
       const companyId = makeCompanyId();
       const { ref, set, db } = _fb;
@@ -120,7 +149,7 @@ window.FleetAuth = (function () {
         }
       });
       await set(ref(db, 'userIndex/' + uid), { companyId: companyId });
-      // 이후 처리는 onAuthStateChanged가 이어서 함
+      if (already) await afterAuth(already);
     } catch (err) {
       console.error(err);
       showError(friendlyAuthError(err));
@@ -130,14 +159,17 @@ window.FleetAuth = (function () {
 
   async function doJoinWithCode() {
     const code = el('authJoinCode').value.trim().toUpperCase();
-    const email = el('authJoinEmail').value.trim();
-    const pw = el('authJoinPw').value;
+    const already = isSignedInNoCompany() ? currentAccount() : null;
+    const email = already ? (already.email || '') : el('authJoinEmail').value.trim();
+    const pw = already ? '' : el('authJoinPw').value;
     if (!code) { showError('초대코드를 입력해주세요.'); return; }
-    if (!email || !pw) { showError('이메일과 비밀번호를 입력해주세요.'); return; }
-    if (pw.length < 6) { showError('비밀번호는 6자 이상으로 해주세요.'); return; }
+    if (!already) {
+      if (!email || !pw) { showError('이메일과 비밀번호를 입력해주세요.'); return; }
+      if (pw.length < 6) { showError('비밀번호는 6자 이상으로 해주세요.'); return; }
+    }
     setBusy(true);
     try {
-      const cred = await _auth.createUserWithEmailAndPassword(_auth.auth, email, pw);
+      const cred = already ? { user: already } : await _auth.createUserWithEmailAndPassword(_auth.auth, email, pw);
       const uid = cred.user.uid;
       const { ref, get, set, db } = _fb;
 
@@ -156,7 +188,7 @@ window.FleetAuth = (function () {
         role: 'staff', email: email, joinedAt: new Date().toISOString(), viaCode: code
       });
       await set(ref(db, 'userIndex/' + uid), { companyId: companyId });
-      // 이후 처리는 onAuthStateChanged가 이어서 함
+      if (already) await afterAuth(already);
     } catch (err) {
       console.error(err);
       showError(friendlyAuthError(err));
@@ -199,42 +231,47 @@ window.FleetAuth = (function () {
   }
 
   // ── 초기화 ────────────────────────────────────
+  let _entered = false;
+  async function afterAuth(user) {
+    if (!user) {
+      _entered = false;
+      window.CURRENT_USER = null;
+      window.COMPANY_ID = null;
+      el('authScreen').style.display = 'flex';
+      showPanel('authLogin');
+      setBusy(false);
+      return;
+    }
+    window.CURRENT_USER = user;
+    try {
+      const info = await resolveCompany(user);
+      if (!info) {
+        el('authScreen').style.display = 'flex';
+        showPanel('authChoose');
+        setBusy(false);
+        return;
+      }
+      window.COMPANY_ID = info.companyId;
+      window.COMPANY_ROLE = info.role;
+      el('authScreen').style.display = 'none';
+      if (_entered) { location.reload(); return; }
+      _entered = true;
+      if (_onReady) _onReady(info);
+    } catch (err) {
+      console.error(err);
+      el('authScreen').style.display = 'flex';
+      showPanel('authLogin');
+      showError('업체 정보를 불러오지 못했어요. 다시 로그인해주세요.');
+      setBusy(false);
+    }
+  }
+
   function init(opts) {
     _fb = opts.fb;
     _auth = opts.auth;
     _onReady = opts.onReady;
 
-    _auth.onAuthStateChanged(_auth.auth, async function (user) {
-      if (!user) {
-        window.CURRENT_USER = null;
-        window.COMPANY_ID = null;
-        el('authScreen').style.display = 'flex';
-        showPanel('authLogin');
-        setBusy(false);
-        return;
-      }
-      window.CURRENT_USER = user;
-      try {
-        const info = await resolveCompany(user);
-        if (!info) {
-          // 로그인은 됐는데 소속 업체가 없음 → 업체 만들기/참여하기 선택 화면
-          el('authScreen').style.display = 'flex';
-          showPanel('authChoose');
-          setBusy(false);
-          return;
-        }
-        window.COMPANY_ID = info.companyId;
-        window.COMPANY_ROLE = info.role;
-        el('authScreen').style.display = 'none';
-        if (_onReady) _onReady(info);
-      } catch (err) {
-        console.error(err);
-        el('authScreen').style.display = 'flex';
-        showPanel('authLogin');
-        showError('업체 정보를 불러오지 못했어요. 다시 로그인해주세요.');
-        setBusy(false);
-      }
-    });
+    _auth.onAuthStateChanged(_auth.auth, function (user) { afterAuth(user); });
   }
 
   return {
