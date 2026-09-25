@@ -53,6 +53,30 @@ for (const [k, v] of Object.entries(entries)) {
 }
 fs.writeFileSync(stringsPath, st);
 
+// 서명키 위치를 앱 설정에 못 박기 (안 하면 빌드마다 키가 새로 만들어져 덮어쓰기 설치가 안 됨)
+const gradlePath = path.join(__dirname, '..', 'android', 'app', 'build.gradle');
+if (fs.existsSync(gradlePath)) {
+  let g = fs.readFileSync(gradlePath, 'utf8');
+  if (!g.includes('debug.keystore')) {
+    const block = [
+      '    signingConfigs {',
+      '        debug {',
+      "            storeFile file('debug.keystore')",
+      "            storePassword 'android'",
+      "            keyAlias 'androiddebugkey'",
+      "            keyPassword 'android'",
+      '        }',
+      '    }',
+      ''
+    ].join('\n');
+    g = g.replace(/android\s*\{/, (m) => m + '\n' + block);
+    fs.writeFileSync(gradlePath, g);
+    console.log('signing config fixed');
+  } else {
+    console.log('signing config already fixed');
+  }
+}
+
 const javaRoot = path.join(res, 'java');
 function findMain(dir){ for(const f of fs.readdirSync(dir,{withFileTypes:true})){ const p2=path.join(dir,f.name);
   if(f.isDirectory()){ const r=findMain(p2); if(r) return r; } else if(f.name==='MainActivity.java') return p2; } return null; }
