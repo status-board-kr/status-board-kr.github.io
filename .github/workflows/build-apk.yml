@@ -53,6 +53,9 @@ jobs:
         working-directory: status-board-app/status-board-app
         run: npx cap add android
 
+      - name: 서명키를 앱 폴더로 복사
+        run: cp apk/debug.keystore status-board-app/status-board-app/android/app/debug.keystore
+
       - name: 권한·뒤로가기·설정 적용
         working-directory: status-board-app/status-board-app
         run: node scripts/setup-android.js
