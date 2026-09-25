@@ -871,6 +871,7 @@
   <div class="modal">
     <h3>차량 추가</h3>
     <div class="sub">새 차량 정보를 입력하세요</div>
+    <button class="btn-cancel" style="width:100%;margin-bottom:12px;font-size:13px;" onclick="closeAddModal();setTimeout(openBulkModal,150)">📥 엑셀·등록증 사진으로 여러 대 한번에 등록</button>
     <div id="aMainFields">
     <div class="field">
       <label>차량번호 *</label>
@@ -1086,6 +1087,25 @@
       <button class="btn-save" id="locToggleBtn" style="width:100%;padding:13px;font-size:14px;font-weight:700;border-radius:10px;margin-bottom:8px;display:none;" onclick="toggleLocationShare()">📍 내 위치 공유 시작</button>
       <button class="btn-cancel" onclick="closeLocModal()">닫기</button>
     </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="bulkModalBg">
+  <div class="sched-modal-shell">
+    <h3>📥 차량 일괄 등록</h3>
+    <div class="sub">엑셀(또는 CSV) 파일이나 자동차등록증 사진으로 여러 대를 한 번에 등록합니다.</div>
+    <div style="display:flex;gap:8px;margin:12px 0;">
+      <button class="btn-cancel" style="flex:1;padding:14px 8px;font-size:13px;line-height:1.5;" onclick="document.getElementById('bulkFileInput').click()">📄<br>엑셀·CSV 올리기</button>
+      <button class="btn-cancel" style="flex:1;padding:14px 8px;font-size:13px;line-height:1.5;" onclick="document.getElementById('bulkPhotoInput').click()">🪪<br>등록증 사진 올리기</button>
+    </div>
+    <input type="file" id="bulkFileInput" accept=".xlsx,.xls,.csv,text/csv" style="display:none;" onchange="onBulkFilePicked(this)">
+    <input type="file" id="bulkPhotoInput" accept="image/*" multiple style="display:none;" onchange="onBulkPhotoPicked(this)">
+    <div id="bulkStatus" style="font-size:12px;color:var(--sub);line-height:1.6;margin-bottom:10px;"></div>
+    <div id="bulkPreview" style="max-height:44vh;overflow-y:auto;"></div>
+    <div id="bulkActions" style="display:none;gap:8px;margin-top:10px;">
+      <button class="btn-save" style="width:100%;" id="bulkSaveBtn" onclick="saveBulkVehicles()">등록하기</button>
+    </div>
+    <button class="btn-cancel" style="margin-top:8px;" onclick="closeBulkModal()">닫기</button>
   </div>
 </div>
 
@@ -1967,7 +1987,9 @@ function render(){
 
   const main = document.getElementById('main');
   if(list.length===0){
-    main.innerHTML = '<div class="empty">해당하는 차량이 없습니다</div>';
+    main.innerHTML = (vehicles.length === 0)
+      ? '<div class="empty" style="padding:28px 18px;line-height:1.8;">아직 등록된 차량이 없어요.<br><span style="font-size:12px;">엑셀 파일이나 자동차등록증 사진으로 한 번에 등록할 수 있어요.</span><button class="btn-save" style="width:100%;max-width:280px;margin:14px auto 0;display:block;" onclick="openBulkModal()">📥 차량 한번에 등록하기</button><button class="btn-cancel" style="width:100%;max-width:280px;margin:8px auto 0;display:block;" onclick="openAddModal()">한 대씩 직접 입력</button></div>'
+      : '<div class="empty">해당하는 차량이 없습니다</div>';
     return;
   }
 
@@ -2425,6 +2447,291 @@ function cancelDeletePress(){
   if(!fill) return;
   fill.style.transition = 'width 150ms linear';
   fill.style.width = '0%';
+}
+
+// ── 차량 일괄 등록 (엑셀·CSV / 자동차등록증 사진) ──
+let _bulkRows = [];
+function openBulkModal(){
+  if(!ensureEditUnlocked()) return;
+  _bulkRows = [];
+  document.getElementById('bulkStatus').textContent = '';
+  document.getElementById('bulkPreview').innerHTML = '';
+  document.getElementById('bulkActions').style.display = 'none';
+  document.getElementById('bulkModalBg').classList.add('open');
+  pushModalHistoryState('bulkModalBg');
+}
+function closeBulkModal(){
+  document.getElementById('bulkModalBg').classList.remove('open');
+  popModalHistoryIfNeeded('bulkModalBg');
+}
+function bulkStatus(msg){ document.getElementById('bulkStatus').innerHTML = msg; }
+function findPlate(text){
+  const s = String(text || '').replace(/\s+/g, '');
+  const m = s.match(/(?:^|[^0-9])(\d{2,3}[가-힣]\d{4})(?![0-9])/);
+  return m ? m[1] : null;
+}
+const CLS_WORDS = ['경형','소형','준중형','중형','대형','승합','화물','수입','전기'];
+function guessCls(text){
+  const s = String(text || '');
+  return CLS_WORDS.find(w => s.includes(w)) || '';
+}
+const FUEL_WORDS = ['가솔린','휘발유','디젤','경유','LPG','엘피지','전기','하이브리드'];
+function guessFuel(text){
+  const s = String(text || '').toUpperCase();
+  const hit = FUEL_WORDS.find(w => s.includes(w.toUpperCase()));
+  if(!hit) return '';
+  if(hit === '휘발유') return '가솔린';
+  if(hit === '경유') return '디젤';
+  if(hit === '엘피지') return 'LPG';
+  return hit;
+}
+function parseCsvLine(line){
+  const out = []; let cur = '', q = false;
+  for(let i = 0; i < line.length; i++){
+    const ch = line[i];
+    if(q){
+      if(ch === '"' && line[i+1] === '"'){ cur += '"'; i++; }
+      else if(ch === '"') q = false;
+      else cur += ch;
+    }else{
+      if(ch === '"') q = true;
+      else if(ch === ',') { out.push(cur); cur = ''; }
+      else cur += ch;
+    }
+  }
+  out.push(cur);
+  return out.map(x => x.trim());
+}
+async function inflateRaw(bytes){
+  if(typeof DecompressionStream === 'undefined') throw new Error('이 브라우저는 엑셀 읽기를 지원하지 않아요');
+  const ds = new DecompressionStream('deflate-raw');
+  const stream = new Blob([bytes]).stream().pipeThrough(ds);
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+async function readZipEntries(buf){
+  const u8 = new Uint8Array(buf), dv = new DataView(buf);
+  let eocd = -1;
+  for(let i = u8.length - 22; i >= 0 && i > u8.length - 66000; i--){
+    if(dv.getUint32(i, true) === 0x06054b50){ eocd = i; break; }
+  }
+  if(eocd < 0) throw new Error('엑셀 파일 형식이 아니에요');
+  const count = dv.getUint16(eocd + 10, true);
+  let off = dv.getUint32(eocd + 16, true);
+  const out = {};
+  for(let i = 0; i < count; i++){
+    if(dv.getUint32(off, true) !== 0x02014b50) break;
+    const method = dv.getUint16(off + 10, true);
+    const compSize = dv.getUint32(off + 20, true);
+    const nameLen = dv.getUint16(off + 28, true);
+    const extraLen = dv.getUint16(off + 30, true);
+    const cmtLen = dv.getUint16(off + 32, true);
+    const localOff = dv.getUint32(off + 42, true);
+    const name = new TextDecoder().decode(u8.slice(off + 46, off + 46 + nameLen));
+    const lnLen = dv.getUint16(localOff + 26, true);
+    const leLen = dv.getUint16(localOff + 28, true);
+    const dataStart = localOff + 30 + lnLen + leLen;
+    out[name] = { method, data: u8.slice(dataStart, dataStart + compSize) };
+    off += 46 + nameLen + extraLen + cmtLen;
+  }
+  return out;
+}
+async function entryText(entry){
+  if(!entry) return '';
+  const bytes = (entry.method === 0) ? entry.data : await inflateRaw(entry.data);
+  return new TextDecoder().decode(bytes);
+}
+function xmlTexts(xml, tag){
+  const out = []; const re = new RegExp('<' + tag + '[^>]*>([\\s\\S]*?)</' + tag + '>', 'g');
+  let m; while((m = re.exec(xml))) out.push(m[1]);
+  return out;
+}
+function unescapeXml(s){
+  return String(s)
+    .replace(/&#x([0-9a-fA-F]+);/g, (m, h) => String.fromCodePoint(parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (m, d) => String.fromCodePoint(Number(d)))
+    .replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&amp;/g,'&');
+}
+async function parseXlsx(buf){
+  const files = await readZipEntries(buf);
+  const shared = [];
+  const ssXml = await entryText(files['xl/sharedStrings.xml']);
+  if(ssXml){
+    xmlTexts(ssXml, 'si').forEach(si => {
+      const parts = xmlTexts(si, 't').map(t => unescapeXml(t.replace(/<[^>]*>/g, '')));
+      shared.push(parts.join(''));
+    });
+  }
+  const rows = [];
+  const sheetNames = Object.keys(files).filter(n => /^xl\/worksheets\/sheet\d+\.xml$/.test(n)).sort();
+  for(const name of sheetNames){
+    const xml = await entryText(files[name]);
+    xmlTexts(xml, 'row').forEach(rowXml => {
+      const cells = [];
+      const re = /<c\b([^>]*)\/>|<c\b([^>]*)>([\s\S]*?)<\/c>/g;
+      let m;
+      while((m = re.exec(rowXml))){
+        const attrs = m[1] || m[2] || '';
+        const inner = m[3] || '';
+        const type = (attrs.match(/t="([^"]+)"/) || [])[1] || '';
+        let val = '';
+        if(type === 's'){
+          const idx = Number((inner.match(/<v>([\s\S]*?)<\/v>/) || [])[1]);
+          val = shared[idx] || '';
+        }else if(type === 'inlineStr'){
+          val = xmlTexts(inner, 't').map(t => unescapeXml(t)).join('');
+        }else{
+          val = unescapeXml((inner.match(/<v>([\s\S]*?)<\/v>/) || [])[1] || '');
+        }
+        cells.push(val);
+      }
+      if(cells.length) rows.push(cells);
+    });
+  }
+  return rows;
+}
+function rowsToVehicles(rows){
+  const found = [];
+  rows.forEach(row => {
+    const cells = (row || []).map(c => (c === null || c === undefined) ? '' : String(c));
+    const joined = cells.join(' ');
+    let plate = null;
+    for(const c of cells){ plate = findPlate(c); if(plate) break; }
+    if(!plate) plate = findPlate(joined);
+    if(!plate) return;
+    const rest = cells.filter(c => !findPlate(c));
+    const cls = guessCls(joined);
+    const fuel = guessFuel(joined);
+    const model = (rest.find(c => c && c.length <= 20 && /[가-힣A-Za-z]/.test(c)
+      && !CLS_WORDS.includes(c.trim()) && !FUEL_WORDS.includes(c.trim().toUpperCase())
+      && !/^\d+$/.test(c.trim())) || '').trim();
+    found.push({ plate, model, cls, fuel });
+  });
+  return found;
+}
+async function onBulkFilePicked(input){
+  const f = input.files && input.files[0];
+  input.value = '';
+  if(!f) return;
+  bulkStatus('파일을 읽는 중...');
+  try{
+    let rows = [];
+    if(/\.csv$/i.test(f.name) || f.type === 'text/csv'){
+      const text = await f.text();
+      rows = text.split(/\r?\n/).filter(Boolean).map(parseCsvLine);
+    }else{
+      rows = await parseXlsx(await f.arrayBuffer());
+    }
+    showBulkPreview(rowsToVehicles(rows), '📄 ' + f.name);
+  }catch(e){
+    console.error(e);
+    bulkStatus('⚠️ ' + (e.message || '파일을 읽지 못했어요') + '<br>엑셀이 안 열리면, 엑셀에서 <b>다른 이름으로 저장 → CSV</b>로 바꿔서 올려보세요.');
+  }
+}
+const REG_PROMPT =
+  'These photos are Korean vehicle registration certificates. ' +
+  'For EACH photo return one entry. Reply with JSON only: ' +
+  '{"cars": [{"plate": "12가3456", "model": "쏘나타", "fuel": "가솔린|디젤|LPG|전기|하이브리드 or null", "year": 2023 or null}]}';
+async function readRegCards(photos){
+  const key = getAiKey();
+  if(!key) return { cars: [], reason: 'nokey' };
+  const b64s = photos.map(d => d.split(',')[1]);
+  const provider = aiProvider(key);
+  try{
+    if(provider === 'claude'){
+      const r = await aiHttpPost('https://api.anthropic.com/v1/messages', {
+        'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      }, { model: CLAUDE_MODEL, max_tokens: 800, messages: [{ role: 'user', content: [
+        ...b64s.map(d => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: d } })),
+        { type: 'text', text: REG_PROMPT } ] }] }, 40000);
+      if(r.status < 200 || r.status >= 300) return { cars: [], reason: '오류 ' + r.status };
+      const j = parseAiJson(((r.data && r.data.content) || []).map(c => c.text || '').join(''));
+      return { cars: (j && j.cars) || [] };
+    }
+    for(const model of GEMINI_MODELS){
+      const r = await aiHttpPost('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent',
+        { 'x-goog-api-key': key, 'content-type': 'application/json' },
+        { contents: [{ parts: [ ...b64s.map(d => ({ inline_data: { mime_type: 'image/jpeg', data: d } })), { text: REG_PROMPT } ] }],
+          generationConfig: { responseMimeType: 'application/json', temperature: 0 } }, 40000);
+      if(r.status >= 200 && r.status < 300){
+        const cand = r.data && r.data.candidates && r.data.candidates[0];
+        const text = cand && cand.content ? (cand.content.parts || []).map(p => p.text || '').join('') : '';
+        const j = parseAiJson(text);
+        return { cars: (j && j.cars) || [] };
+      }
+    }
+    return { cars: [], reason: 'AI가 바쁜요. 잠시 후 다시 해주세요' };
+  }catch(e){ return { cars: [], reason: e.message || '연결 실패' }; }
+}
+async function onBulkPhotoPicked(input){
+  const files = [...(input.files || [])];
+  input.value = '';
+  if(!files.length) return;
+  if(!getAiKey()){ bulkStatus('⚠️ 등록증 사진을 읽으려면 ⚙️에서 AI 설정(API 키)이 필요해요.'); return; }
+  bulkStatus('🪪 사진 ' + files.length + '장을 읽는 중... (조금 걸려요)');
+  const all = [];
+  try{
+    const shots = [];
+    for(const f of files){
+      let d = await compressImage(f, 1400, 0.75);
+      if(d.length > PHOTO_MAX_B64) d = await compressImage(f, 1100, 0.6);
+      shots.push(d);
+    }
+    for(let i = 0; i < shots.length; i += 4){
+      bulkStatus('🪪 사진 읽는 중... (' + Math.min(i + 4, shots.length) + '/' + shots.length + ')');
+      const r = await readRegCards(shots.slice(i, i + 4));
+      if(r.reason && !r.cars.length && i === 0){ bulkStatus('⚠️ ' + r.reason); return; }
+      (r.cars || []).forEach(c => {
+        const plate = findPlate(c.plate || '');
+        if(plate) all.push({ plate, model: (c.model || '').trim(), cls: guessCls(c.model || ''), fuel: guessFuel(c.fuel || '') });
+      });
+    }
+    showBulkPreview(all, '🪪 등록증 사진 ' + files.length + '장');
+  }catch(e){ console.error(e); bulkStatus('⚠️ ' + (e.message || '사진을 읽지 못했어요')); }
+}
+function showBulkPreview(list, sourceLabel){
+  const seen = {};
+  _bulkRows = list.filter(v => { if(seen[v.plate]) return false; seen[v.plate] = 1; return true; })
+                  .map(v => ({ ...v, _dup: vehicles.some(x => x && x.plate === v.plate) }));
+  const addable = _bulkRows.filter(v => !v._dup).length;
+  const dup = _bulkRows.length - addable;
+  if(!_bulkRows.length){
+    bulkStatus(sourceLabel + '<br>⚠️ 차량번호를 찾지 못했어요. 차량번호가 들어있는 파일인지 확인해주세요.');
+    document.getElementById('bulkPreview').innerHTML = '';
+    document.getElementById('bulkActions').style.display = 'none';
+    return;
+  }
+  bulkStatus(sourceLabel + '<br>찾은 차량 <b style="color:var(--text);">' + _bulkRows.length + '대</b>' +
+             (dup ? ' · 이미 등록된 ' + dup + '대는 건너뜁니다' : '') +
+             '<br>종별·연료가 비어 있으면 나중에 차량을 눌러 채우면 돼요.');
+  document.getElementById('bulkPreview').innerHTML = _bulkRows.map((v, i) => '\n    <div class="sched-list-row"' + (v._dup ? ' style="opacity:.45;"' : '') + '>\n      <div style="flex:1;min-width:0;">\n        <div class="t">' + (v._dup ? '⛔ ' : '✅ ') + escapeHtml(v.plate) + '</div>\n        <div class="m">' + escapeHtml([v.model, v.cls, v.fuel].filter(Boolean).join(' · ') || '정보 없음') + (v._dup ? ' · 이미 등록됨' : '') + '</div>\n      </div>\n      ' + (v._dup ? '' : '<button class="del" onclick="removeBulkRow(' + i + ')">✕</button>') + '\n    </div>').join('');
+  const btn = document.getElementById('bulkSaveBtn');
+  btn.textContent = addable ? (addable + '대 등록하기') : '등록할 차량이 없어요';
+  btn.disabled = !addable;
+  document.getElementById('bulkActions').style.display = 'flex';
+}
+function removeBulkRow(i){ _bulkRows.splice(i, 1); showBulkPreview(_bulkRows, '목록에서 제외함'); }
+async function saveBulkVehicles(){
+  const list = _bulkRows.filter(v => !v._dup);
+  if(!list.length) return;
+  const btn = document.getElementById('bulkSaveBtn');
+  btn.disabled = true; btn.textContent = '등록 중...';
+  try{
+    const made = list.map(v => ({
+      no: '+', plate: v.plate, branch: HOME_BRANCH, cls: v.cls || '', model: v.model || '',
+      fuel: v.fuel || '', type: '', startDate: null, status: '', extra: '', note: '',
+      amount: null, payDay: null, returnDate: null,
+      insuranceDate: null, inspectionType: '일반', inspectionDate: null, inspectionDone: false,
+      regDate: null, ageExpireDate: null, asYears: AS_YEARS_DEFAULT, ageExtendCount: 0
+    }));
+    await persist({ type: 'upsert-many', vehicles: made });
+    closeBulkModal();
+    showToast('차량 ' + list.length + '대를 등록했어요');
+  }catch(e){
+    console.error(e);
+    btn.disabled = false; btn.textContent = '등록하기';
+    bulkStatus('⚠️ 저장에 실패했어요. 다시 시도해주세요.');
+  }
 }
 
 function openAddModal(){
