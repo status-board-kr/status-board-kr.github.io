@@ -427,8 +427,37 @@
   }
   .modal-actions{display:flex;gap:8px;margin-top:16px;}
   .modal-actions button{flex:1;padding:12px;border-radius:10px;border:none;font-size:14px;font-weight:700;}
-  .btn-cancel{background:var(--panel2);color:var(--sub);}
-  .btn-save{background:var(--amber);color:#1a1a1a;}
+  /* ── 버튼 공통 모양 ── */
+  .btn-save, .btn-cancel{
+    border-radius:12px;padding:13px 14px;font-size:14px;font-weight:700;
+    letter-spacing:-0.2px;transition:transform .08s ease, filter .15s ease, background .15s ease;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .btn-save{
+    background:linear-gradient(180deg,#ffc05a 0%,var(--amber) 55%,#e08e12 100%);
+    color:#1a1a1a;border:none;
+    box-shadow:0 3px 10px rgba(245,166,35,.28), inset 0 1px 0 rgba(255,255,255,.35);
+  }
+  .btn-save:active{transform:translateY(1px);filter:brightness(.94);}
+  .btn-save:disabled{opacity:.45;box-shadow:none;}
+  .btn-cancel{
+    background:linear-gradient(180deg,#22314f 0%,var(--panel2) 100%);
+    color:var(--text);border:1px solid var(--line);
+    box-shadow:0 2px 6px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.05);
+  }
+  .btn-cancel:active{transform:translateY(1px);filter:brightness(1.12);}
+  .btn-quiet{
+    background:transparent;border:1px solid var(--line);color:var(--sub);
+    border-radius:12px;padding:12px;font-size:13px;font-weight:600;width:100%;
+  }
+  .btn-quiet:active{background:var(--panel2);}
+  .btn-on{
+    background:linear-gradient(180deg,#4ade80 0%,var(--green) 55%,#16a34a 100%);
+    color:#0b1a12;border:none;
+    box-shadow:0 3px 10px rgba(52,211,153,.28), inset 0 1px 0 rgba(255,255,255,.35);
+  }
+  .btn-on:active{transform:translateY(1px);filter:brightness(.94);}
+
 
   .toast{
     position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
@@ -862,7 +891,7 @@
     </div>
     </div>
     <div class="modal-footer-inflow">
-      <button class="btn-cancel" onclick="closeSchedModal()">닫기</button>
+      <button class="btn-quiet" onclick="closeSchedModal()">닫기</button>
     </div>
   </div>
 </div>
@@ -1085,7 +1114,7 @@
     </div>
     <div class="modal-footer-inflow">
       <button class="btn-save" id="locToggleBtn" style="width:100%;padding:13px;font-size:14px;font-weight:700;border-radius:10px;margin-bottom:8px;display:none;" onclick="toggleLocationShare()">📍 내 위치 공유 시작</button>
-      <button class="btn-cancel" onclick="closeLocModal()">닫기</button>
+      <button class="btn-quiet" onclick="closeLocModal()">닫기</button>
     </div>
   </div>
 </div>
@@ -4642,9 +4671,9 @@ function locStatusMessage(){
 function setLocToggleBtnUI(){
   const btn = document.getElementById('locToggleBtn');
   if(btn){
-    btn.textContent = _locSharing ? '⏹ 내 위치 공유 끄기' : '📍 내 위치 공유 시작';
-    btn.style.background = _locSharing ? 'var(--panel2)' : 'var(--amber)';
-    btn.style.color = _locSharing ? 'var(--text)' : '#1a1a1a';
+    btn.textContent = _locSharing ? '🟢 내 위치 공유 중 · 끄기' : '📍 내 위치 공유 시작';
+    btn.className = _locSharing ? 'btn-on' : 'btn-save';
+    btn.style.background = ''; btn.style.color = '';
   }
   const statusEl = document.getElementById('locStatusMsg');
   if(statusEl) statusEl.textContent = locStatusMessage();
