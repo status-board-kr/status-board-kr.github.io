@@ -2994,57 +2994,103 @@ function openExternalUrl(url){
   }
   window.open(url, '_blank', 'noopener');
 }
-// ── 자주 쓰는 앱 (업체가 직접 연결) ───────────────────────────
-// 관리자가 주소(홈페이지·업무 사이트·플레이스토어 등)를 한 번 넣으면 전 직원 버튼에 적용됩니다.
-let _quickApp = null;
+// ── 자주 쓰는 앱 (업체가 여러 개 등록) ──────────────────
+let _quickApps = [];
+let _legacyQuickApp = null;
 function startQuickAppSync(){
   const { ref, onValue, db } = window._fb;
-  onValue(ref(db, P('quickApp')), (snap)=>{
-    _quickApp = snap.exists() ? snap.val() : null;
-    const b = document.getElementById('quickAppBtn');
-    if(b) b.textContent = (_quickApp && _quickApp.label) ? ('⭐ ' + _quickApp.label) : '⭐ 자주 쓰는 앱';
-    updateQuickAppCard();
+  onValue(ref(db, P('quickApps')), (snap)=>{
+    const v = snap.exists() ? (snap.val() || {}) : {};
+    _quickApps = Object.entries(v).map(([key, x]) => ({ key, ...x }))
+      .filter(x => x && x.label && x.url)
+      .sort((a, b) => String(a.label).localeCompare(String(b.label)));
+    refreshQuickAppUI();
   }, (err)=> console.warn('자주쓰는앱 수신 실패:', err && err.code));
+  onValue(ref(db, P('quickApp')), (snap)=>{
+    const old = snap.exists() ? snap.val() : null;
+    _legacyQuickApp = (old && old.label && old.url) ? { key: '_legacy', ...old } : null;
+    refreshQuickAppUI();
+  }, ()=>{});
 }
-// 직원 관리 화면의 '자주 쓰는 앱' 카드 (관리자에게만 보임)
+function allQuickApps(){
+  const list = _quickApps.slice();
+  if(_legacyQuickApp && !list.some(x => x.url === _legacyQuickApp.url)) list.unshift(_legacyQuickApp);
+  return list;
+}
+function refreshQuickAppUI(){
+  const list = allQuickApps();
+  const b = document.getElementById('quickAppBtn');
+  if(b) b.textContent = (list.length === 1) ? ('⭐ ' + list[0].label) : '⭐ 자주 쓰는 앱';
+  updateQuickAppCard();
+}
+function playPackage(url){
+  const m = String(url || '').match(/[?&]id=([A-Za-z0-9_.]+)/);
+  return m ? m[1] : '';
+}
+function openOneQuickApp(item){
+  if(!item || !item.url) return;
+  const pkg = item.pkg || playPackage(item.url);
+  if(pkg) openExternalApp(pkg, item.url);
+  else openExternalUrl(item.url);
+}
+async function openQuickApp(){
+  const list = allQuickApps();
+  if(list.length === 0){
+    if(window.COMPANY_ROLE === 'owner') setupQuickApp();
+    else showToast('관리자가 아직 연결하지 않았어요');
+    return;
+  }
+  if(list.length === 1){ openOneQuickApp(list[0]); return; }
+  const buttons = list.slice(0, 6).map((x, i) => ({ text: '⭐ ' + x.label, value: i, primary: i === 0 }));
+  buttons.push({ text: '닫기', value: null });
+  const r = await showAppDialog({ title: '자주 쓰는 앱', message: '열 앱을 고르세요.', buttons });
+  if(typeof r === 'number') openOneQuickApp(list[r]);
+}
 function updateQuickAppCard(){
   const card = document.getElementById('quickAppCard');
   if(!card) return;
   card.style.display = (window.COMPANY_ROLE === 'owner') ? 'block' : 'none';
   const st = document.getElementById('quickAppState');
   const btn = document.getElementById('quickAppEditBtn');
-  if(_quickApp && _quickApp.label){
-    if(st) st.textContent = `${_quickApp.label} · ${(_quickApp.url || '').replace(/^https?:\/\//, '').slice(0, 30)}`;
-    if(btn) btn.textContent = '바꾸기';
-  }else{
-    if(st) st.textContent = '아직 연결 안 됨';
-    if(btn) btn.textContent = '연결하기';
-  }
-}
-function openQuickApp(){
-  if(_quickApp && _quickApp.url){ openExternalUrl(_quickApp.url); return; }
-  if(window.COMPANY_ROLE === 'owner') setupQuickApp();
-  else showToast('관리자가 아직 연결하지 않았어요');
+  const list = allQuickApps();
+  if(st) st.textContent = list.length ? list.map(x => x.label).join(', ') : '아직 연결 안 됨';
+  if(btn) btn.textContent = list.length ? '관리' : '연결하기';
 }
 async function setupQuickApp(){
   if(window.COMPANY_ROLE !== 'owner'){ showToast('관리자만 바꿀 수 있어요'); return; }
-  const label = await appPrompt('자주 쓰는 앱 연결', '화면 위 버튼에 표시할 이름이에요.', (_quickApp && _quickApp.label) || '',
-    { placeholder:'예: 팡팡렌트카, 보험사', hint:'비워두고 확인하면 연결을 지웁니다' });
-  if(label === null) return;
-  if(!label.trim()){
-    try{ const { ref, remove, db } = window._fb; await remove(ref(db, P('quickApp'))); showToast('연결을 지웠어요'); }
-    catch(e){ showToast('저장 실패'); }
-    return;
+  const list = allQuickApps();
+  const buttons = list.map((x, i) => ({ text: '✕ ' + x.label + ' 지우기', value: 'del:' + i }));
+  buttons.unshift({ text: '＋ 앱·사이트 추가', value: 'add', primary: true });
+  buttons.push({ text: '닫기', value: null });
+  const r = await showAppDialog({ title: '자주 쓰는 앱 관리',
+    message: list.length ? ('등록됨: ' + list.map(x => x.label).join(', ')) : '아직 등록된 앱이 없어요.', buttons });
+  if(r === 'add') return addQuickApp();
+  if(typeof r === 'string' && r.startsWith('del:')){
+    const item = list[Number(r.slice(4))];
+    if(!item) return;
+    try{
+      const { ref, remove, db } = window._fb;
+      await remove(ref(db, P(item.key === '_legacy' ? 'quickApp' : 'quickApps/' + item.key)));
+      showToast(item.label + ' 을(를) 지웠어요');
+    }catch(e){ console.error(e); showToast('삭제 실패 - 관리자 권한을 확인해주세요'); }
+    setTimeout(setupQuickApp, 400);
   }
-  const url = await appPrompt('주소 입력', '열고 싶은 주소를 붙여넣으세요.\n앱이라면 플레이스토어 주소도 됩니다.', (_quickApp && _quickApp.url) || 'https://',
-    { placeholder:'https://...' });
+}
+async function addQuickApp(){
+  const label = await appPrompt('앱 이름', '버튼에 표시할 이름이에요.', '',
+    { placeholder:'예: 현대, 기아, 팡팡렌트카' });
+  if(label === null || !label.trim()) return;
+  const url = await appPrompt('주소 입력',
+    '열고 싶은 주소를 붙여넣으세요.\n플레이스토어 주소를 넣으면, 앱이 깔려 있을 땐 앱이 바로 열려요.', 'https://',
+    { placeholder:'https://play.google.com/store/apps/details?id=...' });
   if(url === null) return;
-  const u = url.trim();
+  const u = String(url).trim();
   if(!/^https?:\/\//i.test(u)){ showToast('https:// 로 시작하는 주소를 넣어주세요'); return; }
   try{
-    const { ref, set, db } = window._fb;
-    await set(ref(db, P('quickApp')), { label: label.trim().slice(0, 12), url: u, updatedAt: new Date().toISOString() });
-    showToast('저장했어요 · 모든 직원 화면에 적용돼요');
+    const { ref, push, db } = window._fb;
+    await push(ref(db, P('quickApps')), { label: label.trim().slice(0, 12), url: u, pkg: playPackage(u), updatedAt: new Date().toISOString() });
+    showToast(label.trim() + ' 추가됨 · 모든 직원 화면에 적용돼요');
+    setTimeout(setupQuickApp, 400);
   }catch(e){ console.error(e); showToast('저장 실패 - 관리자 권한을 확인해주세요'); }
 }
 
