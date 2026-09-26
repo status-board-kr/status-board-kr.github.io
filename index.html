@@ -3202,12 +3202,14 @@ async function openPhoneSetup(force){
       { text: '① 위치·앱 권한 설정 열기', value: 'app', primary: true },
       { text: '② 알림 설정 열기', value: 'notification' },
       { text: '③ 배터리 설정 열기', value: 'battery' },
+      { text: '🔔 알림 소리 시험하기', value: 'testnoti' },
       { text: '다 했어요', value: 'done' }
     ]});
   if(r === 'done' || r === null){
     if(r === 'done') localStorage.setItem(setupDoneKey(), '1');
     return;
   }
+  if(r === 'testnoti'){ await testNotification(); setTimeout(()=> openPhoneSetup(true), 4000); return; }
   const opened = openAndroidSettings(r);
   if(opened) setTimeout(()=> openPhoneSetup(true), 1500);   // 설정 다녀오면 다시 안내
   else setTimeout(()=> openPhoneSetup(true), 300);
@@ -3234,7 +3236,7 @@ function buildFleetAlarms(){
   const limit = now + ALARM_DAYS_AHEAD * 86400000;
   const push = (seed, at, title, body) => {
     if(!at || at.getTime() <= now || at.getTime() > limit) return;
-    out.push({ id: alarmId(seed), title, body, schedule: { at }, smallIcon: 'ic_tracking' });
+    out.push({ id: alarmId(seed), title, body, schedule: { at }, channelId: NOTI_CHANNEL, smallIcon: 'ic_tracking' });
   };
   // 1) 반납일: 하루 전 오후 6시 + 당일 오전 9시
   (vehicles || []).forEach(v => {
@@ -3289,6 +3291,7 @@ function scheduleFleetAlarms(){
     try{
       const st = await LN.checkPermissions();
       if(st.display !== 'granted') return;
+      await ensureNotiChannel();
       // 예전에 걸어둔 예약 지우기
       const old = JSON.parse(localStorage.getItem(ALARM_ID_KEY) || '[]');
       if(old.length) await LN.cancel({ notifications: old.map(id => ({ id })) });
@@ -3298,6 +3301,43 @@ function scheduleFleetAlarms(){
       console.log(`알림 ${list.length}건 예약`);
     }catch(e){ console.warn('알림 예약 실패:', e); }
   }, 1500);   // 자료가 여러 번 바뀌어도 마지막에 한 번만 계산
+}
+// 알림 채널 — 안드로이드는 채널마다 소리를 정하고, 한 번 만들어지면 코드로 못 바꿉니다.
+const NOTI_CHANNEL = 'fleet_alerts_v2';
+let _channelReady = false;
+async function ensureNotiChannel(){
+  const LN = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
+  if(!LN || !LN.createChannel || _channelReady) return;
+  try{
+    await LN.createChannel({
+      id: NOTI_CHANNEL,
+      name: '현황판 알림',
+      description: '메신저·반납일·결제일 알림',
+      importance: 5,
+      visibility: 1,
+      vibration: true,
+      lights: true
+    });
+    _channelReady = true;
+  }catch(e){ console.warn('알림 채널 만들기 실패:', e); }
+}
+async function testNotification(){
+  const LN = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
+  if(!LN){ showToast('앱에서만 시험할 수 있어요'); return; }
+  try{
+    const st = await LN.checkPermissions();
+    if(st.display !== 'granted'){
+      const r = await LN.requestPermissions();
+      if(r.display !== 'granted'){ showToast('알림 권한이 꺼져 있어요'); return; }
+    }
+    await ensureNotiChannel();
+    await LN.schedule({ notifications: [{
+      id: 999001, title: '🔔 알림 시험', body: '이 알림이 소리와 함께 왔으면 정상이에요',
+      channelId: NOTI_CHANNEL, smallIcon: 'ic_tracking',
+      schedule: { at: new Date(Date.now() + 3000) }
+    }]});
+    showToast('3초 뒤 시험 알림이 옵니다');
+  }catch(e){ console.error(e); showToast('시험 알림 실패: ' + (e.message || '')); }
 }
 // ── 메신저 알림 ───────────────────────────────────────────────
 // 앱: 휴대폰 알림으로 / 브라우저: 알림 권한이 있으면 알림, 없으면 화면 안내로
@@ -3310,6 +3350,7 @@ async function initChatNotify(){
     if(LN){
       const st = await LN.checkPermissions();
       if(st.display !== 'granted') await LN.requestPermissions();
+      await ensureNotiChannel();
       _notifReady = true;
       return;
     }
@@ -3326,10 +3367,12 @@ async function notifyNewChat(msg){
   try{
     const LN = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
     if(LN){
+      await ensureNotiChannel();
       await LN.schedule({ notifications: [{
         id: Math.floor(Math.random() * 100000),
         title: `💬 ${who}`,
         body,
+        channelId: NOTI_CHANNEL,
         smallIcon: 'ic_tracking',
         extra: { chat: true }
       }]});
