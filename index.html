@@ -3411,6 +3411,50 @@ async function testNotification(){
     showToast('3초 뒤 시험 알림이 옵니다');
   }catch(e){ console.error(e); showToast('시험 알림 실패: ' + (e.message || '')); }
 }
+// ── 푸시 알림 (앱을 완전히 꺼도 알림이 옵니다) ──
+const PUSH_FN_URL = 'https://sendchatpush-613571323567.asia-northeast3.run.app';
+let _pushToken = '';
+async function initPushNotifications(){
+  const PN = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.PushNotifications;
+  if(!PN) return;
+  try{
+    let st = await PN.checkPermissions();
+    if(st.receive !== 'granted') st = await PN.requestPermissions();
+    if(st.receive !== 'granted') return;
+    PN.addListener('registration', async (t)=>{
+      _pushToken = (t && t.value) || '';
+      if(_pushToken) await saveMyPushToken(_pushToken);
+    });
+    PN.addListener('registrationError', (e)=> console.warn('푸시 등록 실패:', e));
+    PN.addListener('pushNotificationReceived', ()=>{ updateChatBadge(); });
+    PN.addListener('pushNotificationActionPerformed', ()=>{ openChatModal(); });
+    await PN.register();
+    await ensureNotiChannel();
+  }catch(e){ console.warn('푸시 준비 실패:', e); }
+}
+async function saveMyPushToken(token){
+  try{
+    const { ref, update, db } = window._fb;
+    const uid = window.CURRENT_USER && window.CURRENT_USER.uid;
+    if(!uid) return;
+    await update(ref(db, P('members/' + uid)), { pushToken: token, pushAt: new Date().toISOString() });
+  }catch(e){ console.warn('푸시 주소 저장 실패:', e); }
+}
+async function requestChatPush(text){
+  try{
+    const user = window.CURRENT_USER;
+    if(!user || !user.getIdToken) return;
+    const idToken = await user.getIdToken();
+    const payload = { companyId: window.COMPANY_ID, title: memberLabel(user.uid, user.email), body: String(text || '').slice(0, 100) };
+    if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorHttp){
+      await window.Capacitor.Plugins.CapacitorHttp.request({ url: PUSH_FN_URL, method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + idToken },
+        data: payload, connectTimeout: 8000, readTimeout: 8000 });
+    }else{
+      await fetch(PUSH_FN_URL, { method:'POST', headers: { 'Content-Type':'application/json', Authorization: 'Bearer ' + idToken }, body: JSON.stringify(payload) });
+    }
+  }catch(e){ console.warn('푸시 요청 실패:', e); }
+}
 // ── 메신저 알림 ───────────────────────────────────────────────
 // 앱: 휴대폰 알림으로 / 브라우저: 알림 권한이 있으면 알림, 없으면 화면 안내로
 let _notifSeen = 0;          // 이미 알린 메시지 시각
@@ -4026,6 +4070,7 @@ async function sendChatPhoto(text){
     uid: user.uid, email: user.email || '', at: new Date().toISOString(),
     type: 'photo', photoId, photoIds: photoIds.length > 1 ? photoIds : null
   });
+  requestChatPush(text || '📷 사진');
   setTimeout(scrollChatToBottom, 50);
   if(!text) return;
 
@@ -4159,6 +4204,7 @@ async function sendChatMessage(){
       text: text, uid: user.uid, email: user.email || '',
       at: new Date().toISOString(), type: 'text'
     });
+    requestChatPush(text);
 
     // 2) 목록/이력/도움말 같은 조회 명령 먼저 확인
     let infoMsg = null;
@@ -4983,6 +5029,7 @@ async function startApp(){
   startScheduleSync();
   startChatSync();
   initChatNotify();
+  initPushNotifications();
   initAppBackButton();   // 앱 뒤로가기 버튼 연결
   setTimeout(()=> openPhoneSetup(false), 2500);   // 앱 첫 실행이면 설정 안내
   startMembersSync();
