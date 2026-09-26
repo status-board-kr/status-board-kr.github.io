@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "613571323567",
+    "firebase_url": "https://fleet-board-f2345-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "fleet-board-f2345",
+    "storage_bucket": "fleet-board-f2345.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:613571323567:android:3344049ac08c09afef565a",
+        "android_client_info": {
+          "package_name": "com.jangsung.fleet"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD3PlYw0haaIMgCu4aV78aOnVs-vGyHUMA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
