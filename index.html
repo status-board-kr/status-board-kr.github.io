@@ -2994,7 +2994,7 @@ function openExternalUrl(url){
   }
   window.open(url, '_blank', 'noopener');
 }
-// ── 자주 쓰는 앱 (업체가 여러 개 등록) ──────────────────
+// ── 자주 쓰는 앱 (여러 개 등록) ──────────────────
 let _quickApps = [];
 let _legacyQuickApp = null;
 function startQuickAppSync(){
@@ -3005,10 +3005,10 @@ function startQuickAppSync(){
       .filter(x => x && x.label && x.url)
       .sort((a, b) => String(a.label).localeCompare(String(b.label)));
     refreshQuickAppUI();
-  }, (err)=> console.warn('자주쓰는앱 수신 실패:', err && err.code));
+  }, (err)=> console.warn('quickApps sync fail:', err && err.code));
   onValue(ref(db, P('quickApp')), (snap)=>{
     const old = snap.exists() ? snap.val() : null;
-    _legacyQuickApp = (old && old.label && old.url) ? { key: '_legacy', ...old } : null;
+    _legacyQuickApp = (old && old.label && old.url) ? { key: '_legacy', label: old.label, url: old.url, pkg: old.pkg || '' } : null;
     refreshQuickAppUI();
   }, ()=>{});
 }
@@ -3062,34 +3062,30 @@ async function setupQuickApp(){
   const buttons = list.map((x, i) => ({ text: '✕ ' + x.label + ' 지우기', value: 'del:' + i }));
   buttons.unshift({ text: '＋ 앱·사이트 추가', value: 'add', primary: true });
   buttons.push({ text: '닫기', value: null });
-  const r = await showAppDialog({ title: '자주 쓰는 앱 관리',
-    message: list.length ? ('등록됨: ' + list.map(x => x.label).join(', ')) : '아직 등록된 앱이 없어요.', buttons });
+  const r = await showAppDialog({ title: '자주 쓰는 앱 관리', message: list.length ? ('등록됨: ' + list.map(x => x.label).join(', ')) : '아직 등록된 앱이 없어요.', buttons });
   if(r === 'add') return addQuickApp();
-  if(typeof r === 'string' && r.startsWith('del:')){
+  if(typeof r === 'string' && r.indexOf('del:') === 0){
     const item = list[Number(r.slice(4))];
     if(!item) return;
     try{
       const { ref, remove, db } = window._fb;
       await remove(ref(db, P(item.key === '_legacy' ? 'quickApp' : 'quickApps/' + item.key)));
-      showToast(item.label + ' 을(를) 지웠어요');
+      showToast(item.label + ' 지움어요');
     }catch(e){ console.error(e); showToast('삭제 실패 - 관리자 권한을 확인해주세요'); }
     setTimeout(setupQuickApp, 400);
   }
 }
 async function addQuickApp(){
-  const label = await appPrompt('앱 이름', '버튼에 표시할 이름이에요.', '',
-    { placeholder:'예: 현대, 기아, 팡팡렌트카' });
+  const label = await appPrompt('앱 이름', '버튼에 표시할 이름이에요.', '', { placeholder:'예: 현대, 기아, 팡팡렌트카' });
   if(label === null || !label.trim()) return;
-  const url = await appPrompt('주소 입력',
-    '열고 싶은 주소를 붙여넣으세요.\n플레이스토어 주소를 넣으면, 앱이 깔려 있을 땐 앱이 바로 열려요.', 'https://',
-    { placeholder:'https://play.google.com/store/apps/details?id=...' });
+  const url = await appPrompt('주소 입력', '열고 싶은 주소를 붙여넣으세요.\n플레이스토어 주소를 넣으면 앱이 깔려 있을 때 앱이 바로 열려요.', 'https://', { placeholder:'https://play.google.com/store/apps/details?id=...' });
   if(url === null) return;
   const u = String(url).trim();
   if(!/^https?:\/\//i.test(u)){ showToast('https:// 로 시작하는 주소를 넣어주세요'); return; }
   try{
     const { ref, push, db } = window._fb;
     await push(ref(db, P('quickApps')), { label: label.trim().slice(0, 12), url: u, pkg: playPackage(u), updatedAt: new Date().toISOString() });
-    showToast(label.trim() + ' 추가됨 · 모든 직원 화면에 적용돼요');
+    showToast(label.trim() + ' 추가됨');
     setTimeout(setupQuickApp, 400);
   }catch(e){ console.error(e); showToast('저장 실패 - 관리자 권한을 확인해주세요'); }
 }
