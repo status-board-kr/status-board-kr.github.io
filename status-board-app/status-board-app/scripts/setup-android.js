@@ -53,6 +53,32 @@ for (const [k, v] of Object.entries(entries)) {
 }
 fs.writeFileSync(stringsPath, st);
 
+// 푸시 알림(FCM) 설정
+const gsSrc = path.join(__dirname, '..', 'google-services.json');
+const gsDst = path.join(__dirname, '..', 'android', 'app', 'google-services.json');
+if (fs.existsSync(gsSrc)) {
+  fs.copyFileSync(gsSrc, gsDst);
+  console.log('google-services.json copied');
+  const rootGradle = path.join(__dirname, '..', 'android', 'build.gradle');
+  if (fs.existsSync(rootGradle)) {
+    let rg = fs.readFileSync(rootGradle, 'utf8');
+    if (!rg.includes('com.google.gms:google-services')) {
+      rg = rg.replace(/dependencies\s*\{/, function (m) { return m + "\n        classpath 'com.google.gms:google-services:4.4.2'"; });
+      fs.writeFileSync(rootGradle, rg);
+      console.log('google-services classpath added');
+    }
+  }
+  const appGradle = path.join(__dirname, '..', 'android', 'app', 'build.gradle');
+  if (fs.existsSync(appGradle)) {
+    let ag = fs.readFileSync(appGradle, 'utf8');
+    if (!ag.includes('com.google.gms.google-services')) {
+      ag = ag.trimEnd() + "\n\napply plugin: 'com.google.gms.google-services'\n";
+      fs.writeFileSync(appGradle, ag);
+      console.log('google-services plugin applied');
+    }
+  }
+}
+
 // 서명키 위치를 앱 설정에 못 박기 (안 하면 빌드마다 키가 새로 만들어져 덮어쓰기 설치가 안 됨)
 const gradlePath = path.join(__dirname, '..', 'android', 'app', 'build.gradle');
 if (fs.existsSync(gradlePath)) {
