@@ -39,6 +39,12 @@
 <main>
   <h1>🪪 면허증으로 계약서 쓰기</h1>
 
+  <!-- 화면이 안 뜰 때 이유를 보여줌 (프로그램이 돌면 사라짐) -->
+  <p id="boot" class="hint">화면을 불러오는 중이에요... 이 글만 계속 보이면 폰 크롬 주소창에 사이트 주소(…/contract.html)를 직접 넣어서 열어 주세요.</p>
+  <script>
+    window.addEventListener('error', function(e){ var b = document.getElementById('boot'); if(b){ b.style.display = 'block'; b.className = 'bad'; b.textContent = e.message ? '⚠ 화면 오류: ' + e.message + ' (이 화면을 찍어서 보내 주세요)' : '⚠ 필요한 파일을 받아오지 못했어요. 인터넷을 확인하고 새로고침해 주세요.'; } }, true);
+  </script>
+
   <!-- 로그인 (현황판과 같은 계정) -->
   <div id="loginBox" class="card hidden">
     <h2>현황판 계정으로 로그인</h2>
@@ -193,6 +199,7 @@
   };
 
   onAuthStateChanged(auth, async user=>{
+    $('boot').style.display = 'none';
     $('loginBox').classList.toggle('hidden', !!user);
     $('app').classList.toggle('hidden', !user);
     if(!user) return;
