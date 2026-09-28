@@ -62,8 +62,8 @@
 
     <div id="keyCard" class="card hidden">
       <h2>AI 키 넣기 (한 번만)</h2>
-      <p class="hint">면허증 글자를 읽을 구글 Gemini 키(AIza로 시작)를 넣어 주세요. 현황판 🤖 AI 설정에 넣은 키와 같은 거예요. 이 폰에만 저장돼요.</p>
-      <input id="keyInput" type="password" autocomplete="off" placeholder="AIza...">
+      <p class="hint">면허증 글자를 읽을 구글 Gemini 키를 넣어 주세요. 현황판 🤖 AI 설정에 넣은 키와 같은 거예요. 이 폰에만 저장돼요.</p>
+      <input id="keyInput" type="password" autocomplete="off" placeholder="Gemini 키 붙여넣기">
       <button id="keySave" style="margin-top:10px">저장</button>
     </div>
 
@@ -194,7 +194,8 @@
   $('logoutBtn').onclick = ()=> signOut(auth);
   $('keySave').onclick = ()=>{
     const k = $('keyInput').value.trim();
-    if(!/^AIza[\w-]{30,}$/.test(k) && !/^sk-ant-\S{20,}$/.test(k)){ toast('AIza로 시작하는 Gemini 키를 붙여넣어 주세요'); return; }
+    // index.html 의 AI 설정과 같은 검사 (구글 키는 AQ… AIza… 등 여러 모양이라 모양은 안 따짐)
+    if(k.length < 20 || k.length > 300 || /\s/.test(k)){ toast('키 모양이 이상해요. 다시 복사해 주세요'); return; }
     try{ localStorage.setItem(AI_KEY_LS, k); }catch(e){ toast('이 브라우저는 저장이 안 돼요'); return; }
     $('keyInput').value = ''; refreshKey(); toast('저장했어요');
   };
