@@ -93,7 +93,7 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-  import { getDatabase, ref, get, set, update, onValue, query, orderByChild, limitToLast } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+  import { getDatabase, ref, get, set, update, push, onValue, query, orderByChild, limitToLast } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
   import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 
   // index.html 의 firebaseConfig 와 같은 값
@@ -184,6 +184,13 @@
     const titleOf = (l, confirmed, plate) =>
       `${confirmed ? '✅ 예약확정' : '📅 예약요청'} ${rangeOf(l)} ${l.model || ''}${plate ? `(${plate})` : ''} · ${l.name || '고객'}`.slice(0, 100);
 
+    // 현황판 직원 메신저(chat)에 시스템 메시지로 기록. 실패해도 예약 처리는 그대로.
+    async function postToStaffChat(text){
+      try{ await push(ref(db, P('chat')), { text, uid: 'system', email: '현황판', at: new Date().toISOString(), type: 'system' }); }
+      catch(e){ console.warn('메신저 기록 실패', e); }
+    }
+    const who = l => `${l.name || '고객'} ${l.phone || ''}`.trim();
+
     // 날짜 변경: 예약 날짜가 바뀌면 문의 목록, 현황판 일정(날짜·제목), 차량 카드 표시가 같이 바뀜
     function openDates(k, l){
       const box = $('pick-' + k);
@@ -213,7 +220,11 @@
             [sk + '/resvStart']: n.startDate, [sk + '/resvStartTime']: n.startTime, [sk + '/resvEnd']: n.endDate,
             [sk + '/resvEndTime']: n.endTime, [sk + '/resvPeriod']: n.period || '' });
         }
-        try{ await update(ref(db), changes); toast('날짜를 바꿨어요. 현황판 일정과 차량 표시에도 반영됐어요'); }
+        try{
+          await update(ref(db), changes);
+          await postToStaffChat(`🔁 예약 날짜 변경: ${l.model || ''}${confirmed && l.plate ? '(' + l.plate + ')' : ''} ${rangeOf(l)} → ${rangeOf(n)} · ${who(l)}`);
+          toast('날짜를 바꿨어요. 현황판 일정과 차량 표시에도 반영됐어요');
+        }
         catch(e){ console.error(e); toast('저장 실패 - 권한을 확인해주세요'); }
       };
     }
@@ -248,7 +259,12 @@
           changes[sk + '/resvStatus'] = 'confirmed';
           changes[sk + '/resvPlate'] = plate || null;
         }
-        try{ await update(ref(db), changes); toast(plate ? `${plate} 차량으로 확정했어요` : '확정했어요 (차량은 나중에)'); }
+        try{
+          await update(ref(db), changes);
+          const changed = l.status === 'confirmed';
+          await postToStaffChat(`${changed ? '🚗 예약 차량 변경' : '✅ 예약 확정'}: ${l.model || ''} ${rangeOf(l)}${plate ? ' · 차량 ' + plate : ' · 차량 미정'} · ${who(l)}`);
+          toast(plate ? `${plate} 차량으로 확정했어요` : '확정했어요 (차량은 나중에)');
+        }
         catch(e){ console.error(e); toast('저장 실패 - 권한을 확인해주세요'); }
       };
     }
@@ -294,6 +310,7 @@
                             [P('customerChat/leads/' + k + '/decidedAt')]: new Date().toISOString() };
           if(l.scheduleKey) changes[P('schedules/' + l.scheduleKey)] = null;
           await update(ref(db), changes);
+          await postToStaffChat(`❌ 예약 취소: ${l.model || ''} ${rangeOf(l)}${l.plate ? ' · 차량 ' + l.plate : ''} · ${who(l)}`);
           toast('취소했어요');
         }catch(e){ console.error(e); toast('저장 실패 - 권한을 확인해주세요'); }
       });
