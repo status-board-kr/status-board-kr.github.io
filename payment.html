@@ -1141,6 +1141,14 @@
   let retCalMonth = new Date();
   let retSelectedDay = null; // 'YYYY-MM-DD'
 
+  // 회수 당시 구분(보험/일반/서비스/장기)을 차량번호 옆에 표시 — 예전 기록엔 구분이 없어서 '구분 미상'
+  function returnTypeBadge(type) {
+    const colors = { "보험": "#60a5fa", "일반": "var(--green)", "서비스": "var(--purple)" };
+    colors[LONG_BRANCH] = "var(--amber)";
+    const label = type || "구분 미상";
+    const c = colors[type] || "var(--text-dim)";
+    return ` <span style="display:inline-block;margin-left:6px;padding:1px 7px;border-radius:4px;font-size:11px;font-weight:700;vertical-align:middle;color:${c};border:1px solid ${c};">${escapeHtml(label)}</span>`;
+  }
   function returnEntryHtml(key, s) {
     const billed = !!s.billed;
     const doneAt = s.doneAt ? (() => {
@@ -1154,7 +1162,7 @@
     return `
       <div class="log-entry">
         <div class="log-head">
-          <span class="log-name">${escapeHtml(s.plate || s.title || "-")}</span>
+          <span class="log-name">${escapeHtml(s.plate || s.title || "-")}${returnTypeBadge(s.type)}</span>
           <span class="log-time">회수 ${doneAt}</span>
         </div>
         <div class="log-msg" style="display:flex;align-items:center;gap:10px;margin-bottom:4px;">
