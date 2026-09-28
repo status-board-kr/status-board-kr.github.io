@@ -3514,9 +3514,13 @@ async function checkPushStatus(){
     lines.push(`  ${m && m.pushToken ? '✅' : '❌'} ${memberLabel(uid, m && m.email)}${m && m.pushAt ? ' (' + String(m.pushAt).slice(5, 10) + ')' : ''}`);
   });
   lines.push('  ❌인 직원은 그 폰에서 새 앱을 한 번 열어야 해요');
-  const r = await showAppDialog({ title: '📨 푸시 점검', message: lines.join('\n'),
-    buttons: [ { text: '서버로 시험 푸시 보내기', value: 'send', primary: true }, { text: '닫기', value: 'close' } ] });
-  if(r !== 'send') return;
+  // 시험 푸시는 직원 전부에게 가니까 관리자만 보낼 수 있게
+  const isOwner = window.COMPANY_ROLE === 'owner';
+  const buttons = isOwner
+    ? [ { text: '서버로 시험 푸시 보내기', value: 'send', primary: true }, { text: '닫기', value: 'close' } ]
+    : [ { text: '닫기', value: 'close', primary: true } ];
+  const r = await showAppDialog({ title: '📨 푸시 점검', message: lines.join('\n'), buttons });
+  if(r !== 'send' || !isOwner) return;
   showToast('서버에 요청 중...');
   const res = await requestChatPush('🔔 푸시 시험이에요 (무시하셔도 돼요)');
   const ok = res && res.status >= 200 && res.status < 300;
