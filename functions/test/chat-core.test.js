@@ -39,3 +39,29 @@ test('입력 검증', () => {
   assert.ok(!isValidId('../x'));
   assert.equal(todayKST(new Date('2026-09-28T16:00:00Z')), '2026-09-29');
 });
+
+import { bookingSchedule, staffAlertText, validDate, TOOLS } from '../chat-core.js';
+
+test('예약 요청은 현황판 일정 모양으로 변환', () => {
+  const s = bookingSchedule({ name: '홍길동', phone: '010-1234-5678', model: '카니발', startDate: '2026-10-03', endDate: '2026-10-05', period: '2박3일', note: '' });
+  assert.equal(s.date, '2026-10-03');
+  assert.equal(s.repeat, false);
+  assert.match(s.title, /예약요청 카니발/);
+  assert.match(s.memo, /2026-10-03 ~ 2026-10-05/);
+  assert.match(s.memo, /010-1234-5678/);
+  assert.match(staffAlertText('booking', { model: '카니발', startDate: '2026-10-03', endDate: '', name: '홍길동', phone: '010' }), /새 예약 요청: 카니발 2026-10-03/);
+});
+
+test('날짜 검증', () => {
+  assert.ok(validDate('2026-10-03', '2026-09-28'));
+  assert.ok(!validDate('2026-09-01', '2026-09-28'));
+  assert.ok(!validDate('2026-02-30'));
+  assert.ok(!validDate('10/3'));
+});
+
+test('도구 정의가 strict 스키마 규칙을 지킴', () => {
+  for (const t of TOOLS) {
+    assert.equal(t.input_schema.additionalProperties, false);
+    assert.deepEqual([...t.input_schema.required].sort(), Object.keys(t.input_schema.properties).sort());
+  }
+});

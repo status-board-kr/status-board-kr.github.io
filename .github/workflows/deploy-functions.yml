@@ -34,4 +34,4 @@ jobs:
           fi
           echo "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/sa.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
-          npx --yes firebase-tools@latest deploy --only functions --project fleet-board-f2345 --non-interactive --force
+          npx --yes firebase-tools@latest deploy --only functions:inquiry --project fleet-board-f2345 --non-interactive --force

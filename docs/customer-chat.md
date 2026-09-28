@@ -1,23 +1,24 @@
 # 고객 문의 채팅 설치 방법
 
 고객이 링크로 들어와서 "카니발 이번 주말 돼요?"라고 물으면, 현황판 차량 현황을 보고 AI가 바로 답해줍니다.
-상담·예약을 원하는 고객은 연락처를 남기고, 관리 화면에서 확인할 수 있어요.
+예약을 원하는 고객은 채팅에서 바로 예약 신청을 하고, 그 신청은 **현황판 일정에 "📅 예약요청"으로 자동 등록**돼요.
+새 예약·상담 요청이 들어오면 **현황판 직원 채팅에 알림 메시지**가 올라오고 **직원 폰(앱)으로 푸시**가 가요.
+관리 화면에서 **확정**을 누르면 일정 제목이 "✅ 예약확정"으로 바뀌고, **취소**를 누르면 일정에서 지워져요.
 
 | 파일 | 역할 |
 |---|---|
 | `chat.html` | 고객용 채팅 페이지 |
 | `inquiry-admin.html` | 사장님용 관리 화면 (설정, 링크, 상담 요청, 대화 기록) |
-| `functions/` | 답변 서버 (Firebase Cloud Functions) |
+| `functions/` | 답변 서버 (Firebase Cloud Functions). `answer.js`가 모든 채널이 같이 쓰는 핵심 로직 |
 
 **고객에게 나가는 정보**: 차종, 종별, 연료, 차종별 가능 대수, 가장 빠른 반납 예정일, 관리 화면에 직접 적은 가격·업체 안내.
 **나가지 않는 정보**: 차량번호, 고객 이름, 계약 금액, 입금 여부, 메모, 직원 정보.
 
-## 1. Firebase 요금제 바꾸기 (한 번만)
+## 1. Firebase 요금제 확인 (한 번만)
 
-서버 기능(Cloud Functions)은 Blaze(종량제) 요금제에서만 쓸 수 있어요. 소규모 사용은 무료 한도 안이라 보통 0원이에요.
+서버 기능(Cloud Functions)은 Blaze(종량제) 요금제에서만 쓸 수 있어요. 이미 직원 채팅 푸시 서버(`sendChatPush`)를 쓰고 계셔서 **Blaze일 가능성이 높아요**. [Firebase 콘솔](https://console.firebase.google.com/project/fleet-board-f2345/usage/details)에서 확인만 해주세요.
 
-1. [Firebase 콘솔](https://console.firebase.google.com/project/fleet-board-f2345/usage/details) → 요금제 수정 → **Blaze** 선택
-2. 걱정되면 Google Cloud 결제 → 예산 및 알림에서 월 예산 알림(예: 5,000원)을 걸어두세요.
+이 배포는 `inquiry`라는 별도 묶음(codebase)으로 올라가서, 기존 `sendChatPush` 같은 다른 서버 기능은 **건드리지 않아요**.
 
 ## 2. 배포 키 등록 (한 번만)
 
@@ -52,5 +53,6 @@ GitHub 저장소 → **Actions** → "고객 문의 채팅 서버 배포" → **
 
 ## 참고
 
-- 데이터 위치: `companies/{업체ID}/customerChat/` 아래 `settings`, `leads`(상담 요청), `sessions`(대화), `usage`(일별 사용량)
+- 데이터 위치: `companies/{업체ID}/customerChat/` 아래 `settings`, `leads`(예약·상담 요청), `sessions`(대화), `usage`(일별 사용량). 예약 요청은 `companies/{업체ID}/schedules`에도 들어가요.
+- 푸시는 직원이 앱에서 알림을 켜둔 경우(`members/{uid}/pushToken`)에만 가요.
 - 관리 화면에서 설정 저장이 실패하면 Firebase Realtime Database 보안 규칙이 `companies/{업체ID}` 아래 쓰기를 막고 있는 경우예요. 업체 멤버가 `customerChat` 을 읽고 쓸 수 있게 규칙을 확인해주세요.

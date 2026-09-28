@@ -2,7 +2,7 @@
   "functions": [
     {
       "source": "functions",
-      "codebase": "default",
+      "codebase": "inquiry",
       "ignore": ["node_modules", "test", ".git", "*.log"]
     }
   ]
