@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>광주 렌터카 팡팡렌트카 | 전남 장기·단기 렌터카</title>
-<meta name="description" content="광주광역시·전남 전지역 장기·단기 렌터카, 보험대차. AI 실시간 상담으로 바로 확인하고 예약하세요. 대표번호 1800-9336">
+<meta name="description" content="광주광역시·전남 전지역 장기·단기 렌터카, 보험대차. AI 실시간 상담으로 바로 확인하고 예약하세요. 전화 010-5145-8990">
 <meta property="og:title" content="광주 렌터카 팡팡렌트카 | 전남 장기·단기 렌터카 상담">
 <meta property="og:description" content="광주광역시 및 전남 전지역 장기·단기 렌터카. AI 실시간 상담으로 바로 확인하고 예약하세요.">
 <meta property="og:type" content="website">
@@ -131,7 +131,7 @@
 
   /* 라인업 */
   .cars{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-  .car-card{position:relative;border:1px solid var(--line);border-radius:var(--r);padding:20px 18px 18px;background:#fff;display:flex;flex-direction:column;min-height:196px;transition:border-color .15s ease,box-shadow .15s ease;}
+  .car-card{position:relative;border:1px solid var(--line);border-radius:var(--r);padding:20px 18px 18px;background:#fff;display:flex;flex-direction:column;min-height:176px;transition:border-color .15s ease,box-shadow .15s ease;}
   .car-card:hover{border-color:#bfd3ff;box-shadow:var(--shadow);}
   .car-card .cls{display:inline-flex;align-self:flex-start;font-size:12px;font-weight:700;color:var(--blue);background:var(--blue-tint);border-radius:8px;padding:4px 8px;margin-bottom:12px;}
   .car-card .ex{font-size:13.5px;color:var(--soft);margin-top:4px;}
@@ -141,7 +141,6 @@
   .car-card .price b{font-size:clamp(22px,6vw,27px);font-weight:800;letter-spacing:-.04em;}
   .car-card .price em{font-style:normal;font-size:14.5px;font-weight:700;}
   .car-card .price.day b{font-size:clamp(18px,5vw,21px);}
-  .car-card .price.day .ask{font-size:14px;font-weight:600;color:var(--soft);}
   .fine{display:flex;gap:8px;align-items:flex-start;justify-content:center;font-size:13.5px;color:var(--soft);margin-top:18px;}
   .fine .ic{width:18px;height:18px;color:var(--faint);margin-top:2px;}
 
@@ -212,11 +211,6 @@
   .soon .ib{width:56px;height:56px;border-radius:18px;background:var(--navy);color:var(--sun);display:grid;place-items:center;margin-bottom:6px;}
   .soon b{font-size:18px;color:var(--ink);}
   .soon p{font-size:14.5px;color:var(--soft);max-width:280px;margin-bottom:10px;}
-  .calls{display:grid;gap:10px;padding:16px 18px calc(22px + env(safe-area-inset-bottom));}
-  .calls a{display:flex;justify-content:space-between;align-items:center;border:1px solid var(--line);border-radius:14px;padding:16px 18px;font-weight:600;color:var(--ink);}
-  .calls a span{color:var(--blue);font-weight:800;letter-spacing:-.02em;}
-  .calls a:first-child{background:var(--navy);border-color:var(--navy);color:#fff;}
-  .calls a:first-child span{color:var(--sun);}
 
   @media (min-width:720px){
     section{padding:104px 0;}
@@ -276,7 +270,7 @@
   <div class="wrap">
     <a class="brand" href="#"><span class="mark">P</span><span class="name"><b>팡팡렌트카</b><small>PANGPANG</small></span></a>
     <nav class="nav"><a href="#lineup">라인업</a><a href="#steps">대여 절차</a><a href="#area">서비스 지역</a><a href="#form">상담 신청</a></nav>
-    <a class="top-call" href="#" onclick="openCalls();return false;"><svg class="ic"><use href="#i-phone"/></svg>1800-9336</a>
+    <a class="top-call" href="tel:01051458990"><svg class="ic"><use href="#i-phone"/></svg>010-5145-8990</a>
   </div>
 </header>
 
@@ -288,7 +282,7 @@
       <p class="sub">원하는 차종과 날짜를 물어보면 AI 상담이 실시간으로 확인해서 바로 답해드려요. 상담 신청과 예약 신청까지 대화 한 번으로 끝나요.</p>
       <div class="cta">
         <button class="btn btn-sun" onclick="openChat()"><svg class="ic"><use href="#i-chat"/></svg>AI 상담 시작하기</button>
-        <a class="btn btn-glass" href="#" onclick="openCalls();return false;"><svg class="ic"><use href="#i-phone"/></svg>전화 상담 1800-9336</a>
+        <a class="btn btn-glass" href="tel:01051458990"><svg class="ic"><use href="#i-phone"/></svg>전화 상담 010-5145-8990</a>
       </div>
       <div class="trust">
         <div><b>2017년부터</b><span>광주 지역 렌트</span></div>
@@ -354,10 +348,10 @@
     </div>
     <!-- 가격 고치기: 월 = 한 달 요금, 일 = 하루 요금 (만원 단위 숫자만 바꾸면 돼요) -->
     <div class="cars">
-      <div class="car-card"><span class="cls">경형</span><h3>모닝 · 레이</h3><div class="ex">캐스퍼 등</div><div class="prices"><div class="price"><small>월</small><b>40</b><em>만원~</em></div><div class="price day"><small>일</small><span class="ask">상담 안내</span></div></div></div>
-      <div class="car-card"><span class="cls">소형</span><h3>아반떼 · 베뉴</h3><div class="ex">K3 등</div><div class="prices"><div class="price"><small>월</small><b>50</b><em>만원~</em></div><div class="price day"><small>일</small><span class="ask">상담 안내</span></div></div></div>
-      <div class="car-card"><span class="cls">중형</span><h3>쏘나타 · K5</h3><div class="ex">SM6 등</div><div class="prices"><div class="price"><small>월</small><b>60</b><em>만원~</em></div><div class="price day"><small>일</small><span class="ask">상담 안내</span></div></div></div>
-      <div class="car-card"><span class="cls">소형 SUV</span><h3>투싼 · 스포티지</h3><div class="ex">셀토스 등</div><div class="prices"><div class="price"><small>월</small><b>60</b><em>만원~</em></div><div class="price day"><small>일</small><span class="ask">상담 안내</span></div></div></div>
+      <div class="car-card"><span class="cls">경형</span><h3>캐스퍼</h3><div class="prices"><div class="price"><small>월</small><b>40</b><em>만원~</em></div><div class="price day"><small>일</small><b>4</b><em>만원~</em></div></div></div>
+      <div class="car-card"><span class="cls">소형</span><h3>아반떼 · 베뉴</h3><div class="prices"><div class="price"><small>월</small><b>50</b><em>만원~</em></div><div class="price day"><small>일</small><b>5</b><em>만원~</em></div></div></div>
+      <div class="car-card"><span class="cls">중형</span><h3>쏘나타</h3><div class="prices"><div class="price"><small>월</small><b>60</b><em>만원~</em></div><div class="price day"><small>일</small><b>6</b><em>만원~</em></div></div></div>
+      <div class="car-card"><span class="cls">소형 SUV</span><h3>투싼 · 스포티지</h3><div class="prices"><div class="price"><small>월</small><b>60</b><em>만원~</em></div><div class="price day"><small>일</small><b>6</b><em>만원~</em></div></div></div>
     </div>
     <p class="fine"><svg class="ic"><use href="#i-info"/></svg>정확한 가격은 상담 후 안내드려요. 차량 상태·연식·대여 기간에 따라 달라질 수 있어요.</p>
   </div>
@@ -418,7 +412,7 @@
       </ul>
       <div class="cta">
         <button class="btn btn-sun" onclick="openChat()"><svg class="ic"><use href="#i-chat"/></svg>AI 상담으로 신청하기</button>
-        <button class="btn btn-glass" onclick="openCalls()"><svg class="ic"><use href="#i-phone"/></svg>전화로 상담하기</button>
+        <a class="btn btn-glass" href="tel:01051458990"><svg class="ic"><use href="#i-phone"/></svg>전화 상담 010-5145-8990</a>
       </div>
       <p class="note">알려주신 정보는 상담·예약 안내에만 쓰여요. 생년월일은 보험 연령 확인용이에요.</p>
     </div>
@@ -428,11 +422,11 @@
 <footer>
   <div class="wrap">
     <a class="brand" href="#"><span class="mark">P</span><span class="name"><b>팡팡렌트카</b><small>PANGPANG RENT-A-CAR</small></span></a>
-    <a class="tel" href="tel:18009336">1800-9336</a>
+    <a class="tel" href="tel:01051458990">010-5145-8990</a>
     대표자 : 정한영 · 사업자등록번호 : 803-81-00790<br>
     통신판매업 신고번호 : 제 2017-광주광산-00652호<br>
     주소 : 광주광역시 광산구 첨단중앙로124번길17 2층 팡팡렌트카<br>
-    대표번호 : 1800-9336 · 전화 : 062-973-6635<br>
+    전화 : 010-5145-8990<br>
     개인정보관리책임자 : 정한영<br>
     © 2017 팡팡렌트카. All rights reserved.
   </div>
@@ -448,15 +442,7 @@
     <span class="ib"><svg class="ic"><use href="#i-spark"/></svg></span>
     <b>AI 상담을 준비하고 있어요</b>
     <p>곧 열려요. 지금은 전화로 문의해주시면 바로 안내해드릴게요.</p>
-    <a class="btn btn-blue" href="tel:18009336"><svg class="ic"><use href="#i-phone"/></svg>1800-9336 전화하기</a>
-  </div>
-</div>
-<div class="sheet" id="callSheet" role="dialog" aria-label="전화 상담">
-  <div class="sheet-head"><div><b>연결할 번호를 선택해주세요</b></div><button class="x" onclick="closeSheets()" aria-label="닫기"><svg class="ic"><use href="#i-x"/></svg></button></div>
-  <div class="calls">
-    <a href="tel:18009336">대표번호 <span>1800-9336</span></a>
-    <a href="tel:0629736636">광주 본점 <span>062-973-6636</span></a>
-    <a href="tel:01051458990">장성지점 <span>010-5145-8990</span></a>
+    <a class="btn btn-blue" href="tel:01051458990"><svg class="ic"><use href="#i-phone"/></svg>010-5145-8990 전화하기</a>
   </div>
 </div>
 
@@ -473,8 +459,7 @@
     else { f.hidden = true; $('chatSoon').hidden = false; }
     $('sheetBg').classList.add('open'); $('chatSheet').classList.add('open');
   }
-  function openCalls(){ $('sheetBg').classList.add('open'); $('callSheet').classList.add('open'); }
-  function closeSheets(){ ['sheetBg', 'chatSheet', 'callSheet'].forEach(id => $(id).classList.remove('open')); }
+  function closeSheets(){ ['sheetBg', 'chatSheet'].forEach(id => $(id).classList.remove('open')); }
   document.addEventListener('keydown', e => { if(e.key === 'Escape') closeSheets(); });
 </script>
 </body>
