@@ -3266,15 +3266,22 @@ function openAndroidSettings(kind){
   return false;
 }
 function setupDoneKey(){ return 'fleetSetupDone_' + (window.CURRENT_USER ? window.CURRENT_USER.uid : ''); }
+// 설치된 앱 버전 (APK 빌드 때 자동으로 1.0.빌드번호가 붙습니다)
+async function appVersionLabel(){
+  const App = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+  if(!App || !App.getInfo) return '';
+  try{ const info = await App.getInfo(); return info && info.version ? '앱 버전 ' + info.version : ''; }catch(e){ return ''; }
+}
 async function openPhoneSetup(force){
   if(!isNativeApp()){
     if(force) showToast('앱으로 설치했을 때 필요한 설정이에요');
     return;
   }
   if(!force && localStorage.getItem(setupDoneKey()) === '1') return;
+  const ver = await appVersionLabel();
   const r = await showAppDialog({
     title: '📱 처음 한 번 설정해주세요',
-    message: '이 3가지를 해두어야 앱을 닫아도 위치가 계속 공유되고, 메신저 알림이 옵니다.\n\n① 위치 권한 → 허용\n② 알림 권한 → 허용\n③ 배터리 → 제한 없음 (삼성폰 필수)\n\n버튼을 누르면 해당 설정 화면이 바로 열려요.',
+    message: '이 3가지를 해두어야 앱을 닫아도 위치가 계속 공유되고, 메신저 알림이 옵니다.\n\n① 위치 권한 → 허용\n② 알림 권한 → 허용\n③ 배터리 → 제한 없음 (삼성폰 필수)\n\n버튼을 누르면 해당 설정 화면이 바로 열려요.' + (ver ? '\n\n' + ver : ''),
     buttons: [
       { text: '① 위치·앱 권한 설정 열기', value: 'app', primary: true },
       { text: '② 알림 설정 열기', value: 'notification' },

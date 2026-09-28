@@ -101,6 +101,19 @@ if (fs.existsSync(gradlePath)) {
   } else {
     console.log('signing config already fixed');
   }
+  // 앱 버전: 빌드 때 APP_VERSION_CODE / APP_VERSION_NAME 을 주면 자동으로 붙입니다 (폰 앱 정보에 표시)
+  const vCode = process.env.APP_VERSION_CODE, vName = process.env.APP_VERSION_NAME;
+  if (vCode && vName) {
+    g = fs.readFileSync(gradlePath, 'utf8');
+    if (!/versionCode\s+\d+/.test(g) || !/versionName\s+"[^"]*"/.test(g)) {
+      console.error('build.gradle에서 버전 줄을 찾지 못했습니다.');
+      process.exit(1);
+    }
+    g = g.replace(/versionCode\s+\d+/, 'versionCode ' + parseInt(vCode, 10))
+         .replace(/versionName\s+"[^"]*"/, 'versionName "' + vName + '"');
+    fs.writeFileSync(gradlePath, g);
+    console.log('version ' + vName + ' (' + vCode + ')');
+  }
 }
 
 // 위치 추적 부품이 GPS를 1초마다·최고 정확도로 켜두도록 고정돼 있어 배터리를 많이 먹습니다.
