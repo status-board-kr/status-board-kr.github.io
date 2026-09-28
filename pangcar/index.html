@@ -17,11 +17,9 @@
   // ══════════════════════════════════════════════════════════════
   window.SITE_CONFIG = {
     // 현황판 업체 ID. 관리 화면(inquiry-admin.html)의 "고객에게 보낼 링크" 끝 ?c= 뒤 값을 넣으세요.
-    // 비워두면 AI 상담 버튼이 숨겨지고, 상담 신청서는 전화 안내만 나와요.
-    // 신청서·AI 상담 접수는 현황판 서버가 받아서 관리 화면에 넣은 "고객 명단 시트"로 보내요.
+    // 비워두면 AI 상담 버튼이 숨겨지고 전화 상담만 보여요.
+    // 상담 신청은 신청서 없이 AI 상담이 대화로 받아서 현황판·직원 알림·고객 명단 시트로 보내요.
     companyId: '',
-    // 현황판 서버 (functions/index.js)
-    formApi: 'https://asia-northeast3-fleet-board-f2345.cloudfunctions.net/inquiryForm',
     chatPage: '../chat.html',
   };
   // ══════════════════════════════════════════════════════════════
@@ -100,29 +98,9 @@
   details.more summary{cursor:pointer;font-weight:700;color:var(--ocean);}
   details.more p{font-size:13px;color:var(--soft);margin-top:8px;}
 
-  /* 폼 */
-  form{display:grid;gap:16px;}
-  .fs{background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:18px;display:grid;gap:14px;}
-  .fs-title{font-weight:900;font-size:16px;display:flex;gap:8px;align-items:center;}
-  .fs-title .n{width:24px;height:24px;border-radius:50%;background:var(--ocean);color:#fff;font-size:13px;display:inline-flex;align-items:center;justify-content:center;font-family:'Nunito';}
-  label.l{display:block;font-weight:700;font-size:14px;margin-bottom:6px;}
-  label.l i{color:var(--coral);font-style:normal;}
-  input[type=text],input[type=tel],select,textarea{width:100%;min-height:48px;border:1.5px solid var(--line);border-radius:12px;padding:10px 14px;font:inherit;font-size:16px;background:#fbfdff;color:var(--text);}
-  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--sky-deep);box-shadow:0 0 0 3px rgba(14,165,233,.15);}
-  textarea{min-height:90px;resize:vertical;}
-  .seg{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-  .seg button{min-height:48px;border:1.5px solid var(--line);background:#fbfdff;border-radius:12px;font:inherit;font-weight:700;font-size:15px;cursor:pointer;color:var(--text);}
-  .seg button.on{border-color:var(--ocean);background:var(--foam);color:var(--ocean);}
-  .unit{display:flex;align-items:center;gap:8px;}
-  .unit span{font-weight:700;color:var(--soft);}
-  .err{color:#e11d48;font-size:13px;margin-top:4px;display:none;}
-  .invalid .err{display:block;}
-  .invalid input,.invalid select{border-color:#fda4af;}
-  .agree{display:flex;gap:10px;align-items:flex-start;font-size:14px;}
-  .agree input{width:20px;height:20px;margin-top:2px;flex:none;}
-  .agree details{font-size:12px;color:var(--soft);margin-top:4px;}
-  .done{display:none;text-align:center;background:#fff;border:1px solid var(--line);border-radius:var(--r);padding:32px 20px;}
-  .done .big{font-size:44px;}
+  /* 상담 신청 (AI 상담으로) */
+  .btn-line{background:#fff;color:var(--ocean);border:1.5px solid var(--line);}
+  .consult-note{font-size:13px;color:var(--soft);margin:-6px 0 16px;}
 
   footer{background:#0b2540;color:#b6c6d9;font-size:13px;padding:28px 0 110px;line-height:1.8;}
   footer b{color:#fff;}
@@ -169,7 +147,7 @@
     <p>원하는 차종과 날짜를 물어보면 AI 상담원이 실시간으로 확인해서 바로 답해드려요. 예약 신청까지 한 번에.</p>
     <div class="cta">
       <button class="btn btn-ai ai-only" onclick="openChat()">💬 AI 실시간 상담</button>
-      <a class="btn btn-ghost" href="#form">📋 상담 신청서 작성</a>
+      <a class="btn btn-ghost" href="#" onclick="openCalls();return false;">📞 전화 상담</a>
     </div>
     <div class="note">📞 대표번호 <a href="tel:18009336"><b>1800-9336</b></a> · 24시간 온라인 접수</div>
   </div>
@@ -185,7 +163,7 @@
       <ul>
         <li>⚡ <span>실시간 차량 상황을 확인해서 <b>바로 답변</b></span></li>
         <li>📅 <span>날짜만 말하면 <b>예약 신청까지</b> 한 번에</span></li>
-        <li>📝 <span>신청서 쓸 필요 없이 <b>대화로 상담 신청</b> (장기렌트 견적도)</span></li>
+        <li>📝 <span>신청서 없이 <b>대화로 상담 신청</b> (장기렌트 견적·예산 상담도)</span></li>
         <li>🌙 <span>밤·주말에도 <b>언제든</b> 상담 가능</span></li>
       </ul>
       <button class="btn btn-primary" style="width:100%" onclick="openChat()">💬 AI 상담 시작하기</button>
@@ -228,7 +206,7 @@
     <h2>대여 절차</h2>
     <p class="lead">간단한 5단계로 차량을 받아보세요</p>
     <div class="steps">
-      <div class="step"><span class="n">1</span><div><h3>상담 신청</h3><p>AI 상담이나 상담 신청서로 원하는 차량과 기간을 알려주세요.</p></div></div>
+      <div class="step"><span class="n">1</span><div><h3>상담 신청</h3><p>AI 상담에게 원하는 차량과 기간을 말로 알려주세요. 전화도 좋아요.</p></div></div>
       <div class="step"><span class="n">2</span><div><h3>견적 상담</h3><p>담당자가 연락드려 차량과 가격을 안내해드려요.</p></div></div>
       <div class="step"><span class="n">3</span><div><h3>계약 가능 여부 확인</h3><p>원하는 차량의 계약 가능 여부를 개별 상담으로 확인해요.</p></div></div>
       <div class="step"><span class="n">4</span><div><h3>계약 완료</h3><p>구비서류를 챙겨 계약을 마무리해요.</p></div></div>
@@ -261,83 +239,20 @@
   <div class="wrap">
     <div class="eyebrow">CONSULT</div>
     <h2>상담 신청</h2>
-    <p class="lead">작성해주시면 담당자가 빠르게 연락드려요</p>
-    <button type="button" class="btn btn-ai ai-only" style="width:100%;margin:-6px 0 18px" onclick="openChat()">✍️ 쓰기 귀찮으면 💬 AI에게 말로 신청하기</button>
-
-    <div class="done" id="doneBox">
-      <div class="big">🎉</div>
-      <h2>접수 완료!</h2>
-      <p class="lead" style="margin:0">상담 신청이 접수됐어요. 담당자가 빠른 시간 안에 연락드릴게요 😊</p>
+    <p class="lead">신청서 쓸 필요 없어요. AI 상담에게 말로 알려주시면 정리해서 담당자에게 바로 전달돼요</p>
+    <div class="ai-box">
+      <b>AI 상담이 이런 걸 여쭤봐요</b>
+      <ul>
+        <li>🚗 <span>단기·장기, 기간, 원하는 차종</span></li>
+        <li>💰 <span>예산, 시작 시기, 대여 지역</span></li>
+        <li>📱 <span>성함, 연락처, 생년월일 (보험 연령 확인용)</span></li>
+      </ul>
+      <p class="consult-note">모르는 건 건너뛰어도 돼요. 알려주신 정보는 상담·예약 안내에만 써요.</p>
+      <div class="cta">
+        <button class="btn btn-primary ai-only" onclick="openChat()">💬 AI 상담으로 신청하기</button>
+        <button class="btn btn-line" onclick="openCalls()">📞 전화로 상담하기</button>
+      </div>
     </div>
-
-    <form id="rentalForm" novalidate>
-      <div class="fs">
-        <div class="fs-title"><span class="n">1</span>대여 정보</div>
-        <div>
-          <label class="l">대여 유형 <i>*</i></label>
-          <div class="seg">
-            <button type="button" id="btnShort" onclick="setType('단기대여')">🏖️ 단기대여</button>
-            <button type="button" id="btnLong" class="on" onclick="setType('장기대여')">📅 장기대여</button>
-          </div>
-        </div>
-        <div class="f" id="fPeriod">
-          <label class="l" for="rentalPeriod">대여 기간 <i>*</i></label>
-          <div class="unit"><input type="text" id="rentalPeriod" inputmode="numeric" placeholder="예: 12"><span id="periodUnit">개월</span></div>
-          <div class="err">대여 기간을 입력해주세요.</div>
-        </div>
-        <div>
-          <label class="l" for="carClass">희망 차급</label>
-          <select id="carClass">
-            <option value="">상관없어요</option><option>경형</option><option>소형</option><option>중형</option><option>소형 SUV</option><option>승합</option>
-          </select>
-        </div>
-        <div class="f" id="fRegion">
-          <label class="l" for="rentalRegion">대여 지역 <i>*</i></label>
-          <select id="rentalRegion">
-            <option value="">-- 지역을 선택해주세요 --</option>
-            <option>광주본점</option><option>장성</option><option>나주</option><option>담양</option><option>화순</option><option>함평</option><option>영광</option><option>기타</option>
-          </select>
-          <div class="err">지역을 선택해주세요.</div>
-        </div>
-      </div>
-
-      <div class="fs">
-        <div class="fs-title"><span class="n">2</span>연락처</div>
-        <div class="f" id="fName">
-          <label class="l" for="name">성함 <i>*</i></label>
-          <input type="text" id="name" autocomplete="name">
-          <div class="err">성함을 입력해주세요.</div>
-        </div>
-        <div class="f" id="fPhone">
-          <label class="l" for="phone">연락처 <i>*</i></label>
-          <input type="tel" id="phone" inputmode="numeric" placeholder="010-0000-0000" oninput="fmtPhone(this)" autocomplete="tel">
-          <div class="err">올바른 연락처를 입력해주세요. (010-XXXX-XXXX)</div>
-        </div>
-        <div class="f" id="fBirth">
-          <label class="l" for="birthdate">생년월일 <i>*</i> <span style="font-weight:400;color:var(--soft);font-size:12px">(보험 연령 확인용)</span></label>
-          <input type="text" id="birthdate" inputmode="numeric" maxlength="8" placeholder="예: 19900101">
-          <div class="err">생년월일 8자리를 정확히 입력해주세요.</div>
-        </div>
-      </div>
-
-      <div class="fs">
-        <div class="fs-title"><span class="n">3</span>팡팡렌트카에 한마디 💬</div>
-        <textarea id="userMsg" maxlength="300" placeholder="궁금한 점, 요청사항을 자유롭게 남겨주세요 (선택)"></textarea>
-      </div>
-
-      <div class="fs">
-        <div class="fs-title"><span class="n">4</span>약관 동의</div>
-        <div class="f" id="fPrivacy">
-          <label class="agree"><input type="checkbox" id="agreePrivacy"><span>[필수] 개인정보 수집 및 이용 동의
-            <details><summary>내용보기</summary>수집 항목: 성함, 연락처, 생년월일, 대여 정보<br>수집 목적: 렌터카 상담 및 예약 접수, 고객 응대<br>보유 기간: 상담 완료 후 1년<br>동의하지 않으실 수 있으나, 동의 거부 시 상담 서비스 이용이 제한됩니다.</details></span></label>
-          <div class="err">개인정보 수집 및 이용에 동의해주세요.</div>
-        </div>
-        <label class="agree"><input type="checkbox" id="agreeMarketing"><span>[선택] 할인·이벤트 문자 수신 동의
-          <details><summary>내용보기</summary>수집 항목: 성함, 연락처<br>활용 목적: 신규 차량 안내, 할인 이벤트 및 프로모션 문자·전화 발송<br>보유 기간: 동의 철회 시까지<br>동의하지 않으셔도 상담 서비스 이용에 불이익이 없습니다.</details></span></label>
-      </div>
-
-      <button type="submit" class="btn btn-primary" id="submitBtn">🚗 상담 신청하기</button>
-    </form>
   </div>
 </section>
 
@@ -384,59 +299,6 @@
   function openCalls(){ $('sheetBg').classList.add('open'); $('callSheet').classList.add('open'); }
   function closeSheets(){ ['sheetBg', 'chatSheet', 'callSheet'].forEach(id => $(id).classList.remove('open')); }
   document.addEventListener('keydown', e => { if(e.key === 'Escape') closeSheets(); });
-
-  // ── 상담 신청 폼 ──
-  let rentalType = '장기대여';
-  function setType(t){
-    rentalType = t;
-    $('btnShort').classList.toggle('on', t === '단기대여');
-    $('btnLong').classList.toggle('on', t === '장기대여');
-    $('periodUnit').textContent = t === '단기대여' ? '일' : '개월';
-    $('rentalPeriod').placeholder = t === '단기대여' ? '예: 3' : '예: 12';
-  }
-  function fmtPhone(el){
-    const v = el.value.replace(/\D/g, '').slice(0, 11);
-    el.value = v.length > 7 ? v.slice(0, 3) + '-' + v.slice(3, 7) + '-' + v.slice(7) : v.length > 3 ? v.slice(0, 3) + '-' + v.slice(3) : v;
-  }
-  function check(id, ok){ $(id).classList.toggle('invalid', !ok); return ok; }
-  function validate(){
-    const results = [
-      check('fPeriod', !!$('rentalPeriod').value.trim()),
-      check('fRegion', !!$('rentalRegion').value),
-      check('fName', !!$('name').value.trim()),
-      check('fPhone', /^01[0-9]-\d{3,4}-\d{4}$/.test($('phone').value.trim())),
-      check('fBirth', /^\d{8}$/.test($('birthdate').value.trim())),
-      check('fPrivacy', $('agreePrivacy').checked),
-    ];
-    const firstBad = document.querySelector('#rentalForm .invalid');
-    if(firstBad) firstBad.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    return results.every(Boolean);
-  }
-
-  $('rentalForm').addEventListener('submit', async e => {
-    e.preventDefault();
-    if(!validate()) return;
-    const btn = $('submitBtn');
-    btn.disabled = true; btn.textContent = '접수 중...';
-    const form = {
-      rentalType, rentalPeriod: $('rentalPeriod').value.trim(), rentalRegion: $('rentalRegion').value,
-      carClass: $('carClass').value,
-      name: $('name').value.trim(), phone: $('phone').value.trim(), birthdate: $('birthdate').value.trim(),
-      userMsg: $('userMsg').value.trim(), agreePrivacy: true, agreeMarketing: $('agreeMarketing').checked,
-    };
-    // 현황판 서버가 받아서 일정·직원 메신저·알림·고객 명단 시트로 보냄
-    try{
-      if(!CFG.companyId) throw new Error('온라인 접수 준비 중이에요');
-      const r = await fetch(CFG.formApi, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ c: CFG.companyId, form }) });
-      if(!r.ok) throw new Error((await r.json().catch(() => ({}))).error || '접수 실패');
-      $('rentalForm').style.display = 'none';
-      $('doneBox').style.display = 'block';
-      $('form').scrollIntoView({ behavior: 'smooth' });
-    }catch(err){
-      alert('접수 중 문제가 생겼어요. 전화(1800-9336)로 문의해주세요.\n' + err.message);
-      btn.disabled = false; btn.textContent = '🚗 상담 신청하기';
-    }
-  });
 </script>
 </body>
 </html>

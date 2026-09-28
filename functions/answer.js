@@ -6,7 +6,7 @@
  *  3. Claude가 요약 + 가격 안내를 보고 답변
  *  4. 상담 요청 → customerChat/leads 저장 + 직원 알림
  *     예약 요청 → customerChat/leads 저장 + 현황판 일정(schedules)에 "예약요청" 등록 + 직원 알림 + 고객 명단 시트
- *     상담 신청 → 홈페이지 신청서와 같은 내용을 대화로 받아 leads + 일정 "상담신청" + 직원 알림 + 고객 명단 시트
+ *     상담 신청 → 신청서 대신 대화로 받아 leads + 일정 "상담신청" + 직원 알림 + 고객 명단 시트
  *  5. 대화는 customerChat/sessions/{대화방ID} 에 저장 → inquiry-admin.html 에서 확인
  *
  * 직원 알림 = 현황판 직원 채팅에 시스템 메시지 + 직원 폰(앱)으로 푸시.

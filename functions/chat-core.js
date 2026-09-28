@@ -163,7 +163,7 @@ export const BOOKING_TOOL = {
 
 export const CONSULT_TOOL = {
   name: 'request_consult',
-  description: '고객의 렌트 상담 신청(장기렌트·견적·날짜 미정 문의)을 접수합니다. 홈페이지 상담 신청서와 같은 내용입니다. 이름과 연락처를 받은 뒤에만 호출하세요. 현황판 일정·직원 알림·고객 명단 시트로 들어갑니다.',
+  description: '고객의 렌트 상담 신청(장기렌트·견적·날짜 미정 문의)을 접수합니다. 이름과 연락처를 받은 뒤에만 호출하세요. 현황판 일정·직원 알림·고객 명단 시트로 들어갑니다.',
   strict: true,
   input_schema: {
     type: 'object',
@@ -266,15 +266,15 @@ export function staffAlertText(kind, x) {
   return `📞 상담 요청: ${x.name || '고객'} ${x.phone} · ${x.request}`;
 }
 
-// 기간: 숫자만 있으면(홈페이지 신청서) 단위를 붙임 ('12' → '12개월')
+// 기간: 숫자만 있으면 단위를 붙임 ('12' → '12개월')
 export function periodText(x) {
   const unit = x.rentalType === '단기대여' ? '일' : '개월';
   return /^\d+$/.test(x.rentalPeriod || '') ? x.rentalPeriod + unit : (x.rentalPeriod || '');
 }
 
 /**
- * 상담 신청(홈페이지 신청서·AI 상담 공통) → 현황판 일정. 오늘 날짜로 넣어 "할 일"로 보이게.
- * via: '홈페이지' | 'AI상담'
+ * 상담 신청 → 현황판 일정. 오늘 날짜로 넣어 "할 일"로 보이게.
+ * via: 접수 경로 ('AI상담'. 이후 카카오톡 등 채널이 생기면 그 이름)
  */
 export function consultSchedule(x, today, via) {
   const kind = x.rentalType === '단기대여' ? '단기' : '장기';
@@ -293,7 +293,7 @@ export function consultSchedule(x, today, via) {
     date: today,
     repeat: false,
     memo,
-    source: via === '홈페이지' ? 'homepageForm' : 'chatConsult',
+    source: 'chatConsult',
   };
 }
 
@@ -332,7 +332,7 @@ export function formatPhone(p) {
 /**
  * 고객 명단 시트 한 줄 (docs/customer-sheet.gs 의 칸 순서와 같게).
  * 이벤트 문자는 agreeMarketing 이 '동의'인 분께만 보내세요.
- * x: 상담 신청(폼·AI) 또는 예약 요청(type:'booking')
+ * x: 상담 신청(type:'consult') 또는 예약 요청(type:'booking')
  */
 export function sheetRow(x, via, now = new Date()) {
   const booking = x.type === 'booking';

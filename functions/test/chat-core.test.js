@@ -100,3 +100,8 @@ test('고객 명단 시트 한 줄: 예약 요청도 같은 칸으로, 번호 �
   assert.ok(!validSheetUrl('http://script.google.com/macros/s/AKfycbzsNRvT1XHpNUKltdaavQ/exec'));
   assert.ok(validBirthdate('19900101') && !validBirthdate('19901301') && !validBirthdate('900101'));
 });
+
+test('AI 안내문: 대수를 말하지 말라는 규칙 포함', () => {
+  const p = buildSystemPrompt({ businessName: 'x', summary: summarizeFleet([{ model: 'K5', status: '대기' }]), today: '2026-09-28' });
+  assert.match(p, /대수나 남은 대수.*절대 말하지 않습니다/);
+});
