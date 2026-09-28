@@ -3287,7 +3287,7 @@ async function openPhoneSetup(force){
       { text: '② 알림 설정 열기', value: 'notification' },
       { text: '③ 배터리 설정 열기', value: 'battery' },
       { text: '🔔 알림 소리 시험하기', value: 'testnoti' },
-      { text: '📨 푸시 점검', value: 'pushcheck' },
+      ...(window.COMPANY_ROLE === 'owner' ? [{ text: '📨 푸시 점검', value: 'pushcheck' }] : []),   // 관리자만
       { text: '다 했어요', value: 'done' }
     ]});
   if(r === 'done' || r === null){
@@ -3501,6 +3501,7 @@ async function requestChatPush(text){
 // ── 푸시 점검 (폰 설정 도우미에서) ──
 // 콘솔을 뒤지지 않아도 되게, 앱이 직접 확인해서 결과를 한 화면에 보여줍니다.
 async function checkPushStatus(){
+  if(window.COMPANY_ROLE !== 'owner') return;   // 관리자 전용 화면
   const lines = [];
   const PN = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.PushNotifications;
   if(!PN){ showToast('앱에서만 점검할 수 있어요'); return; }
@@ -3514,13 +3515,9 @@ async function checkPushStatus(){
     lines.push(`  ${m && m.pushToken ? '✅' : '❌'} ${memberLabel(uid, m && m.email)}${m && m.pushAt ? ' (' + String(m.pushAt).slice(5, 10) + ')' : ''}`);
   });
   lines.push('  ❌인 직원은 그 폰에서 새 앱을 한 번 열어야 해요');
-  // 시험 푸시는 직원 전부에게 가니까 관리자만 보낼 수 있게
-  const isOwner = window.COMPANY_ROLE === 'owner';
-  const buttons = isOwner
-    ? [ { text: '서버로 시험 푸시 보내기', value: 'send', primary: true }, { text: '닫기', value: 'close' } ]
-    : [ { text: '닫기', value: 'close', primary: true } ];
-  const r = await showAppDialog({ title: '📨 푸시 점검', message: lines.join('\n'), buttons });
-  if(r !== 'send' || !isOwner) return;
+  const r = await showAppDialog({ title: '📨 푸시 점검', message: lines.join('\n'),
+    buttons: [ { text: '서버로 시험 푸시 보내기', value: 'send', primary: true }, { text: '닫기', value: 'close' } ] });
+  if(r !== 'send') return;
   showToast('서버에 요청 중...');
   const res = await requestChatPush('🔔 푸시 시험이에요 (무시하셔도 돼요)');
   const ok = res && res.status >= 200 && res.status < 300;
