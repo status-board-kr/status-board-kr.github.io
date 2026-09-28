@@ -34,6 +34,11 @@ if (/android:enableOnBackInvokedCallback="true"/.test(m)) {
   m = m.replace('<application', '<application\n        android:enableOnBackInvokedCallback="false"');
   console.log('back callback attr added');
 }
+// 앱을 닫아도 도는 위치 공유 서비스 (scripts/LocationShareService.java)
+if (!m.includes('.LocationShareService')) {
+  m = m.replace('</application>', '        <service android:name=".LocationShareService" android:exported="false" android:foregroundServiceType="location" />\n    </application>');
+  console.log('location service added');
+}
 fs.writeFileSync(manifestPath, m);
 
 const drawDir = path.join(res, 'res', 'drawable');
@@ -101,6 +106,14 @@ if (fs.existsSync(gradlePath)) {
   } else {
     console.log('signing config already fixed');
   }
+  // 위치 공유 서비스가 쓰는 구글 위치 라이브러리 (플러그인과 같은 버전)
+  g = fs.readFileSync(gradlePath, 'utf8');
+  if (!g.includes('play-services-location')) {
+    if (!/\ndependencies\s*\{/.test(g)) { console.error('app/build.gradle에 dependencies가 없습니다.'); process.exit(1); }
+    g = g.replace(/\ndependencies\s*\{/, (d) => d + '\n    implementation "com.google.android.gms:play-services-location:21.0.1"');
+    fs.writeFileSync(gradlePath, g);
+    console.log('play-services-location added');
+  }
   // 앱 버전: 빌드 때 APP_VERSION_CODE / APP_VERSION_NAME 을 주면 자동으로 붙입니다 (폰 앱 정보에 표시)
   const vCode = process.env.APP_VERSION_CODE, vName = process.env.APP_VERSION_NAME;
   if (vCode && vName) {
@@ -149,15 +162,19 @@ if(mainPath){
   const cur = fs.readFileSync(mainPath, 'utf8');
   const pkgMatch = cur.match(/^package\s+([^;]+);/m);
   const pkg = pkgMatch ? pkgMatch[1] : 'com.jangsung.fleet';
+  const svcSrc = fs.readFileSync(path.join(__dirname, 'LocationShareService.java'), 'utf8').replace('package __PKG__;', 'package ' + pkg + ';');
+  fs.writeFileSync(path.join(path.dirname(mainPath), 'LocationShareService.java'), svcSrc);
+  console.log('LocationShareService copied');
   const L = [];
   L.push('package ' + pkg + ';', '');
-  L.push('import android.content.Intent;', 'import android.net.Uri;', 'import android.provider.Settings;', 'import android.webkit.JavascriptInterface;', '');
+  L.push('import android.Manifest;', 'import android.content.Intent;', 'import android.content.pm.PackageManager;', 'import android.net.Uri;', 'import android.provider.Settings;', 'import android.webkit.JavascriptInterface;', '');
   L.push('import com.getcapacitor.BridgeActivity;', '');
   L.push('public class MainActivity extends BridgeActivity {', '');
   L.push('    @Override', '    public void onStart() {', '        super.onStart();');
   L.push('        if (this.bridge != null && this.bridge.getWebView() != null) {');
   L.push('            this.bridge.getWebView().getSettings().setTextZoom(100);');
   L.push('            this.bridge.getWebView().addJavascriptInterface(new SettingsBridge(), \"AndroidSettings\");');
+  L.push('            this.bridge.getWebView().addJavascriptInterface(new LocationBridge(), \"AndroidLocation\");');
   L.push('        }', '    }', '');
   L.push('    public class SettingsBridge {');
   L.push('        @JavascriptInterface');
@@ -200,6 +217,26 @@ if(mainPath){
   L.push('                    Intent w = new Intent(Intent.ACTION_VIEW, Uri.parse(url));');
   L.push('                    w.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); startActivity(w);');
   L.push('                } catch (Exception ignored) { }');
+  L.push('            } });');
+  L.push('        }');
+  L.push('    }', '');
+  // 위치 공유 서비스를 웹 화면에서 켜고 끄는 다리
+  L.push('    public class LocationBridge {');
+  L.push('        @JavascriptInterface');
+  L.push('        public boolean start(final String config) { return LocationShareService.start(getApplicationContext(), config); }');
+  L.push('        @JavascriptInterface');
+  L.push('        public void stop() { LocationShareService.stop(getApplicationContext()); }');
+  L.push('        @JavascriptInterface');
+  L.push('        public boolean isRunning() { return LocationShareService.isActive(getApplicationContext()); }');
+  L.push('        @JavascriptInterface');
+  L.push('        public boolean hasPermission() {');
+  L.push('            return checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED');
+  L.push('                || checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;');
+  L.push('        }');
+  L.push('        @JavascriptInterface');
+  L.push('        public void requestPermission() {');
+  L.push('            runOnUiThread(new Runnable() { @Override public void run() {');
+  L.push('                requestPermissions(new String[] { Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION }, 7101);');
   L.push('            } });');
   L.push('        }');
   L.push('    }');
