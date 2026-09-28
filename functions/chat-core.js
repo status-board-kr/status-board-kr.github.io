@@ -61,20 +61,22 @@ export function summarizeFleet(vehicles, { longTermBranch = '장기' } = {}) {
     (b.available - a.available) || a.model.localeCompare(b.model, 'ko'));
 }
 
-export function fleetText(summary) {
+export function fleetText(summary, reservations = []) {
   if (!summary.length) return '(등록된 차량이 없습니다)';
   return summary.map(g => {
+    const resv = reservations.filter(r => r.model && r.model === g.model).map(bookingRange);
     const spec = [g.cls, g.fuel].filter(Boolean).join(', ');
     const parts = [];
     if (g.available) parts.push(`바로 가능 ${g.available}대`);
     if (g.preparing) parts.push(`준비중(곧 가능) ${g.preparing}대`);
     if (g.rented) parts.push(`대여중 ${g.rented}대` + (g.nextReturn ? ` (가장 빠른 반납 예정 ${g.nextReturn})` : ''));
     if (g.longterm) parts.push(`장기 계약중 ${g.longterm}대`);
-    return `- ${g.model}${spec ? ` (${spec})` : ''}: ${parts.join(', ') || '정보 없음'}`;
+    return `- ${g.model}${spec ? ` (${spec})` : ''}: ${parts.join(', ') || '정보 없음'}`
+      + (resv.length ? `\n    · 이미 예약 잡힌 기간(${resv.length}건): ${resv.join(', ')}` : '');
   }).join('\n');
 }
 
-export function buildSystemPrompt({ businessName, settings = {}, summary, today }) {
+export function buildSystemPrompt({ businessName, settings = {}, summary, reservations = [], today }) {
   const s = settings || {};
   const lines = [
     `당신은 "${businessName || '저희 업체'}"의 고객 문의 상담원입니다. 고객은 당근·인스타그램 등에서 링크를 타고 이 채팅에 들어왔습니다.`,
@@ -95,7 +97,8 @@ export function buildSystemPrompt({ businessName, settings = {}, summary, today 
     `[오늘 날짜] ${today}`,
     '',
     '[실시간 차량 현황] (차종별 대수. "바로 가능"이 지금 바로 출고 가능한 차량입니다)',
-    fleetText(summary),
+    fleetText(summary, reservations),
+    '("이미 예약 잡힌 기간"은 그 차종 중 한 대가 그 기간에 예약돼 있다는 뜻입니다. 고객이 원하는 기간과 겹치면, 겹치지 않는 남은 대수로 가능 여부를 판단하세요.)',
     '',
     '[가격 안내]',
     String(s.priceGuide || '').trim() || '(등록된 가격 안내가 없습니다. 가격 문의는 담당자 연결로 안내하세요.)',
@@ -193,7 +196,29 @@ export function bookingSchedule(b) {
     repeat: false,
     memo,
     source: 'customerChat',
+    // 예약 정보 (현황판 차량 카드의 "예약" 표시와 AI 답변에 사용)
+    resvStatus: 'pending',
+    resvModel: b.model,
+    resvStart: b.startDate,
+    resvStartTime: b.startTime || '',
+    resvEnd: b.endDate || '',
+    resvEndTime: b.endTime || '',
+    resvPeriod: b.period || '',
   };
+}
+
+/** 현황판 일정 중 아직 끝나지 않은 고객 예약만 추림 */
+export function upcomingReservations(schedules, today) {
+  const out = [];
+  for (const s of Object.values(schedules || {})) {
+    if (!s || !s.resvStatus || !s.resvStart) continue;
+    if (s.resvStatus !== 'pending' && s.resvStatus !== 'confirmed') continue;
+    const last = s.resvEnd || s.resvStart;
+    if (last < today && !(s.resvPeriod && !s.resvEnd)) continue; // 기간만 있는 장기는 계속 표시
+    out.push({ model: s.resvModel || '', plate: s.resvPlate || '', status: s.resvStatus,
+      startDate: s.resvStart, startTime: s.resvStartTime || '', endDate: s.resvEnd || '', endTime: s.resvEndTime || '', period: s.resvPeriod || '' });
+  }
+  return out.sort((a, b) => a.startDate.localeCompare(b.startDate));
 }
 
 export function staffAlertText(kind, x) {

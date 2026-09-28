@@ -18,7 +18,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import {
   MAX_TEXT, MAX_TURNS, DEFAULT_DAILY_LIMIT, TOOLS,
   isValidId, summarizeFleet, buildSystemPrompt, validPhone, validDate, validTime, todayKST,
-  bookingSchedule, staffAlertText,
+  bookingSchedule, staffAlertText, upcomingReservations,
 } from './chat-core.js';
 
 // 현황판 index.html 의 CLAUDE_MODEL 과 같은 모델
@@ -62,12 +62,13 @@ export async function answer({ c, sid, text, channel = 'web' }, deps = {}) {
   if (msg.length > MAX_TEXT) throw new ChatError(400, `메시지는 ${MAX_TEXT}자까지 보낼 수 있어요`);
 
   const base = `companies/${c}`;
-  const [settingsSnap, nameSnap, aiSnap, vehiclesSnap, sessionSnap] = await Promise.all([
+  const [settingsSnap, nameSnap, aiSnap, vehiclesSnap, sessionSnap, schedulesSnap] = await Promise.all([
     db.ref(`${base}/customerChat/settings`).get(),
     db.ref(`${base}/profile/name`).get(),
     db.ref(`${base}/aiSettings/key`).get(),
     db.ref(`${base}/vehicles`).get(),
     db.ref(`${base}/customerChat/sessions/${sid}`).get(),
+    db.ref(`${base}/schedules`).get(),
   ]);
   const settings = settingsSnap.val() || {};
   if (!settings.enabled) throw new ChatError(403, '지금은 채팅 상담을 운영하지 않아요. 전화로 문의해주세요.');
@@ -93,6 +94,7 @@ export async function answer({ c, sid, text, channel = 'web' }, deps = {}) {
     businessName: settings.businessName || nameSnap.val(),
     settings,
     summary: summarizeFleet(vehiclesSnap.val(), { longTermBranch: LONG_TERM_BRANCH }),
+    reservations: upcomingReservations(schedulesSnap.val(), today),
     today,
   });
 

@@ -68,3 +68,20 @@ test('도구 정의가 strict 스키마 규칙을 지킴', () => {
     assert.deepEqual([...t.input_schema.required].sort(), Object.keys(t.input_schema.properties).sort());
   }
 });
+
+import { upcomingReservations, fleetText as fleetText2, summarizeFleet as sf2 } from '../chat-core.js';
+
+test('지난 예약·취소·일반 일정은 빼고, 남은 예약만 AI에게 알려줌', () => {
+  const schedules = {
+    a: { title: '일반 일정', date: '2026-10-01' },
+    b: { resvStatus: 'confirmed', resvModel: '카니발', resvPlate: '34나1111', resvStart: '2026-10-03', resvStartTime: '10:00', resvEnd: '2026-10-05', resvEndTime: '18:00' },
+    c: { resvStatus: 'pending', resvModel: '카니발', resvStart: '2026-09-01', resvEnd: '2026-09-02' },
+    d: { resvStatus: 'pending', resvModel: 'K5', resvStart: '2026-11-01', resvEnd: '', resvPeriod: '6개월' },
+  };
+  const r = upcomingReservations(schedules, '2026-09-28');
+  assert.deepEqual(r.map(x => x.model), ['카니발', 'K5']);
+  assert.equal(r[0].plate, '34나1111');
+  const text = fleetText2(sf2([{ model: '카니발', status: '대기' }]), r);
+  assert.match(text, /이미 예약 잡힌 기간\(1건\): 10\/3 10시 ~ 10\/5 18시/);
+  assert.ok(!text.includes('34나1111'));
+});

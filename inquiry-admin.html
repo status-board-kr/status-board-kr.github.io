@@ -169,6 +169,49 @@
       catch(e){ console.error(e); toast('저장 실패 - 관리자 권한을 확인해주세요'); }
     };
 
+    // 확정할 때 고를 차량 목록 (현황판 차량 데이터)
+    let vehicles = [];
+    onValue(ref(db, P('vehicles')), snap=>{
+      const v = snap.val() || [];
+      vehicles = (Array.isArray(v) ? v : Object.values(v)).filter(x => x && x.plate);
+    }, ()=>{});
+    const statusText = v => v.status === '대기' ? '대기' : v.status === '준비중' ? '준비중' : (v.type === '장기' ? '장기' : '운행중');
+
+    // 예약 확정: 차량을 고르면 일정 제목에 차량번호를 넣고, 현황판 차량 카드에 "예약" 표시가 뜨게 resvPlate 저장
+    function openPicker(k, l){
+      const box = $('pick-' + k);
+      if(!box.classList.contains('hidden')){ box.classList.add('hidden'); return; }
+      const same = vehicles.filter(v => (v.model || '').trim() === (l.model || '').trim());
+      const others = vehicles.filter(v => !same.includes(v));
+      const opt = v => `<option value="${esc(v.plate)}" ${v.plate === l.plate ? 'selected' : ''}>${esc(v.plate)} · ${esc(v.model || '')} (${statusText(v)})</option>`;
+      box.innerHTML = `
+        <label>어느 차량으로 확정할까요?</label>
+        <select id="sel-${esc(k)}" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:inherit;">
+          ${same.length ? `<optgroup label="${esc(l.model)}">${same.map(opt).join('')}</optgroup>` : ''}
+          <optgroup label="다른 차량">${others.map(opt).join('')}</optgroup>
+          <option value="">차량은 나중에 정하기</option>
+        </select>
+        <p></p><button id="ok-${esc(k)}">이 차량으로 확정</button>`;
+      box.classList.remove('hidden');
+      $('ok-' + k).onclick = async ()=>{
+        const plate = $('sel-' + k).value;
+        const base = (l.scheduleTitle || `📅 예약요청 ${l.model || ''} · ${l.name || '고객'}`).replace('📅 예약요청', '✅ 예약확정');
+        const title = plate ? base.replace(` ${l.model} · `, ` ${l.model}(${plate}) · `) : base;
+        const changes = { [P('customerChat/leads/' + k + '/status')]: 'confirmed',
+                          [P('customerChat/leads/' + k + '/plate')]: plate || null,
+                          [P('customerChat/leads/' + k + '/done')]: true,
+                          [P('customerChat/leads/' + k + '/decidedAt')]: new Date().toISOString() };
+        if(l.scheduleKey){
+          const sk = P('schedules/' + l.scheduleKey);
+          changes[sk + '/title'] = title;
+          changes[sk + '/resvStatus'] = 'confirmed';
+          changes[sk + '/resvPlate'] = plate || null;
+        }
+        try{ await update(ref(db), changes); toast(plate ? `${plate} 차량으로 확정했어요` : '확정했어요 (차량은 나중에)'); }
+        catch(e){ console.error(e); toast('저장 실패 - 권한을 확인해주세요'); }
+      };
+    }
+
     onValue(query(ref(db, P('customerChat/leads')), limitToLast(50)), snap=>{
       const rows = [];
       snap.forEach(ch => { rows.push([ch.key, ch.val()]); });
@@ -179,36 +222,37 @@
       const body = l => l.type === 'booking'
         ? `${esc(l.model)} · ${esc(l.startDate)} ${esc(l.startTime || '')}${l.endDate ? ' ~ ' + esc(l.endDate) + ' ' + esc(l.endTime || '') : ''}${l.period ? ' (' + esc(l.period) + ')' : ''}${l.note ? '<br>' + esc(l.note) : ''}`
         : esc(l.request);
-      const actions = (k, l) => l.type === 'booking' && l.status === 'pending'
-        ? `<button data-act="confirm" data-lead="${esc(k)}">확정</button><button class="ghost" data-act="cancel" data-lead="${esc(k)}">취소</button>`
-        : `<button class="ghost" data-act="done" data-lead="${esc(k)}" data-done="${l.done ? 1 : 0}">${l.done ? '되돌리기' : '처리 완료'}</button>`;
+      const actions = (k, l) => {
+        if(l.type === 'booking' && l.status === 'pending')
+          return `<button data-act="pick" data-lead="${esc(k)}">확정</button><button class="ghost" data-act="cancel" data-lead="${esc(k)}">취소</button>`;
+        if(l.type === 'booking' && l.status === 'confirmed')
+          return `<button class="ghost" data-act="pick" data-lead="${esc(k)}">차량 변경</button><button class="ghost" data-act="cancel" data-lead="${esc(k)}">취소</button>`;
+        if(l.type === 'booking') return '';
+        return `<button class="ghost" data-act="done" data-lead="${esc(k)}" data-done="${l.done ? 1 : 0}">${l.done ? '되돌리기' : '처리 완료'}</button>`;
+      };
       const byKey = Object.fromEntries(rows);
       $('leads').innerHTML = rows.length ? rows.map(([k, l]) => `
-        <div class="item ${l.done ? 'done' : ''}">
+        <div class="item ${l.done && l.status !== 'confirmed' ? 'done' : ''}">
           <div class="row" style="justify-content:space-between">
             <b>${badge(l)} · ${esc(l.name || '이름 없음')} · <a href="tel:${esc(l.phone)}">${esc(l.phone)}</a></b>
             <span class="row">${actions(k, l)}</span>
           </div>
-          <div>${body(l)}</div>
+          <div>${body(l)}${l.plate ? ` · 🚗 <b>${esc(l.plate)}</b>` : ''}</div>
+          <div class="picker hidden" id="pick-${esc(k)}"></div>
           <div class="m">${when(l.createdAt)}${l.channel && l.channel !== 'web' ? ' · ' + esc(l.channel) : ''}</div>
         </div>`).join('') : '<p class="hint">아직 없어요.</p>';
       $('leads').querySelectorAll('button[data-lead]').forEach(b => b.onclick = async ()=>{
         const k = b.dataset.lead, l = byKey[k] || {};
         try{
           if(b.dataset.act === 'done'){ await set(ref(db, P('customerChat/leads/' + k + '/done')), b.dataset.done !== '1'); return; }
-          const ok = b.dataset.act === 'confirm';
-          if(!ok && !confirm('이 예약 요청을 취소할까요? 현황판 일정에서도 지워져요.')) return;
-          const at = new Date().toISOString();
-          const changes = { [P('customerChat/leads/' + k + '/status')]: ok ? 'confirmed' : 'cancelled',
+          if(b.dataset.act === 'pick') return openPicker(k, l);
+          if(!confirm('이 예약을 취소할까요? 현황판 일정에서도 지워져요.')) return;
+          const changes = { [P('customerChat/leads/' + k + '/status')]: 'cancelled',
                             [P('customerChat/leads/' + k + '/done')]: true,
-                            [P('customerChat/leads/' + k + '/decidedAt')]: at };
-          if(l.scheduleKey){
-            const sk = P('schedules/' + l.scheduleKey);
-            if(ok) changes[sk + '/title'] = (l.scheduleTitle || `📅 예약요청 ${l.model || ''} · ${l.name || '고객'}`).replace('📅 예약요청', '✅ 예약확정');
-            else changes[sk] = null;
-          }
+                            [P('customerChat/leads/' + k + '/decidedAt')]: new Date().toISOString() };
+          if(l.scheduleKey) changes[P('schedules/' + l.scheduleKey)] = null;
           await update(ref(db), changes);
-          toast(ok ? '확정했어요. 현황판 일정에도 반영됐어요' : '취소했어요');
+          toast('취소했어요');
         }catch(e){ console.error(e); toast('저장 실패 - 권한을 확인해주세요'); }
       });
     }, e=>{ console.error(e); $('leads').innerHTML = '<p class="bad">불러오기 실패 (권한 확인 필요)</p>'; });

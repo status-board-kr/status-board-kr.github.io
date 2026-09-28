@@ -294,6 +294,7 @@
   }
   .card .cbody{position:relative;z-index:1;}
   .card .amount{position:relative;z-index:1;}
+  .card .resv{position:relative;z-index:1;margin-left:8px;font-size:11px;font-weight:700;color:var(--pink);white-space:nowrap;text-align:right;line-height:1.35;}
   .card.st-idle{border-left-color:var(--gray);}
   .card.st-prep{border-left-color:var(--indigo);}
   .card.st-dispatch{border-left-color:var(--cyan);}
@@ -1617,6 +1618,7 @@ function startScheduleSync(){
   onValue(ref(db, P('schedules')), (snap)=>{
     schedules = snap.exists() ? snap.val() : {};
     renderSchedBanner();
+    if(typeof render === 'function' && vehicles.length) render(); // 차량 카드의 "예약" 표시 갱신
     if(document.getElementById('schedModalBg').classList.contains('open')){
       renderCalendar();
       renderSchedList();
@@ -1998,6 +2000,19 @@ function renderStats(){
   `;
 }
 
+// 고객 문의 채팅에서 받은 예약 중 이 차량으로 확정된 것 (inquiry-admin.html 에서 확정할 때 resvPlate 저장)
+function reservationBadge(v){
+  const today = todayStr();
+  const list = Object.values(schedules || {}).filter(s => s && s.resvStatus === 'confirmed' && s.resvPlate === v.plate
+    && ((s.resvEnd || s.resvStart || '') >= today || (!s.resvEnd && s.resvPeriod)))
+    .sort((a, b) => String(a.resvStart).localeCompare(String(b.resvStart)));
+  if(!list.length) return '';
+  const md = d => { const p = String(d || '').split('-'); return p.length === 3 ? (+p[1]) + '/' + (+p[2]) : ''; };
+  const hm = t => t ? ' ' + (+t.split(':')[0]) + '시' : '';
+  const r = list[0];
+  const range = md(r.resvStart) + hm(r.resvStartTime) + (r.resvEnd ? '<br>~ ' + md(r.resvEnd) + hm(r.resvEndTime) : (r.resvPeriod ? '<br>' + escapeHtml(r.resvPeriod) : ''));
+  return `<div class="resv">📅 예약<br>${range}${list.length > 1 ? `<br>외 ${list.length - 1}건` : ''}</div>`;
+}
 function render(){
   scheduleFleetAlarms();   // 자료가 바뀔 때마다 알림 예약 갱신
   renderStats();
@@ -2083,6 +2098,7 @@ function render(){
             ${renderInspectionLine(v)}
           </div>
           ${v.amount?`<div class="amount">${v.customerName?`${escapeHtml(v.customerName)}<br>`:''}${escapeHtml(String(v.amount))}만원${v.payDay?`<br>매월 ${escapeHtml(String(v.payDay))}일`:''}${v.type==='일반'?`<br><span style="color:${v.depositPaid?'var(--green)':'var(--red)'};font-weight:700;">${v.depositPaid?'💰 입금완료':'⚠️ 미입금'}</span>`:''}</div>`:''}
+          ${reservationBadge(v)}
         </div>`;
     }).join('');
     return `<div class="section-title"><span>${escapeHtml(branch)}</span><span>${items.length}대</span></div>${cards}`;
