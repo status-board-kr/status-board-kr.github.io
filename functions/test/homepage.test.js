@@ -4,8 +4,8 @@ import { cleanForm, formSchedule, submitForm } from '../homepage.js';
 import { ChatError } from '../answer.js';
 import { buildSystemPrompt, summarizeFleet } from '../chat-core.js';
 
-const good = { rentalType: '장기대여', rentalPeriod: '12', rentalRegion: '장성', budget: '월 50', carClass: '소형',
-  name: '홍길동', phone: '010-1234-5678', gender: '남성', birthdate: '19900101', userMsg: '빨리 연락주세요', agreePrivacy: true, agreeMarketing: false };
+const good = { rentalType: '장기대여', rentalPeriod: '12', rentalRegion: '장성', carClass: '소형',
+  name: '홍길동', phone: '010-1234-5678', birthdate: '19900101', userMsg: '빨리 연락주세요', agreePrivacy: true, agreeMarketing: false };
 
 test('폼 검사: 동의·필수값·연락처', () => {
   assert.equal(cleanForm(good).name, '홍길동');

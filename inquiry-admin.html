@@ -279,8 +279,8 @@
       const body = l => l.type === 'booking'
         ? `${esc(l.model)} · ${esc(l.startDate)} ${esc(l.startTime || '')}${l.endDate ? ' ~ ' + esc(l.endDate) + ' ' + esc(l.endTime || '') : ''}${l.period ? ' (' + esc(l.period) + ')' : ''}${l.note ? '<br>' + esc(l.note) : ''}`
         : l.type === 'form'
-          ? `${esc(l.rentalType)} ${esc(l.rentalPeriod)}${l.rentalType === '단기대여' ? '일' : '개월'}${l.carClass ? ' · ' + esc(l.carClass) : ''} · ${esc(l.rentalRegion)}${l.budget ? ' · 예산 ' + esc(l.budget) : ''}`
-            + `<br><span class="hint">${esc(l.gender || '')} ${esc(l.birthdate || '')}${l.agreeMarketing ? ' · 마케팅 동의' : ''}</span>${l.userMsg ? '<br>' + esc(l.userMsg) : ''}`
+          ? `${esc(l.rentalType)} ${esc(l.rentalPeriod)}${l.rentalType === '단기대여' ? '일' : '개월'}${l.carClass ? ' · ' + esc(l.carClass) : ''} · ${esc(l.rentalRegion)}`
+            + `<br><span class="hint">${l.birthdate ? '생년월일 ' + esc(l.birthdate) : ''}${l.agreeMarketing ? ' · 마케팅 동의' : ''}</span>${l.userMsg ? '<br>' + esc(l.userMsg) : ''}`
           : esc(l.request);
       const actions = (k, l) => {
         if(l.type === 'booking' && l.status === 'pending')

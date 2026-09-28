@@ -298,10 +298,6 @@
           </select>
           <div class="err">지역을 선택해주세요.</div>
         </div>
-        <div>
-          <label class="l" for="budget">예산 규모</label>
-          <input type="text" id="budget" placeholder="예: 월 50만원">
-        </div>
       </div>
 
       <div class="fs">
@@ -316,16 +312,8 @@
           <input type="tel" id="phone" inputmode="numeric" placeholder="010-0000-0000" oninput="fmtPhone(this)" autocomplete="tel">
           <div class="err">올바른 연락처를 입력해주세요. (010-XXXX-XXXX)</div>
         </div>
-        <div class="f" id="fGender">
-          <label class="l">성별 <i>*</i></label>
-          <div class="seg">
-            <button type="button" data-g="남성" onclick="setGender(this)">👨 남성</button>
-            <button type="button" data-g="여성" onclick="setGender(this)">👩 여성</button>
-          </div>
-          <div class="err">성별을 선택해주세요.</div>
-        </div>
         <div class="f" id="fBirth">
-          <label class="l" for="birthdate">생년월일 <i>*</i></label>
+          <label class="l" for="birthdate">생년월일 <i>*</i> <span style="font-weight:400;color:var(--soft);font-size:12px">(보험 연령 확인용)</span></label>
           <input type="text" id="birthdate" inputmode="numeric" maxlength="8" placeholder="예: 19900101">
           <div class="err">생년월일 8자리를 정확히 입력해주세요.</div>
         </div>
@@ -340,7 +328,7 @@
         <div class="fs-title"><span class="n">4</span>약관 동의</div>
         <div class="f" id="fPrivacy">
           <label class="agree"><input type="checkbox" id="agreePrivacy"><span>[필수] 개인정보 수집 및 이용 동의
-            <details><summary>내용보기</summary>수집 항목: 성함, 연락처, 성별, 생년월일, 대여 정보<br>수집 목적: 렌터카 상담 및 예약 접수, 고객 응대<br>보유 기간: 상담 완료 후 1년<br>동의하지 않으실 수 있으나, 동의 거부 시 상담 서비스 이용이 제한됩니다.</details></span></label>
+            <details><summary>내용보기</summary>수집 항목: 성함, 연락처, 생년월일, 대여 정보<br>수집 목적: 렌터카 상담 및 예약 접수, 고객 응대<br>보유 기간: 상담 완료 후 1년<br>동의하지 않으실 수 있으나, 동의 거부 시 상담 서비스 이용이 제한됩니다.</details></span></label>
           <div class="err">개인정보 수집 및 이용에 동의해주세요.</div>
         </div>
         <label class="agree"><input type="checkbox" id="agreeMarketing"><span>[선택] 마케팅 정보 수신 동의
@@ -397,17 +385,13 @@
   document.addEventListener('keydown', e => { if(e.key === 'Escape') closeSheets(); });
 
   // ── 상담 신청 폼 ──
-  let rentalType = '장기대여', gender = '';
+  let rentalType = '장기대여';
   function setType(t){
     rentalType = t;
     $('btnShort').classList.toggle('on', t === '단기대여');
     $('btnLong').classList.toggle('on', t === '장기대여');
     $('periodUnit').textContent = t === '단기대여' ? '일' : '개월';
     $('rentalPeriod').placeholder = t === '단기대여' ? '예: 3' : '예: 12';
-  }
-  function setGender(btn){
-    gender = btn.dataset.g;
-    document.querySelectorAll('#fGender button').forEach(b => b.classList.toggle('on', b === btn));
   }
   function fmtPhone(el){
     const v = el.value.replace(/\D/g, '').slice(0, 11);
@@ -420,7 +404,6 @@
       check('fRegion', !!$('rentalRegion').value),
       check('fName', !!$('name').value.trim()),
       check('fPhone', /^01[0-9]-\d{3,4}-\d{4}$/.test($('phone').value.trim())),
-      check('fGender', !!gender),
       check('fBirth', /^\d{8}$/.test($('birthdate').value.trim())),
       check('fPrivacy', $('agreePrivacy').checked),
     ];
@@ -436,8 +419,8 @@
     btn.disabled = true; btn.textContent = '접수 중...';
     const form = {
       rentalType, rentalPeriod: $('rentalPeriod').value.trim(), rentalRegion: $('rentalRegion').value,
-      carClass: $('carClass').value, budget: $('budget').value.trim(),
-      name: $('name').value.trim(), phone: $('phone').value.trim(), gender, birthdate: $('birthdate').value.trim(),
+      carClass: $('carClass').value,
+      name: $('name').value.trim(), phone: $('phone').value.trim(), birthdate: $('birthdate').value.trim(),
       userMsg: $('userMsg').value.trim(), agreePrivacy: true, agreeMarketing: $('agreeMarketing').checked,
     };
     // 1) 현황판 (일정·메신저·알림)  2) 구글 시트 (예전과 같은 형식). 둘 중 하나라도 되면 접수 완료.
@@ -446,7 +429,7 @@
           .then(async r => { if(!r.ok) throw new Error((await r.json().catch(() => ({}))).error || '접수 실패'); })
       : Promise.reject(new Error('업체 ID 없음'));
     const sheetData = { ...form, userMsg: [form.carClass ? '희망 차급: ' + form.carClass : '', form.userMsg].filter(Boolean).join(' / '),
-      agreeMarketing: form.agreeMarketing ? '동의' : '미동의' };
+      budget: '', gender: '', agreeMarketing: form.agreeMarketing ? '동의' : '미동의' }; // 예전 시트 칸 유지용 빈 값
     delete sheetData.agreePrivacy; delete sheetData.carClass;
     const toSheet = CFG.gasUrl
       ? fetch(CFG.gasUrl, { method: 'POST', body: JSON.stringify(sheetData) }).then(r => r.json()).then(res => { if(!res.success) throw new Error(res.message || '시트 오류'); })
