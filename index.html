@@ -4628,6 +4628,25 @@ async function renderLocMarkers(){
     map.setBounds(bounds);
   }
 }
+// 목록에서 사람을 누르면 지도를 그 사람 위치로 옮기고 이름표를 띄웁니다
+async function focusLocMember(uid){
+  const e = locActiveEntries().find(x => x.uid === uid);
+  if(!e) return;
+  const kakao = window.kakao;
+  const map = await ensureLocMap();
+  if(!map || !kakao || !kakao.maps) return;
+  if(!_locMarkers[uid]) await renderLocMarkers();
+  if(map.getLevel() > 4) map.setLevel(4);   // 동네가 보이는 정도로 확대 (이미 더 가까우면 그대로)
+  map.panTo(new kakao.maps.LatLng(e.lat, e.lng));
+  Object.entries(_locMarkers).forEach(([id, m]) => { if(id !== uid) m.info.close(); });
+  const mk = _locMarkers[uid];
+  if(mk) mk.info.open(map, mk.marker);
+  const box = document.getElementById('locMap');
+  if(box){
+    const r = box.getBoundingClientRect();
+    if(r.top < 0 || r.bottom > window.innerHeight) box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
 // ── 좌표 → "어디 주변" 주소로 바꾸기 (카카오 주소 변환) ──────────
 const _addrCache = {};
 function addrKey(lat, lng){ return lat.toFixed(4) + ',' + lng.toFixed(4); }
@@ -4685,7 +4704,7 @@ function renderLocList(){
     return;
   }
   el.innerHTML = entries.map(e=>`
-    <div class="sched-list-row" style="align-items:flex-start;${e.stale ? 'opacity:.6;' : ''}">
+    <div class="sched-list-row" onclick="focusLocMember('${escapeHtml(e.uid)}')" style="align-items:flex-start;cursor:pointer;${e.stale ? 'opacity:.6;' : ''}">
       <div style="flex:1;min-width:0;">
         <div class="t" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
           ${e.stale ? '⚪' : '🟢'} ${escapeHtml(e.isMe ? '나' : memberLabel(e.uid, e.email))}${e.isMe ? ' <span style="color:var(--sub);font-size:11px;">(나)</span>' : ''}
