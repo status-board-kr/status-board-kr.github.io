@@ -275,10 +275,13 @@
       rows.reverse();
       const badge = l => l.type === 'booking'
         ? (l.status === 'confirmed' ? '<span class="ok">✅ 예약 확정</span>' : l.status === 'cancelled' ? '<span class="bad">취소</span>' : '<span style="color:var(--accent)">📅 예약 요청</span>')
-        : '📞 상담 요청';
+        : l.type === 'form' ? '📝 홈페이지 상담신청' : '📞 상담 요청';
       const body = l => l.type === 'booking'
         ? `${esc(l.model)} · ${esc(l.startDate)} ${esc(l.startTime || '')}${l.endDate ? ' ~ ' + esc(l.endDate) + ' ' + esc(l.endTime || '') : ''}${l.period ? ' (' + esc(l.period) + ')' : ''}${l.note ? '<br>' + esc(l.note) : ''}`
-        : esc(l.request);
+        : l.type === 'form'
+          ? `${esc(l.rentalType)} ${esc(l.rentalPeriod)}${l.rentalType === '단기대여' ? '일' : '개월'}${l.carClass ? ' · ' + esc(l.carClass) : ''} · ${esc(l.rentalRegion)}${l.budget ? ' · 예산 ' + esc(l.budget) : ''}`
+            + `<br><span class="hint">${esc(l.gender || '')} ${esc(l.birthdate || '')}${l.agreeMarketing ? ' · 마케팅 동의' : ''}</span>${l.userMsg ? '<br>' + esc(l.userMsg) : ''}`
+          : esc(l.request);
       const actions = (k, l) => {
         if(l.type === 'booking' && l.status === 'pending')
           return `<button data-act="pick" data-lead="${esc(k)}">확정</button><button class="ghost" data-act="dates" data-lead="${esc(k)}">날짜 변경</button><button class="ghost" data-act="cancel" data-lead="${esc(k)}">취소</button>`;

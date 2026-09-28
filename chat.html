@@ -28,7 +28,7 @@
 </style>
 </head>
 <body>
-<header id="title">차량 문의<small>현재 차량 현황을 보고 바로 답변드려요</small></header>
+<header id="title">차량 문의<small>실시간으로 확인해서 바로 답변드려요</small></header>
 <div id="log"></div>
 <form id="f">
   <textarea id="t" rows="1" maxlength="500" placeholder="문의 내용을 입력하세요"></textarea>
@@ -39,7 +39,13 @@
   const API = 'https://asia-northeast3-fleet-board-f2345.cloudfunctions.net/inquiryChat';
 
   // 주소 예: chat.html?c=업체ID  (관리 화면 inquiry-admin.html 에서 링크를 복사하세요)
-  const company = new URLSearchParams(location.search).get('c') || '';
+  const params = new URLSearchParams(location.search);
+  const company = params.get('c') || '';
+  // 홈페이지 안에 창으로 띄울 때(embed=1)는 머리글을 숨김 (홈페이지가 자체 머리글을 보여줌)
+  if(params.get('embed') === '1'){
+    document.getElementById('title').style.display = 'none';
+    document.documentElement.style.setProperty('--me', '#0369a1'); // 홈페이지 색에 맞춤
+  }
   const log = document.getElementById('log');
   const input = document.getElementById('t');
   const btn = document.getElementById('send');

@@ -32,7 +32,7 @@ export class ChatError extends Error {
 }
 
 /** 직원 알림: 현황판 직원 채팅에 시스템 메시지 + 앱 푸시. 실패해도 고객 응대는 계속. */
-async function notifyStaff(db, messaging, base, text) {
+export async function notifyStaff(db, messaging, base, text) {
   try {
     await db.ref(`${base}/chat`).push({ text, uid: 'system', email: '현황판', at: new Date().toISOString(), type: 'system' });
   } catch (e) { logger.warn('직원 채팅 알림 실패', { message: e?.message }); }
