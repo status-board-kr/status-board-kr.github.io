@@ -69,9 +69,13 @@
 
     <div class="card">
       <h2>① 면허증 찍기</h2>
-      <p class="hint">손님 면허증 앞면을 밝은 곳에서 글자가 잘 보이게 찍어주세요. 사진은 저장하지 않고 글자만 읽어요.</p>
+      <p class="hint">손님 면허증 앞면을 밝은 곳에서 글자가 잘 보이게 찍어주세요. 이미 찍어 둔 사진이면 [사진 파일에서]로 고르세요. 사진은 저장하지 않고 글자만 읽어요.</p>
       <input id="photo" type="file" accept="image/*" capture="environment" class="hidden">
-      <button id="photoBtn">📷 면허증 찍기</button>
+      <input id="photoFile" type="file" accept="image/*" class="hidden">
+      <div class="row">
+        <button id="photoBtn">📷 면허증 찍기</button>
+        <button id="fileBtn" class="ghost">🖼 사진 파일에서</button>
+      </div>
       <img id="preview" alt="">
       <p id="readStatus" class="hint"></p>
     </div>
@@ -110,6 +114,34 @@
       </div>
       <label>배차 장소 <span class="hint">(비우면 우기 기본값)</span></label><input id="place" maxlength="40">
       <label>메모 <span class="hint">(계약서 비고란)</span></label><input id="memo" maxlength="200">
+    </div>
+
+    <div class="card">
+      <h2>④ 보험대차 <span class="hint">(보험 손님만)</span></h2>
+      <div class="row">
+        <button type="button" id="rtNormal" class="pick on">일반 손님</button>
+        <button type="button" id="rtIns" class="pick">보험대차</button>
+      </div>
+      <div id="insBox" class="hidden">
+        <div class="row">
+          <div><label>공업사명</label><input id="insShop" list="insShopList" maxlength="40" autocomplete="off"></div>
+          <div><label>조력자</label><input id="insHelper" list="insHelperList" maxlength="40" autocomplete="off"></div>
+        </div>
+        <div class="row">
+          <div><label>피해차량번호</label><input id="insCar" maxlength="12" placeholder="예: 18보2223" autocomplete="off"></div>
+          <div><label>피해차종</label><input id="insModel" maxlength="30" placeholder="예: 스포티지" autocomplete="off"></div>
+        </div>
+        <div class="row">
+          <div><label>보험사</label><input id="insCo" list="insCoList" maxlength="30" placeholder="예: 렌터카공제" autocomplete="off"></div>
+          <div><label>접수번호</label><input id="insNo" maxlength="40" autocomplete="off"></div>
+        </div>
+        <div class="row">
+          <div><label>보험 연락처</label><input id="insTel" type="tel" maxlength="20"></div>
+          <div><label>팩스</label><input id="insFax" type="tel" maxlength="20"></div>
+        </div>
+        <p class="hint">쓴 글자 그대로 우기에 들어가요. 사용기간은 [동일]에 체크해서 대여 기간과 같게 해요.</p>
+        <datalist id="insShopList"></datalist><datalist id="insHelperList"></datalist><datalist id="insCoList"></datalist>
+      </div>
     </div>
 
     <div class="card">
@@ -282,8 +314,32 @@
     });
   }
 
+  // ── 보험대차 칸 (직접 쓰기). 공업사·조력자·보험사는 이 폰에서 전에 쓴 이름을 목록으로 보여줘요 ──
+  const INS = ['insShop', 'insHelper', 'insCar', 'insModel', 'insCo', 'insNo', 'insTel', 'insFax'];
+  const INS_LIST = { insShop: 'insShopList', insHelper: 'insHelperList', insCo: 'insCoList' };
+  let isIns = false;
+  function setIns(on){ isIns = on; $('rtIns').classList.toggle('on', on); $('rtNormal').classList.toggle('on', !on); $('insBox').classList.toggle('hidden', !on); }
+  $('rtIns').onclick = ()=>setIns(true);
+  $('rtNormal').onclick = ()=>setIns(false);
+  function usedNames(k){ try{ return JSON.parse(localStorage.getItem('wookyIns_' + k) || '[]'); }catch(e){ return []; } }
+  function fillInsLists(){
+    Object.entries(INS_LIST).forEach(([k, id]) => {
+      $(id).innerHTML = '';
+      usedNames(k).forEach(v => { const o = document.createElement('option'); o.value = v; $(id).appendChild(o); });
+    });
+  }
+  function rememberIns(d){
+    Object.keys(INS_LIST).forEach(k => {
+      if(!d[k]) return;
+      try{ localStorage.setItem('wookyIns_' + k, JSON.stringify([d[k]].concat(usedNames(k).filter(x => x !== d[k])).slice(0, 30))); }catch(e){}
+    });
+    fillInsLists();
+  }
+  fillInsLists();
+
   function resetForm(){
-    ['name', 'rrn', 'hp', 'addr', 'lic', 'licexp', 'place', 'memo'].forEach(id => { $(id).value = ''; $(id).classList.remove('unclear'); });
+    ['name', 'rrn', 'hp', 'addr', 'lic', 'licexp', 'place', 'memo'].concat(INS).forEach(id => { $(id).value = ''; $(id).classList.remove('unclear'); });
+    setIns(false);
     $('lictype').value = ''; $('car').value = '';
     const now = new Date(); now.setMinutes(Math.ceil(now.getMinutes() / 10) * 10, 0, 0);
     $('start').value = localDT(now);
@@ -387,12 +443,15 @@
   }
 
   $('photoBtn').onclick = ()=> $('photo').click();
-  $('photo').onchange = async ()=>{
-    const f = $('photo').files && $('photo').files[0];
-    $('photo').value = '';
+  $('fileBtn').onclick = ()=> $('photoFile').click();
+  $('photo').onchange = ()=> onPhoto($('photo'));
+  $('photoFile').onchange = ()=> onPhoto($('photoFile'));
+  async function onPhoto(input){
+    const f = input.files && input.files[0];
+    input.value = '';
     if(!f) return;
     $('readStatus').textContent = '면허증 글자를 읽는 중이에요...';
-    $('photoBtn').disabled = true;
+    $('photoBtn').disabled = true; $('fileBtn').disabled = true;
     try{
       const dataUrl = await compressImage(f, 1568, 0.88);
       $('preview').src = dataUrl; $('preview').style.display = 'block';
@@ -411,8 +470,8 @@
     }catch(e){
       console.error(e);
       $('readStatus').innerHTML = '<span class="bad">' + esc(e.message || '읽지 못했어요') + '</span>';
-    }finally{ $('photoBtn').disabled = false; $('photo').value = ''; }
-  };
+    }finally{ $('photoBtn').disabled = false; $('fileBtn').disabled = false; }
+  }
 
   // 주민등록번호: 숫자(가려진 자리는 *)만 남기고 앞 6자리 뒤에 - 를 넣음
   const RRN_OK = /^\d{6}-\d{7}$/;
@@ -430,11 +489,13 @@
       car: $('car').value, start: $('start').value.replace('T', ' '), end: $('end').value.replace('T', ' '),
       place: $('place').value.trim(), memo: $('memo').value.trim(),
     };
+    if(isIns){ d.rentType = '보험대차'; INS.forEach(k => { d[k] = $(k).value.trim(); }); }
     const miss = [['name', '이름'], ['birth', '주민등록번호'], ['hp', '휴대폰'], ['lic', '면허번호'], ['car', '차량'], ['start', '출발'], ['end', '반납 예정']].filter(([k]) => !d[k]).map(([, t]) => t);
     if(miss.length){ toast(miss.join(', ') + ' 칸을 채워주세요'); return; }
     if(!RRN_OK.test(d.birth)){ toast('주민등록번호 13자리를 다 넣어 주세요 (가려진 * 자리 포함)'); $('rrn').focus(); return; }
     if(d.end <= d.start){ toast('반납 예정이 출발보다 뒤여야 해요'); return; }
     Object.keys(d).forEach(k => { if(!d[k]) delete d[k]; });
+    if(isIns) rememberIns(d);
     $('sendBtn').disabled = true;
     try{
       const job = await push(ref(db, P('wooky/jobs')), {
@@ -453,7 +514,9 @@
         if(j.status === 'filled' || j.status === 'saved'){
           if(r.bad && r.bad.length) t += '\n못 채운 칸: ' + r.bad.join(', ');
           if(r.carError) t += '\n' + r.carError;
-          if(r.saveUnclear) t += '\n저장 버튼을 눌렀지만 창이 그대로예요. 사무실 PC 화면을 확인해 주세요.';
+          if(r.licCheck) t += '\n면허 조회: ' + r.licCheck;
+          if(r.saveUnclear) t += '\n[저장]을 눌렀지만 저장됐는지 확인이 안 돼요. 사무실 PC 화면을 확인해 주세요.';
+          if(j.status === 'saved' && r.closed === false) t += '\n계약서 창은 못 닫았어요. 사무실 PC에서 [창닫기]를 눌러 주세요.';
           if(j.status === 'filled') t += '\n사무실 PC에서 노란 칸을 확인하고 [저장(F2)]을 눌러 주세요.';
         }
         $('jobBox').textContent = t;

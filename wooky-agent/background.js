@@ -184,7 +184,8 @@ async function waitFor(test, ms, err) {
 }
 
 /**
- * 계약서 한 건 작성. d = {name, birth, hp, zip, addr, addr2, lic, lictype, licexp, start, end, place, memo, car, rentType}
+ * 계약서 한 건 작성. d = {name, birth, hp, zip, addr, addr2, lic, lictype, licexp, start, end, place, memo, car, rentType,
+ *   insShop, insHelper, insCar, insModel, insCo, insNo, insTel, insFax (보험대차 칸, 직접 쓴 글자)}
  * opt.save 가 true 면 마지막에 [저장]까지 누름.
  */
 async function writeContract(d, opt) {
@@ -201,10 +202,13 @@ async function writeContract(d, opt) {
     await waitFor(r => r.form, 15000, '임대차계약서 창이 열리지 않았어요.');
   }
 
-  const f = await one('fill', d);
+  // 대여현황(보험대차 등)을 먼저 고르고 잠깐 기다림: 고르면 보험대차 칸이 새로 나타날 수 있어서
+  let f0 = null;
+  if (d.rentType) { f0 = await one('fill', { rentType: d.rentType }); await sleep(1000); }
+  const f = await one('fill', Object.assign({}, d, { rentType: '' }));
   if (!f) throw new AgentError('계약서 칸을 못 찾았어요.');
   if (f.error) throw new AgentError('칸 채우기 오류: ' + f.error);
-  const result = { ok: f.ok, bad: f.bad.slice() };
+  const result = { ok: ((f0 && f0.ok) || []).concat(f.ok), bad: ((f0 && f0.bad) || []).concat(f.bad) };
 
   if (d.car) {
     const o = await one('openCarSearch');
@@ -228,27 +232,73 @@ async function writeContract(d, opt) {
     }
   }
 
+  // 우기 알림창 글자 모으기 (모든 창·프레임 + 새로 뜬 화면)
+  const seen = [], licMsgs = [];
+  const takeMsgs = async () => { const m = [].concat(...(await call('take')).map(x => x.msgs || [])); seen.push(...m); return m; };
+  await takeMsgs();
+
+  // 면허번호 [조회] (가짜 손님 시험 때는 안 누름: 가짜 번호라 의미가 없어서)
+  if (d.lic && !opt.test) {
+    await call('arm', { ms: 15000, confirm: true });
+    const lc = await one('licCheck');
+    if (lc && lc.error) result.licCheck = lc.error;
+    else if (lc) {
+      await sleep(4000);
+      const lm = await takeMsgs();
+      licMsgs.push(...lm);
+      const m = lm.join(' / ');
+      result.licCheck = m || '[조회]를 눌렀어요. 결과는 우기 화면에서 확인해 주세요';
+      result.licBad = /불일치|일치하지|없는|없습니다|유효하지|정지|취소|실패|오류|다릅|확인되지|틀/.test(m) && !/이상\s*없|문제\s*없|정상/.test(m);
+    }
+  }
+
   if (opt.save) {
     if (result.bad.length) throw new AgentError('못 채운 칸이 있어서 저장하지 않았어요: ' + result.bad.join(', '));
+    if (result.licBad) throw new AgentError('면허 조회 결과가 이상해서 저장하지 않았어요: ' + result.licCheck);
+    // 저장 뒤 우기가 '정상적으로 등록하였습니다' 알림을 띄움 → 대신 [확인]
+    await call('arm', { ms: 30000, confirm: true });
     const s = await one('save');
     if (s && s.error) throw new AgentError(s.error);
-    await sleep(3000);
-    // 저장이 되면 우기가 계약서 창을 닫거나 알림을 띄움. 창이 그대로면 직원이 확인하도록 남겨둠
-    const after = await call('probe');
-    result.saved = !after.some(r => r.form);
+    const OK_RE = /정상적으로\s*(등록|저장|수정|처리)|(등록|저장|수정)\s*(되었|하였|됐|완료)/;
+    let after = [];
+    for (let i = 0; i < 12 && !result.saved; i++) {
+      await sleep(1000);
+      const m = await takeMsgs();
+      if (m.some(x => OK_RE.test(x))) result.saved = true;
+      else if (i >= 2) {
+        after = await call('probe');
+        if (after.length && !after.some(r => r.form)) result.saved = true; // 계약서 창이 스스로 닫힘
+        else if (m.length) break; // 다른 알림(오류 등)이 떴음
+      }
+    }
     if (!result.saved) result.saveUnclear = true;
+    else {
+      // 저장 뒤에도 빈 계약서 창이 남아 있으면 [창닫기]
+      await sleep(800);
+      after = await call('probe');
+      if (after.some(r => r.form)) {
+        await call('arm', { ms: 15000, confirm: true });
+        if (!(await call('close')).length) await call('close', { anyFrame: true });
+        await sleep(1500);
+        await takeMsgs();
+        after = await call('probe');
+        result.closed = !after.some(r => r.form);
+      } else result.closed = true;
+    }
   }
 
   const dn = await call('done');
-  result.msgs = [].concat(...dn.map(x => x.msgs || []));
-  const title = result.saved ? '계약서 저장 완료' : result.saveUnclear ? '저장 버튼을 눌렀는데 계약서 창이 그대로예요. 우기 알림을 확인해 주세요' : '계약서 채우기 완료';
+  result.msgs = seen.concat(...dn.map(x => x.msgs || [])).filter(x => !licMsgs.includes(x));
+  const title = result.saved ? '계약서 저장 완료' + (result.closed ? ' (계약서 창 닫음)' : ' (계약서 창은 못 닫았어요. [창닫기]를 눌러 주세요)')
+    : result.saveUnclear ? '[저장]을 눌렀는데 저장됐는지 확인이 안 돼요. 우기 알림을 확인해 주세요' : '계약서 채우기 완료';
   const text = title + (opt.test ? ' (가짜 손님 시험)' : '') +
     `\n채운 칸: ${result.ok.join(', ') || '없음'}` +
     (result.bad.length ? `\n못 채운 칸: ${result.bad.join(', ')}` : '') +
     (result.carError ? `\n${result.carError}` : '') +
+    (result.licCheck ? `\n면허 조회: ${result.licCheck}` : opt.test ? '\n(가짜 손님이라 면허 [조회]는 안 눌렀어요)' : '') +
     (result.msgs.length ? `\n우기 알림: ${result.msgs.join(' / ')}` : '') +
     (result.saved ? '' : '\n노란 칸을 확인한 뒤 [저장(F2)]을 눌러 주세요.');
-  const ok = !result.bad.length && !result.saveUnclear;
+  const ok = !result.bad.length && !result.saveUnclear && !result.licBad;
   if (!(await call('banner', { text, ok, onlyFormFrame: true })).length) await call('banner', { text, ok, topOnly: true });
   result.text = text;
   return result;
@@ -258,7 +308,7 @@ async function writeContract(d, opt) {
 function testData() {
   const d = n => { const t = new Date(); t.setDate(t.getDate() + n); return t.toISOString().slice(0, 10); };
   return {
-    name: '홍길동', birth: '1990-01-01', hp: '010-0000-0000', addr: '광주광역시 테스트주소',
+    name: '홍길동', birth: '900101-1234567', hp: '010-0000-0000', addr: '광주광역시 테스트주소',
     lic: '25-12-345678-90', lictype: '1종보통', licexp: '2030-12-31',
     start: d(1) + ' 10:00', end: d(2) + ' 10:00', place: '사무실', car: '105허9596',
     memo: '자동입력 시험입니다. 저장하지 마세요.',
@@ -299,7 +349,7 @@ async function poll() {
       const r = await writeContract(job.data || {}, { save: mode === 'save' });
       await fb('PATCH', `wooky/jobs/${key}`, {
         status: r.saved ? 'saved' : 'filled', finishedAt: new Date().toISOString(), data: null, // 개인정보는 다 쓰면 지움
-        result: { ok: r.ok, bad: r.bad, car: r.car || '', msgs: r.msgs, carError: r.carError || '', saveUnclear: !!r.saveUnclear },
+        result: { ok: r.ok, bad: r.bad, car: r.car || '', msgs: r.msgs, carError: r.carError || '', saveUnclear: !!r.saveUnclear, closed: !!r.closed, licCheck: r.licCheck || '', licBad: !!r.licBad },
       });
       await log(`${job.data && job.data.name || '손님'}: ${r.text}`, !r.bad.length);
     } catch (e) {

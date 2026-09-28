@@ -3,9 +3,10 @@
  * 확장 프로그램(background.js)이 우기 탭의 모든 프레임에 이 코드를 넣고 단계별로 window.__pangAgent.run(step, arg) 을 부릅니다.
  * 각 단계는 자기 프레임에서 할 일이 있을 때만 움직이고, 결과를 { did, ... } 로 돌려줍니다.
  * [저장(F2)]은 'save' 단계에서만 누르고, 그 단계는 저장까지 자동 모드일 때만 불립니다.
+ * 저장 뒤 뜨는 '정상적으로 등록하였습니다' 알림은 arm 단계와 hook.js 가 대신 [확인]하고, close 단계가 [창닫기]를 누릅니다.
  */
 (function () {
-  var VERSION = 1;
+  var VERSION = 2;
   if (window.__pangAgent && window.__pangAgent.v >= VERSION) return;
 
   var HL = 'rgb(255,236,110)';
@@ -144,8 +145,8 @@
       var root = formRoot(); if (!root) return { did: false };
       hookDialogs(false);
       var ok = [], bad = [];
-      function fill(t, name, idx, vals) {
-        var c = labels(root, t)[0]; if (!c) { bad.push(name); return; }
+      function fill(t, name, idx, vals, scope) {
+        var c = labels(scope || root, t)[0]; if (!c) { bad.push(name); return; }
         var f = after(c), n = 0;
         for (var k = 0; k < vals.length; k++) if (vals[k] != null && vals[k] !== '' && f[idx + k]) { put(f[idx + k], vals[k]); n++; }
         (n ? ok : bad).push(name);
@@ -173,6 +174,32 @@
       if (v.start) fill('출발일시', '출발일시', 0, dt(v.start));
       if (v.end) fill('도착예정', '도착예정', 0, dt(v.end));
       if (v.place) fill('배차장소', '배차장소', 0, [v.place]);
+      // 보험대차 칸: 폰에서 직접 쓴 글자 그대로 (🔍 찾기 창은 안 씀). '공업사명'이 있는 표 안에서만 찾음
+      if (v.insShop || v.insHelper || v.insCar || v.insModel || v.insCo || v.insNo || v.insTel || v.insFax) {
+        var sc = labels(root, '공업사명')[0] || labels(root.ownerDocument.body, '공업사명')[0];
+        var ins = sc && sc.closest ? sc.closest('table') : null;
+        if (!ins) bad.push('보험대차 칸(공업사명)');
+        else {
+          if (v.insShop) fill('공업사명', '공업사명', 0, [v.insShop], ins);
+          if (v.insCar) fill('피해차량번호', '피해차량번호', 0, [v.insCar], ins);
+          if (v.insNo) fill('접수번호', '접수번호', 0, [v.insNo], ins);
+          if (v.insHelper) fill('조력자', '조력자', 0, [v.insHelper], ins);
+          if (v.insModel) fill('피해차종', '피해차종', 0, [v.insModel], ins);
+          if (v.insCo) fill('보험사', '보험사', 0, [v.insCo], ins);
+          if (v.insTel) fill('연락처', '보험 연락처', 0, [v.insTel], ins);
+          if (v.insFax) fill('팩스', '팩스', 0, [v.insFax], ins);
+          // 사용기간 [동일] 체크 (대여 기간과 같게)
+          var u = labels(ins, '사용기간')[0], row = u && u.parentNode, same = null;
+          var cbs = row ? row.querySelectorAll('input[type=checkbox]') : [];
+          for (var i = 0; i < cbs.length && !same; i++) {
+            var nx = cbs[i].nextSibling, lb = cbs[i].id && ins.ownerDocument.querySelector('label[for="' + cbs[i].id + '"]');
+            if (norm((nx && nx.textContent) || '').indexOf('동일') == 0 || (lb && norm(lb.textContent) == '동일')) same = cbs[i];
+          }
+          if (same) { if (!same.checked) clickEl(same); ok.push('사용기간(동일)'); }
+          else if (u && v.start && v.end) fill('사용기간', '사용기간', 0, dt(v.start).concat(dt(v.end)), ins);
+          else bad.push('사용기간');
+        }
+      }
       if (v.memo) { var ta = root.getElementsByTagName('textarea'); if (ta.length) { put(ta[0], v.memo); ok.push('비고'); } else bad.push('비고'); }
       return { did: true, ok: ok, bad: bad };
     },
@@ -220,6 +247,23 @@
       var p = c && after(c)[0], m = k && after(k)[0];
       return { did: true, plate: p ? p.value : '', model: m ? m.value : '' };
     },
+    // 면허번호 옆 [조회] (없으면 아래쪽 [면허조회]). 결과 알림은 take 로 받음
+    licCheck: function () {
+      var root = formRoot(); if (!root) return { did: false };
+      var c = labels(root, '면허번호')[0];
+      if (!c) return { did: true, error: '면허번호 칸을 못 찾았어요' };
+      var s = c.nextElementSibling, b = null;
+      while (s && !b) {
+        if (!fields(s).length && norm(s.textContent).length >= 2) break;
+        b = clickable(s, '조회', true);
+        s = s.nextElementSibling;
+      }
+      if (!b) b = clickable(root.ownerDocument, '면허조회', true);
+      if (!b) return { did: true, error: '면허번호 옆 [조회] 버튼을 못 찾았어요' };
+      hookDialogs(true);
+      clickEl(b);
+      return { did: true, clicked: true };
+    },
     save: function () {
       var root = formRoot(); if (!root) return { did: false };
       var b = clickable(root.ownerDocument, '저장(F2)', true) || clickable(root.ownerDocument, '저장', true);
@@ -242,7 +286,36 @@
       } catch (x) {}
       return { did: true };
     },
-    done: function () { unhookDialogs(); var m = msgs.slice(); msgs = []; return { did: true, msgs: m }; },
+    // [조회]/[저장] 직전: 모든 프레임의 알림창을 가로채고, 새로 뜨는 화면(hook.js)도 ms 동안 가로채게 함
+    arm: function (a) {
+      hookDialogs(!!a.confirm);
+      try { localStorage.setItem('__pangArm', String(Date.now() + (a.ms || 20000))); localStorage.setItem('__pangArmConfirm', a.confirm ? '1' : '0'); } catch (x) {}
+      return { did: true };
+    },
+    // 지금까지 가로챈 알림 글자 가져오기 (가져간 건 지움)
+    take: function () {
+      var m = msgs.slice(); msgs = [];
+      try { var sh = JSON.parse(localStorage.getItem('__pangMsgs') || '[]'); if (sh.length) { localStorage.removeItem('__pangMsgs'); m = m.concat(sh); } } catch (x) {}
+      return { did: true, msgs: m };
+    },
+    // 계약서 [창닫기]. anyFrame 이면 계약서 칸이 없는 프레임(창 바깥 틀)에서도 찾음
+    close: function (a) {
+      var root = formRoot();
+      if (!root && !(a && a.anyFrame)) return { did: false };
+      var doc = root ? root.ownerDocument : document;
+      var b = clickable(doc, '창닫기', true) || clickable(doc, '창닫기(ESC)', true);
+      if (!b) return { did: false };
+      hookDialogs(true);
+      clickEl(b);
+      return { did: true, clicked: true };
+    },
+    done: function () {
+      unhookDialogs();
+      try { localStorage.setItem('__pangArm', '0'); } catch (x) {}
+      var m = msgs.slice(); msgs = [];
+      try { var sh = JSON.parse(localStorage.getItem('__pangMsgs') || '[]'); if (sh.length) { localStorage.removeItem('__pangMsgs'); m = m.concat(sh); } } catch (x) {}
+      return { did: true, msgs: m };
+    },
   };
 
   window.__pangAgent = {
