@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "팡팡 우기 자동입력",
+  "version": "1.0.0",
+  "description": "현황판에서 면허증을 올리면 사무실 PC의 우기 임대차계약서를 자동으로 채워요.",
+  "permissions": ["storage", "alarms", "scripting", "tabs"],
+  "host_permissions": [
+    "http://pprentcar.wooky.co.kr/*",
+    "https://identitytoolkit.googleapis.com/*",
+    "https://securetoken.googleapis.com/*",
+    "https://fleet-board-f2345-default-rtdb.asia-southeast1.firebasedatabase.app/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_title": "팡팡 우기 자동입력", "default_popup": "popup.html" },
+  "icons": { "128": "icon.png" }
+}

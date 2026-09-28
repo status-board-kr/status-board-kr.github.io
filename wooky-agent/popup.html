@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>팡팡 우기 자동입력</title>
+<style>
+  body{margin:0;width:340px;font-family:"Malgun Gothic","Apple SD Gothic Neo",sans-serif;font-size:14px;color:#1d1f23;background:#f4f5f7;}
+  main{padding:12px;}
+  h1{font-size:16px;margin:0 0 10px;}
+  .card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:10px;margin-bottom:10px;}
+  h2{font-size:14px;margin:0 0 6px;}
+  input[type=email],input[type=password]{width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:8px;padding:8px;margin:3px 0;font:inherit;}
+  button{border:0;border-radius:8px;padding:9px 12px;background:#ff7e36;color:#fff;font:inherit;font-weight:700;cursor:pointer;width:100%;margin-top:6px;}
+  button.ghost{background:#fff;color:#1d1f23;border:1px solid #d1d5db;}
+  label{display:block;margin:4px 0;}
+  .hint{color:#6b7280;font-size:12px;}
+  .ok{color:#16a34a;} .bad{color:#dc2626;}
+  .log{font-size:12px;border-top:1px solid #eee;padding:5px 0;white-space:pre-line;}
+  .log:first-child{border-top:0;}
+  .hidden{display:none;}
+</style>
+</head>
+<body>
+<main>
+  <h1>🚗 팡팡 우기 자동입력</h1>
+
+  <div class="card">
+    <h2>1. 현황판 연결</h2>
+    <div id="loginBox">
+      <input id="email" type="email" placeholder="현황판 이메일" autocomplete="username">
+      <input id="pw" type="password" placeholder="현황판 비밀번호" autocomplete="current-password">
+      <button id="loginBtn">연결하기</button>
+      <p class="hint">비밀번호는 저장하지 않아요.</p>
+    </div>
+    <div id="linked" class="hidden">
+      <div class="ok" id="linkedText"></div>
+      <button id="logoutBtn" class="ghost">연결 끊기</button>
+    </div>
+    <p id="loginMsg" class="bad"></p>
+  </div>
+
+  <div class="card">
+    <h2>2. 시험</h2>
+    <p class="hint">우기에 로그인해 둔 상태에서 누르세요. 가짜 손님(홍길동)으로 계약서를 채우기만 하고 저장은 안 해요.</p>
+    <button id="testBtn">가짜 손님으로 시험</button>
+  </div>
+
+  <div class="card">
+    <h2>3. 작성 방식</h2>
+    <label><input type="radio" name="mode" value="fill"> 채우기만 (직원이 확인 후 저장)</label>
+    <label><input type="radio" name="mode" value="save"> 저장까지 자동</label>
+  </div>
+
+  <div class="card">
+    <h2>최근 기록</h2>
+    <div id="logs" class="hint">아직 없어요.</div>
+  </div>
+</main>
+<script src="popup.js"></script>
+</body>
+</html>
