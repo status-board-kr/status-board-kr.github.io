@@ -36,11 +36,11 @@
 `contract.html` 은 주소를 보고 알아서 P용으로 바뀌어요 (구글 로그인, P의 Firebase, 맨 위 `wooky/jobs`, 차량은 `fleet-vehicles-jangseong-v1`).
 
 1. `contract.html` 을 pang-rent/p 저장소에 올리면 `https://pang-rent.github.io/P/contract.html` 로 열려요
-2. P에는 AI 설정이 없어서, 처음 한 번 폰에서 Claude 키를 넣어요 (그 폰에만 저장)
+2. P에는 AI 설정이 없어서, 처음 한 번 폰에서 AI 키(구글 Gemini 키, Claude 키도 가능)를 넣어요 (그 폰에만 저장)
 3. 사무실 PC 크롬에 P 탭을 열어 구글로 로그인해 두고, 확장 프로그램에서 **[P 현황판으로 연결]**. 그 탭은 닫지 않아요 (프로그램이 그 탭의 로그인으로 작업을 읽고 써요)
 4. P의 보안 규칙이 허용한 구글 계정이어야 하고, `wooky` 경로를 읽고 쓸 수 있어야 해요
 
 ## 필요한 것
 
-- 현황판 **🤖 AI 설정**의 키 (Claude 키 권장, Gemini 키도 동작)
+- 현황판 **🤖 AI 설정**의 키 (구글 Gemini 키 또는 Claude 키)
 - Realtime Database 보안 규칙에서 업체 멤버가 `companies/{업체}/wooky` 를 읽고 쓸 수 있어야 해요

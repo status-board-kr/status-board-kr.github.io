@@ -62,8 +62,8 @@
 
     <div id="keyCard" class="card hidden">
       <h2>AI 키 넣기 (한 번만)</h2>
-      <p class="hint">면허증 글자를 읽으려면 Claude 키(sk-ant-로 시작)가 필요해요. 이 폰에만 저장돼요.</p>
-      <input id="keyInput" type="password" autocomplete="off" placeholder="sk-ant-...">
+      <p class="hint">면허증 글자를 읽을 구글 Gemini 키(AIza로 시작)를 넣어 주세요. 현황판 🤖 AI 설정에 넣은 키와 같은 거예요. 이 폰에만 저장돼요.</p>
+      <input id="keyInput" type="password" autocomplete="off" placeholder="AIza...">
       <button id="keySave" style="margin-top:10px">저장</button>
     </div>
 
@@ -163,7 +163,8 @@
   const auth = getAuth(app);
   const $ = id => document.getElementById(id);
   const CLAUDE_MODEL = 'claude-sonnet-5'; // index.html 의 CLAUDE_MODEL 과 같은 모델
-  const GEMINI_MODELS = ['gemini-3.6-flash', 'gemini-flash-latest', 'gemini-3.5-flash-lite'];
+  // index.html 과 같은 무료 모델들 (글자가 많은 면허증이라 flash 부터 시도, 바쁘면 다음 모델)
+  const GEMINI_MODELS = ['gemini-3.6-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-flash-lite-latest'];
   const STATUS = { waiting: '⏳ 사무실 PC가 받기를 기다리는 중', working: '✍️ 우기에 쓰는 중', filled: '✅ 우기 계약서를 채웠어요', saved: '✅ 우기 계약서를 저장했어요', error: '⚠️ 실패' };
   let companyId = '', aiKey = '', vehicles = [], bookings = [], currentJob = null, stopJob = null;
   const P = sub => SITE === 'p' ? sub : 'companies/' + companyId + '/' + sub;
@@ -193,7 +194,7 @@
   $('logoutBtn').onclick = ()=> signOut(auth);
   $('keySave').onclick = ()=>{
     const k = $('keyInput').value.trim();
-    if(!/^sk-ant-\S{20,}$/.test(k)){ toast('sk-ant-로 시작하는 Claude 키를 붙여넣어 주세요'); return; }
+    if(!/^AIza[\w-]{30,}$/.test(k) && !/^sk-ant-\S{20,}$/.test(k)){ toast('AIza로 시작하는 Gemini 키를 붙여넣어 주세요'); return; }
     try{ localStorage.setItem(AI_KEY_LS, k); }catch(e){ toast('이 브라우저는 저장이 안 돼요'); return; }
     $('keyInput').value = ''; refreshKey(); toast('저장했어요');
   };
@@ -356,6 +357,7 @@
       return out;
     }
     if(aiKey){
+      let last = '';
       for(const model of GEMINI_MODELS){
         const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
           method: 'POST', headers: { 'x-goog-api-key': aiKey, 'content-type': 'application/json' },
@@ -363,15 +365,24 @@
             { text: LICENSE_PROMPT + '\nReply with JSON only, keys: isLicense, name, birthdate, address, licenseNo, licenseType, expiry, unclear.' } ] }],
             generationConfig: { responseMimeType: 'application/json', temperature: 0 } }),
         });
-        if(!r.ok) continue;
+        if(!r.ok){
+          const t = await r.text().catch(()=> '');
+          if(/API[ _]?key/i.test(t)){ last = 'badkey'; break; } // 키가 틀림 → 다른 모델도 똑같음
+          continue; // 바쁨·없는 모델 → 다음 모델
+        }
         const j = await r.json();
         const c = j.candidates && j.candidates[0];
         const out = parseJson(c && c.content ? (c.content.parts || []).map(p => p.text || '').join('') : '');
         if(out) return out;
       }
+      if(last === 'badkey'){
+        try{ localStorage.removeItem(AI_KEY_LS); }catch(e){}
+        refreshKey();
+        throw new Error('AI 키가 올바르지 않아요. 위에 키를 다시 넣어 주세요');
+      }
       throw new Error('AI가 바빠요. 잠시 후 다시 찍어주세요');
     }
-    throw new Error('AI 키가 없어요. 위 "AI 키 넣기"에 Claude 키를 넣어 주세요');
+    throw new Error('AI 키가 없어요. 위 "AI 키 넣기"에 Gemini 키를 넣어 주세요');
   }
 
   $('photoBtn').onclick = ()=> $('photo').click();
