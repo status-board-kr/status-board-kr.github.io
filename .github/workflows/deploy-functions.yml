@@ -1,0 +1,37 @@
+name: 고객 문의 채팅 서버 배포
+
+# Actions 탭에서 "Run workflow" 버튼으로 실행합니다.
+# 필요한 것: 저장소 Settings → Secrets → Actions 에 FIREBASE_SERVICE_ACCOUNT
+# (Firebase 콘솔 → 프로젝트 설정 → 서비스 계정 → "새 비공개 키 생성"으로 받은 JSON 전체)
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 소스 가져오기
+        uses: actions/checkout@v4
+
+      - name: Node 설치
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: 패키지 설치 및 테스트
+        working-directory: functions
+        run: |
+          npm ci
+          npm test
+
+      - name: Firebase에 배포
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "::error::FIREBASE_SERVICE_ACCOUNT 시크릿이 없어요. docs/고객문의채팅.md 를 참고해 등록해주세요."
+            exit 1
+          fi
+          echo "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          npx --yes firebase-tools@latest deploy --only functions:inquiry --project fleet-board-f2345 --non-interactive --force
