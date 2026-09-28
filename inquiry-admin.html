@@ -16,7 +16,7 @@
   .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px;}
   label{display:block;font-weight:600;margin:12px 0 4px;}
   .hint{color:var(--sub);font-size:13px;font-weight:400;}
-  input[type=text],input[type=email],input[type=password],input[type=number],textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit;background:var(--bg);color:var(--text);}
+  input[type=text],input[type=email],input[type=password],input[type=number],input[type=url],textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit;background:var(--bg);color:var(--text);}
   textarea{min-height:110px;resize:vertical;}
   button{border:0;border-radius:10px;padding:10px 16px;background:var(--accent);color:#fff;font-weight:700;font:inherit;font-weight:700;cursor:pointer;}
   button.ghost{background:transparent;color:var(--text);border:1px solid var(--line);}
@@ -69,6 +69,9 @@
       <textarea id="priceGuide" maxlength="3000" placeholder="예)&#10;아반떼: 하루 5만원, 한 달 70만원&#10;카니발: 하루 10만원&#10;보험 포함, 만 26세 이상"></textarea>
       <label>업체 안내 <span class="hint">(영업시간, 위치, 대여 조건, 필요 서류 등)</span></label>
       <textarea id="extraInfo" maxlength="3000" placeholder="예)&#10;영업시간 09:00~19:00, 일요일 휴무&#10;위치: 장성읍 ○○로 12&#10;면허 1년 이상"></textarea>
+      <label>고객 명단 시트 주소 <span class="hint">(홈페이지 신청·AI 상담 접수가 쌓이는 구글 시트. 만드는 법은 설치 안내 참고)</span></label>
+      <div class="row"><input id="sheetUrl" type="url" maxlength="200" placeholder="https://script.google.com/macros/s/…/exec" style="flex:1;width:auto;min-width:0"><button id="sheetTestBtn" class="ghost" type="button">연결 확인</button></div>
+      <p id="sheetStatus" class="hint"></p>
       <label>하루 최대 답변 수 <span class="hint">(요금 보호용, 기본 300)</span></label>
       <input id="dailyLimit" type="number" min="10" max="5000" placeholder="300">
       <p></p>
@@ -109,7 +112,9 @@
   const db = getDatabase(app);
   const auth = getAuth(app);
   const $ = id => document.getElementById(id);
-  const FIELDS = ['businessName', 'phone', 'priceGuide', 'extraInfo'];
+  const FIELDS = ['businessName', 'phone', 'priceGuide', 'extraInfo', 'sheetUrl'];
+  // functions/chat-core.js validSheetUrl 과 같게: 구글 Apps Script 웹 앱 주소만
+  const SHEET_RE = /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]{10,}\/exec$/;
   let companyId = '', isOwner = false;
 
   function toast(t){ const el = $('toast'); el.textContent = t; el.style.display = 'block'; clearTimeout(toast._t); toast._t = setTimeout(()=> el.style.display = 'none', 2200); }
@@ -160,9 +165,22 @@
       $('dailyLimit').value = s.dailyLimit || '';
     }).catch(e=>{ console.error(e); toast('설정을 불러오지 못했어요 (권한 확인 필요)'); });
 
+    $('sheetTestBtn').onclick = async ()=>{
+      const url = $('sheetUrl').value.trim();
+      if(!SHEET_RE.test(url)){ $('sheetStatus').innerHTML = '<span class="bad">구글 Apps Script 웹 앱 주소(…/exec)를 넣어주세요.</span>'; return; }
+      $('sheetStatus').textContent = '확인 중...';
+      try{
+        const res = await (await fetch(url, { method: 'POST', body: JSON.stringify({ test: true }) })).json();
+        $('sheetStatus').innerHTML = res.success
+          ? `<span class="ok">✓ "${esc(res.sheet || '구글 시트')}" 시트와 연결됐어요. 저장을 눌러주세요.</span>`
+          : `<span class="bad">시트가 응답했지만 오류가 났어요: ${esc(res.message || '')}</span>`;
+      }catch(e){ $('sheetStatus').innerHTML = '<span class="bad">연결 실패. 배포할 때 액세스를 "모든 사용자"로 했는지 확인해주세요.</span>'; }
+    };
+
     $('saveBtn').onclick = async ()=>{
       const data = { enabled: $('enabled').checked, updatedAt: new Date().toISOString() };
       FIELDS.forEach(f => data[f] = $(f).value.trim());
+      if(data.sheetUrl && !SHEET_RE.test(data.sheetUrl)){ toast('고객 명단 시트 주소를 확인해주세요 (…/exec)'); return; }
       const lim = parseInt($('dailyLimit').value, 10);
       data.dailyLimit = lim > 0 ? lim : null;
       try{ await update(ref(db, P('customerChat/settings')), data); toast('저장했어요'); }
@@ -275,13 +293,20 @@
       rows.reverse();
       const badge = l => l.type === 'booking'
         ? (l.status === 'confirmed' ? '<span class="ok">✅ 예약 확정</span>' : l.status === 'cancelled' ? '<span class="bad">취소</span>' : '<span style="color:var(--accent)">📅 예약 요청</span>')
-        : l.type === 'form' ? '📝 홈페이지 상담신청' : '📞 상담 요청';
-      const body = l => l.type === 'booking'
+        : l.type === 'form' ? '📝 홈페이지 상담신청' : l.type === 'consult' ? '💬 AI 상담신청' : '📞 상담 요청';
+      // 기간: 홈페이지 신청서는 숫자만 저장돼 있어 단위를 붙임
+      const periodOf = l => /^\d+$/.test(l.rentalPeriod || '') ? l.rentalPeriod + (l.rentalType === '단기대여' ? '일' : '개월') : (l.rentalPeriod || '');
+      // 생년월일·지역·문자 동의·시트 저장 결과 (있는 것만)
+      const extras = l => [l.rentalRegion && l.type === 'booking' ? '지역 ' + esc(l.rentalRegion) : '', l.birthdate ? '생년월일 ' + esc(l.birthdate) : '',
+        l.agreeMarketing ? '📣 이벤트 문자 동의' : '', l.sheet === 'saved' ? '시트 ✓' : l.sheet === 'failed' ? '<span class="bad">시트 저장 실패</span>' : '']
+        .filter(Boolean).join(' · ');
+      const body = l => (l.type === 'booking'
         ? `${esc(l.model)} · ${esc(l.startDate)} ${esc(l.startTime || '')}${l.endDate ? ' ~ ' + esc(l.endDate) + ' ' + esc(l.endTime || '') : ''}${l.period ? ' (' + esc(l.period) + ')' : ''}${l.note ? '<br>' + esc(l.note) : ''}`
-        : l.type === 'form'
-          ? `${esc(l.rentalType)} ${esc(l.rentalPeriod)}${l.rentalType === '단기대여' ? '일' : '개월'}${l.carClass ? ' · ' + esc(l.carClass) : ''} · ${esc(l.rentalRegion)}`
-            + `<br><span class="hint">${l.birthdate ? '생년월일 ' + esc(l.birthdate) : ''}${l.agreeMarketing ? ' · 마케팅 동의' : ''}</span>${l.userMsg ? '<br>' + esc(l.userMsg) : ''}`
-          : esc(l.request);
+        : l.type === 'form' || l.type === 'consult'
+          ? [esc(l.rentalType) + ' ' + esc(periodOf(l)), l.startWhen ? '시작 ' + esc(l.startWhen) : '', esc(l.carClass), l.budget ? '예산 ' + esc(l.budget) : '', esc(l.rentalRegion)]
+              .filter(Boolean).join(' · ') + (l.userMsg ? '<br>' + esc(l.userMsg) : '')
+          : esc(l.request))
+        + (extras(l) ? `<br><span class="hint">${extras(l)}</span>` : '');
       const actions = (k, l) => {
         if(l.type === 'booking' && l.status === 'pending')
           return `<button data-act="pick" data-lead="${esc(k)}">확정</button><button class="ghost" data-act="dates" data-lead="${esc(k)}">날짜 변경</button><button class="ghost" data-act="cancel" data-lead="${esc(k)}">취소</button>`;

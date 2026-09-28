@@ -85,3 +85,18 @@ test('지난 예약·취소·일반 일정은 빼고, 남은 예약만 AI에게 
   assert.match(text, /이미 예약 잡힌 기간\(1건\): 10\/3 10시 ~ 10\/5 18시/);
   assert.ok(!text.includes('34나1111'));
 });
+
+test('고객 명단 시트 한 줄: 예약 요청도 같은 칸으로, 번호 모양 통일', async () => {
+  const { sheetRow, validSheetUrl, validBirthdate, formatPhone } = await import('../chat-core.js');
+  const r = sheetRow({ type: 'booking', model: '카니발', startDate: '2026-10-03', startTime: '10:00', endDate: '2026-10-05', endTime: '18:00',
+    period: '2박3일', rentalType: '단기대여', rentalRegion: '광주', name: '홍길동', phone: '01012345678', birthdate: '19900101', note: '카시트', agreeMarketing: false },
+    'AI상담', new Date('2026-09-28T06:04:00Z'));
+  assert.deepEqual(r, { at: '2026-09-28 15:04', via: 'AI상담', kind: '예약요청', rentalType: '단기대여', rentalPeriod: '2박3일',
+    startWhen: '10/3 10시 ~ 10/5 18시', carClass: '카니발', budget: '', rentalRegion: '광주', name: '홍길동', phone: '010-1234-5678',
+    birthdate: '19900101', request: '카시트', agreeMarketing: '미동의' });
+  assert.equal(formatPhone('010 123 4567'), '010-123-4567');
+  assert.ok(validSheetUrl('https://script.google.com/macros/s/AKfycbzsNRvT1XHpNUKltdaavQ/exec'));
+  assert.ok(!validSheetUrl('https://script.google.com.evil.io/macros/s/AKfycbzsNRvT1XHpNUKltdaavQ/exec'));
+  assert.ok(!validSheetUrl('http://script.google.com/macros/s/AKfycbzsNRvT1XHpNUKltdaavQ/exec'));
+  assert.ok(validBirthdate('19900101') && !validBirthdate('19901301') && !validBirthdate('900101'));
+});

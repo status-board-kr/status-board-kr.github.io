@@ -88,7 +88,13 @@ export function buildSystemPrompt({ businessName, settings = {}, summary, reserv
     '- 목록에 없는 차종은 없다고 단정하지 말고, 비슷한 차종을 제안하거나 담당자 확인으로 안내합니다.',
     '- 가격·조건은 아래 [가격 안내]와 [업체 안내]에 적힌 내용만 말합니다. 적혀 있지 않으면 지어내지 말고 담당자 연결을 제안합니다.',
     '- 계약 확정, 할인·가격 협상, 사고·보험 처리, 불만 접수처럼 직접 결정할 수 없는 문의는 고객의 이름과 연락처를 받아 request_callback 도구로 담당자에게 넘기고, "담당자가 곧 연락드릴게요"라고 안내합니다.',
-    '- 고객이 대여를 원하면 예약 신청을 받습니다: 원하는 차종, 시작 날짜와 시간, 반납 날짜와 시간(장기면 기간), 이름, 연락처를 대화로 모두 확인한 뒤 request_booking 도구를 부릅니다. 한 번에 하나씩 자연스럽게 물어보세요.',
+    '- 고객이 대여를 원하면 신청을 받습니다. 한 번에 하나씩 자연스럽게 묻고, 고객이 이미 말한 것은 다시 묻지 않습니다.',
+    '  · 날짜가 정해진 대여 → 예약 신청(request_booking): 차종, 시작 날짜와 시간, 반납 날짜와 시간(장기면 기간), 이름, 연락처는 꼭 받고, 대여 지역과 생년월일(보험 연령 확인용)도 물어봅니다.',
+    '  · 장기렌트·견적 문의, 날짜가 아직 안 정해진 문의 → 상담 신청(request_consult): 단기/장기, 기간, 희망 시작 시기, 희망 차종·차급, 예산, 대여 지역, 이름, 연락처, 생년월일(보험 연령 확인용)을 물어봅니다.',
+    '  · 이름과 연락처는 꼭 받습니다. 나머지는 고객이 모르거나 말하고 싶어 하지 않으면 빈 칸으로 두고 넘어갑니다. 생년월일은 YYYYMMDD 8자리로 바꿔 넣습니다.',
+    '- 연락처를 처음 물을 때 "상담·예약 안내 연락에만 쓸게요"라고 짧게 알립니다.',
+    '- 예약·상담 신청을 접수하기 바로 전에 "할인·이벤트 소식을 문자로 받아보시겠어요? (선택이에요)"라고 한 번만 묻습니다. 고객이 분명히 좋다고 한 경우에만 agreeMarketing 을 true 로, 싫다거나 대답이 애매하면 false 로 합니다. 동의를 조르지 않습니다.',
+    '- 접수한 뒤에는 받은 내용을 한 줄로 확인해주고 "담당자가 확인 후 연락드릴게요"라고 안내합니다.',
     '- 예약 신청 전에 고객이 말한 날짜에 그 차종이 가능한지 [실시간 차량 현황]으로 확인하고, 어려우면 가능한 다른 차종이나 날짜를 제안합니다.',
     '- 예약은 "신청 접수"일 뿐 확정이 아닙니다. 접수 후에는 "담당자가 확인 후 연락드려 확정해드릴게요"라고 안내합니다.',
     '- 이미 예약했거나 대여 중인 고객이 날짜 변경·연장을 원하면, 원하는 새 날짜와 이름·연락처를 받아 request_callback 으로 넘기고 "담당자가 확인 후 연락드릴게요"라고 안내합니다. 연장 가능 여부를 직접 확정하지 않습니다.',
@@ -144,14 +150,42 @@ export const BOOKING_TOOL = {
       endDate: { type: 'string', description: '반납 예정 날짜 YYYY-MM-DD (장기라 정해지지 않았으면 빈 문자열)' },
       endTime: { type: 'string', description: '반납 시각 HH:MM (24시간, 모르면 빈 문자열)' },
       period: { type: 'string', description: '기간 설명 (예: 3일, 1개월, 장기 6개월)' },
-      note: { type: 'string', description: '기타 요청 (배달, 보험, 나이 등. 없으면 빈 문자열)' },
+      rentalType: { type: 'string', enum: ['단기대여', '장기대여'], description: '한 달 미만이면 단기대여, 한 달 이상이면 장기대여' },
+      rentalRegion: { type: 'string', description: '대여 지역·동네 (모르면 빈 문자열)' },
+      birthdate: { type: 'string', description: '생년월일 8자리 YYYYMMDD (보험 연령 확인용, 말하지 않으면 빈 문자열)' },
+      note: { type: 'string', description: '기타 요청 (배달, 보험 등. 없으면 빈 문자열)' },
+      agreeMarketing: { type: 'boolean', description: '할인·이벤트 문자 수신에 고객이 분명히 동의했으면 true, 아니면 false' },
     },
-    required: ['name', 'phone', 'model', 'startDate', 'startTime', 'endDate', 'endTime', 'period', 'note'],
+    required: ['name', 'phone', 'model', 'startDate', 'startTime', 'endDate', 'endTime', 'period', 'rentalType', 'rentalRegion', 'birthdate', 'note', 'agreeMarketing'],
     additionalProperties: false,
   },
 };
 
-export const TOOLS = [CALLBACK_TOOL, BOOKING_TOOL];
+export const CONSULT_TOOL = {
+  name: 'request_consult',
+  description: '고객의 렌트 상담 신청(장기렌트·견적·날짜 미정 문의)을 접수합니다. 홈페이지 상담 신청서와 같은 내용입니다. 이름과 연락처를 받은 뒤에만 호출하세요. 현황판 일정·직원 알림·고객 명단 시트로 들어갑니다.',
+  strict: true,
+  input_schema: {
+    type: 'object',
+    properties: {
+      rentalType: { type: 'string', enum: ['단기대여', '장기대여'], description: '한 달 미만이면 단기대여, 한 달 이상이면 장기대여' },
+      rentalPeriod: { type: 'string', description: '대여 기간 (예: 3일, 12개월. 모르면 "미정")' },
+      startWhen: { type: 'string', description: '희망 시작 시기 (예: 10/3, 다음 달 초. 모르면 빈 문자열)' },
+      carClass: { type: 'string', description: '희망 차종이나 차급 (예: 카니발, 소형 SUV. 없으면 빈 문자열)' },
+      budget: { type: 'string', description: '예산 (예: 월 50만원 이하. 모르면 빈 문자열)' },
+      rentalRegion: { type: 'string', description: '대여 지역·동네 (모르면 빈 문자열)' },
+      name: { type: 'string', description: '고객 이름' },
+      phone: { type: 'string', description: '고객 연락처' },
+      birthdate: { type: 'string', description: '생년월일 8자리 YYYYMMDD (보험 연령 확인용, 말하지 않으면 빈 문자열)' },
+      note: { type: 'string', description: '기타 요청 한두 줄 (없으면 빈 문자열)' },
+      agreeMarketing: { type: 'boolean', description: '할인·이벤트 문자 수신에 고객이 분명히 동의했으면 true, 아니면 false' },
+    },
+    required: ['rentalType', 'rentalPeriod', 'startWhen', 'carClass', 'budget', 'rentalRegion', 'name', 'phone', 'birthdate', 'note', 'agreeMarketing'],
+    additionalProperties: false,
+  },
+};
+
+export const TOOLS = [CALLBACK_TOOL, BOOKING_TOOL, CONSULT_TOOL];
 
 export function validDate(d, today) {
   if (typeof d !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return false;
@@ -190,6 +224,7 @@ export function bookingSchedule(b) {
   const memo = [
     [b.name, b.phone].filter(Boolean).join(' '),
     b.endDate && b.period ? b.period : '',
+    b.rentalRegion ? `지역 ${b.rentalRegion}` : '',
     b.note ? `요청: ${b.note}` : '',
     '고객채팅 접수·확정 전',
   ].filter(Boolean).join(' · ');
@@ -229,6 +264,94 @@ export function staffAlertText(kind, x) {
     return `📅 새 예약 요청: ${x.model} ${bookingRange(x)} · ${x.name || '고객'} ${x.phone}`;
   }
   return `📞 상담 요청: ${x.name || '고객'} ${x.phone} · ${x.request}`;
+}
+
+// 기간: 숫자만 있으면(홈페이지 신청서) 단위를 붙임 ('12' → '12개월')
+export function periodText(x) {
+  const unit = x.rentalType === '단기대여' ? '일' : '개월';
+  return /^\d+$/.test(x.rentalPeriod || '') ? x.rentalPeriod + unit : (x.rentalPeriod || '');
+}
+
+/**
+ * 상담 신청(홈페이지 신청서·AI 상담 공통) → 현황판 일정. 오늘 날짜로 넣어 "할 일"로 보이게.
+ * via: '홈페이지' | 'AI상담'
+ */
+export function consultSchedule(x, today, via) {
+  const kind = x.rentalType === '단기대여' ? '단기' : '장기';
+  const memo = [
+    `${x.name} ${x.phone}`,
+    `${x.rentalType} ${periodText(x)}`,
+    x.startWhen ? `시작 ${x.startWhen}` : '',
+    x.carClass ? `희망 ${x.carClass}` : '',
+    x.budget ? `예산 ${x.budget}` : '',
+    x.rentalRegion ? `지역 ${x.rentalRegion}` : '',
+    x.userMsg ? `요청: ${x.userMsg}` : '',
+    `${via} 상담신청·연락 필요`,
+  ].filter(Boolean).join(' · ');
+  return {
+    title: `📝 상담신청 ${kind} ${periodText(x)}${x.carClass ? ' ' + x.carClass : ''} · ${x.name}`.slice(0, 100),
+    date: today,
+    repeat: false,
+    memo,
+    source: via === '홈페이지' ? 'homepageForm' : 'chatConsult',
+  };
+}
+
+export function consultAlertText(x, via) {
+  return `📝 ${via} 상담신청: ${x.rentalType} ${periodText(x)}`
+    + [x.carClass, x.budget ? `예산 ${x.budget}` : '', x.rentalRegion].filter(Boolean).map(t => ' · ' + t).join('')
+    + ` · ${x.name} ${x.phone}`;
+}
+
+/** 생년월일 8자리(YYYYMMDD), 실제 있는 날짜인지 */
+export function validBirthdate(b) {
+  if (!/^(19|20)\d{6}$/.test(b)) return false;
+  const d = `${b.slice(0, 4)}-${b.slice(4, 6)}-${b.slice(6)}`;
+  const t = new Date(d + 'T00:00:00Z');
+  return !isNaN(t) && t.toISOString().slice(0, 10) === d;
+}
+
+/** 고객 명단 구글 시트 주소: 구글 Apps Script 웹 앱 주소만 허용 */
+export function validSheetUrl(u) {
+  return typeof u === 'string' && /^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]{10,}\/exec$/.test(u.trim());
+}
+
+/** '2026-09-28 15:04' (한국 시간) */
+export function kstStamp(now = new Date()) {
+  return new Date(now.getTime() + 9 * 3600 * 1000).toISOString().slice(0, 16).replace('T', ' ');
+}
+
+/** 시트에서 같은 번호가 한 번만 모이게 010-1234-5678 모양으로 맞춤 */
+export function formatPhone(p) {
+  const d = String(p || '').replace(/\D/g, '');
+  if (/^01\d{9}$/.test(d)) return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
+  if (/^01\d{8}$/.test(d)) return `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`;
+  return String(p || '').trim();
+}
+
+/**
+ * 고객 명단 시트 한 줄 (docs/customer-sheet.gs 의 칸 순서와 같게).
+ * 이벤트 문자는 agreeMarketing 이 '동의'인 분께만 보내세요.
+ * x: 상담 신청(폼·AI) 또는 예약 요청(type:'booking')
+ */
+export function sheetRow(x, via, now = new Date()) {
+  const booking = x.type === 'booking';
+  return {
+    at: kstStamp(now),
+    via,
+    kind: booking ? '예약요청' : '상담신청',
+    rentalType: x.rentalType || '',
+    rentalPeriod: booking ? (x.period || '') : periodText(x),
+    startWhen: booking ? bookingRange(x) : (x.startWhen || ''),
+    carClass: booking ? (x.model || '') : (x.carClass || ''),
+    budget: x.budget || '',
+    rentalRegion: x.rentalRegion || '',
+    name: x.name || '',
+    phone: formatPhone(x.phone),
+    birthdate: x.birthdate || '',
+    request: (booking ? x.note : x.userMsg) || '',
+    agreeMarketing: x.agreeMarketing ? '동의' : '미동의',
+  };
 }
 
 export function validPhone(p) {

@@ -25,11 +25,14 @@
   textarea{flex:1;resize:none;border:1px solid var(--line);border-radius:20px;padding:10px 14px;font:inherit;font-size:15px;background:var(--bg);color:var(--text);max-height:120px;}
   button{border:0;border-radius:20px;padding:0 18px;background:var(--me);color:#fff;font-weight:700;font-size:15px;}
   button:disabled{opacity:.5;}
+  .notice{margin:0;padding:6px 14px 0;background:var(--card);border-top:1px solid var(--line);color:var(--sub);font-size:11.5px;text-align:center;}
+  .notice + form{border-top:0;}
 </style>
 </head>
 <body>
 <header id="title">차량 문의<small>실시간으로 확인해서 바로 답변드려요</small></header>
 <div id="log"></div>
+<p class="notice">알려주신 이름·연락처 등은 상담·예약 안내에만 써요. 이벤트 문자는 동의하신 분께만 보내요.</p>
 <form id="f">
   <textarea id="t" rows="1" maxlength="500" placeholder="문의 내용을 입력하세요"></textarea>
   <button id="send">보내기</button>
@@ -69,7 +72,7 @@
     log.appendChild(d); log.scrollTop = log.scrollHeight;
   }
 
-  add('bot', '안녕하세요! 원하시는 차종이나 날짜를 알려주시면 지금 가능한 차량을 바로 확인해드릴게요. 예약 신청도 여기서 바로 받아요.');
+  add('bot', '안녕하세요! 원하시는 차종이나 날짜를 알려주시면 지금 가능한 차량을 바로 확인해드릴게요. 예약 신청이나 장기렌트 상담 신청도 여기서 대화로 바로 받아요.');
   if(!/^[A-Za-z0-9_-]{4,64}$/.test(company)){
     addErr('링크가 올바르지 않아요. 업체에서 받은 링크로 다시 들어와주세요.');
     btn.disabled = true;
