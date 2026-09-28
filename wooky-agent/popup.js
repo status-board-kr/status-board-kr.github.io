@@ -17,7 +17,7 @@ async function render() {
   if (busy && loginStep) $('loginMsg').textContent = loginStep;
   $('loginBox').classList.toggle('hidden', !!fb);
   $('linked').classList.toggle('hidden', !fb);
-  if (fb) $('linkedText').textContent = '✓ ' + fb.email + ' 계정과 연결됨';
+  if (fb) $('linkedText').textContent = '✓ ' + (fb.site === 'p' ? 'P 현황판 · ' : '') + fb.email + ' 계정과 연결됨';
   document.querySelectorAll('input[name=mode]').forEach(r => { r.checked = r.value === mode; });
   $('logs').innerHTML = '';
   if (!logs.length) $('logs').textContent = '아직 없어요.';
@@ -35,6 +35,15 @@ $('loginBtn').onclick = async () => {
   $('loginBtn').disabled = true; busy = true;
   const r = await send({ type: 'login', email: $('email').value.trim(), password: $('pw').value }, 40000);
   $('loginBtn').disabled = false; busy = false;
+  $('loginMsg').textContent = r && r.ok ? '' : '⚠ ' + ((r && r.error) || '연결 실패');
+  if (r && r.ok) send({ type: 'pollNow' });
+  render();
+};
+$('pBtn').onclick = async () => {
+  $('loginMsg').textContent = '연결 중...';
+  $('pBtn').disabled = true; busy = true;
+  const r = await send({ type: 'connectP' }, 40000);
+  $('pBtn').disabled = false; busy = false;
   $('loginMsg').textContent = r && r.ok ? '' : '⚠ ' + ((r && r.error) || '연결 실패');
   if (r && r.ok) send({ type: 'pollNow' });
   render();

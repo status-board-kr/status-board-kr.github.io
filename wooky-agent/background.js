@@ -1,7 +1,7 @@
 /*
  * 팡팡 우기 자동입력 - 사무실 PC 크롬 확장 프로그램 (백그라운드)
  * ─────────────────────────────────────────────
- * 30초마다 현황판(Firebase)의 companies/{업체}/wooky/jobs 를 보고,
+ * 30초마다 현황판(Firebase)의 wooky/jobs 를 보고 (새 현황판은 companies/{업체}/wooky/jobs, P 현황판은 맨 위 wooky/jobs),
  * status 가 'waiting' 인 계약서 작업이 있으면 우기 탭에서 임대차계약서를 열어 채웁니다.
  * 우기 화면 조작은 agent.js 가 합니다 (우기 페이지 안에서 실행).
  * 저장까지 할지는 설정의 mode ('fill' = 채우기만, 'save' = 저장까지) 로 정합니다.
@@ -9,6 +9,9 @@
 const FB_KEY = 'AIzaSyB0snoSwJ0wTOxI8vRf2GU27VF05zN0c7k'; // index.html firebaseConfig.apiKey 와 같은 값
 const DB = 'https://fleet-board-f2345-default-rtdb.asia-southeast1.firebasedatabase.app';
 const WOOKY = 'http://pprentcar.wooky.co.kr/';
+// P 현황판(pang-rent.github.io/P, 구글 로그인): 이 크롬에 열어 둔 P 탭이 로그인한 그대로
+// 그 페이지 안의 Firebase(window._fb)로 작업을 읽고 씁니다. 로그인 정보는 꺼내지 않아요.
+const P_SITE = 'https://pang-rent.github.io/';
 const VERSION = chrome.runtime.getManifest().version;
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -65,6 +68,7 @@ async function signIn(email, password) {
 async function fbToken() {
   const { fb } = await chrome.storage.local.get('fb');
   if (!fb) return null;
+  if (fb.site === 'p') return fb; // P 현황판은 열린 탭의 로그인을 씀
   if (fb.token && Date.now() < fb.exp) return fb;
   const r = await fetchT(`https://securetoken.googleapis.com/v1/token?key=${FB_KEY}`, {
     method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -77,13 +81,60 @@ async function fbToken() {
   return fb;
 }
 
+// P 탭 찾기 (없으면 열고, 잠든 탭이면 깨움) → 로그인 끝날 때까지 기다림
+async function pTab() {
+  let tab = (await chrome.tabs.query({ url: P_SITE + '*' }))[0];
+  if (!tab) tab = await chrome.tabs.create({ url: P_SITE + 'P/', active: false, pinned: true });
+  else if (tab.discarded) await chrome.tabs.reload(tab.id);
+  for (let i = 0; i < 40; i++) {
+    const [r] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, world: 'MAIN',
+      func: () => ({ ready: !!(window._fb && window._fbReady), email: window._fbUser ? window._fbUser.email : '' }) }).catch(() => [null]);
+    if (r && r.result && r.result.ready) return { id: tab.id, email: r.result.email };
+    await sleep(500);
+  }
+  throw new AgentError('P 현황판 탭에 로그인이 안 돼 있어요. 크롬에서 pang-rent.github.io/P 탭을 열어 구글로 로그인해 두세요.');
+}
+async function fbP(method, sub, body) {
+  const t = await pTab();
+  const [r] = await chrome.scripting.executeScript({
+    // body 는 글자로 넘김 (그냥 넘기면 null 값(=지우기)이 빠져요)
+    target: { tabId: t.id }, world: 'MAIN', args: [method, sub, JSON.stringify(body === undefined ? null : body)],
+    func: async (m, path, json) => {
+      const F = window._fb, r = F.ref(F.db, path), b = JSON.parse(json);
+      try {
+        if (m === 'GET') return { ok: true, val: (await F.get(r)).val() };
+        await F.update(r, b);
+        return { ok: true, val: b };
+      } catch (e) { return { ok: false, err: String((e && e.message) || e) }; }
+    },
+  });
+  const x = r && r.result;
+  if (!x || !x.ok) throw new AgentError(/permission/i.test((x && x.err) || '')
+    ? `P 현황판이 막았어요 (${method}). 보안 규칙에서 wooky 경로 허용이 필요하거나, 이 구글 계정이 허용 목록에 없어요.`
+    : `P 현황판 ${method} 실패 (${(x && x.err) || '응답 없음'}).`);
+  return x.val;
+}
+
+async function connectP() {
+  await chrome.storage.local.set({ loginStep: 'P 현황판 탭 확인 중...' });
+  const t = await pTab();
+  await chrome.storage.local.set({ fb: { site: 'p', email: t.email } });
+  await chrome.storage.local.set({ loginStep: 'wooky 칸 권한 확인 중...' });
+  try { await fbP('GET', 'wooky/agent'); } catch (e) { await chrome.storage.local.remove('fb'); throw e; }
+  return t.email;
+}
+
 async function fb(method, sub, body) {
+  const { fb: saved } = await chrome.storage.local.get('fb');
+  if (saved && saved.site === 'p') return fbP(method, sub, body);
   const f = await fbToken();
   if (!f) return null;
   const r = await fetchT(`${DB}/companies/${f.companyId}/${sub}.json?auth=${f.token}`, {
     method, headers: { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body),
   }, '현황판 데이터 서버');
-  if (!r.ok) throw new AgentError(`현황판 ${method} 실패 (${r.status}). 보안 규칙에서 wooky 경로 권한을 확인해 주세요.`);
+  if (!r.ok) throw new AgentError(r.status === 401
+    ? `현황판이 막았어요 (${method} 401). 보안 규칙에서 wooky 경로 허용이 필요해요.`
+    : `현황판 ${method} 실패 (${r.status}).`);
   return r.json();
 }
 
@@ -275,6 +326,13 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   if (msg.type === 'login') {
     signIn(msg.email, msg.password)
       .then(async c => { await log('현황판과 연결됐어요.'); reply({ ok: true, companyId: c }); })
+      .catch(e => reply({ ok: false, error: e instanceof AgentError ? e.message : '연결 오류: ' + ((e && e.message) || e) }))
+      .finally(() => chrome.storage.local.remove('loginStep'));
+    return true;
+  }
+  if (msg.type === 'connectP') {
+    connectP()
+      .then(async email => { await log('P 현황판(' + email + ')과 연결됐어요.'); reply({ ok: true }); })
       .catch(e => reply({ ok: false, error: e instanceof AgentError ? e.message : '연결 오류: ' + ((e && e.message) || e) }))
       .finally(() => chrome.storage.local.remove('loginStep'));
     return true;
