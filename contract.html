@@ -81,7 +81,7 @@
       <p class="hint">노란 칸은 AI가 확실히 못 읽은 곳이에요. 면허증과 한 번 비교해 주세요.</p>
       <label>이름</label><input id="name" maxlength="30">
       <div class="row">
-        <div><label>생년월일</label><input id="birth" type="date"></div>
+        <div><label>주민등록번호</label><input id="rrn" inputmode="numeric" maxlength="14" placeholder="900101-1234567" autocomplete="off"></div>
         <div><label>휴대폰</label><input id="hp" type="tel" maxlength="20" placeholder="010-0000-0000"></div>
       </div>
       <label>주소</label><input id="addr" maxlength="120">
@@ -283,7 +283,7 @@
   }
 
   function resetForm(){
-    ['name', 'birth', 'hp', 'addr', 'lic', 'licexp', 'place', 'memo'].forEach(id => { $(id).value = ''; $(id).classList.remove('unclear'); });
+    ['name', 'rrn', 'hp', 'addr', 'lic', 'licexp', 'place', 'memo'].forEach(id => { $(id).value = ''; $(id).classList.remove('unclear'); });
     $('lictype').value = ''; $('car').value = '';
     const now = new Date(); now.setMinutes(Math.ceil(now.getMinutes() / 10) * 10, 0, 0);
     $('start').value = localDT(now);
@@ -318,19 +318,19 @@
   const LICENSE_PROMPT =
     'This photo should be a Korean driver\'s license (자동차운전면허증). Read it and fill every field.\n' +
     '- name: 성명 exactly as printed.\n' +
-    '- birthdate: YYYY-MM-DD from the first 6 digits of 주민등록번호; use its 7th digit for the century (1,2,5,6 = 19xx; 3,4,7,8 = 20xx). Never output any other digits of 주민등록번호.\n' +
+    '- rrn: the full 주민등록번호 exactly as printed, as NNNNNN-NNNNNNN (13 digits). If some digits are hidden or masked, write * for each hidden digit.\n' +
     '- address: 주소 as printed, one line.\n' +
     '- licenseNo: RR-YY-NNNNNN-NN with the 2-digit region code. If the region is printed as a name, convert it: 서울 11, 부산 12, 경기 13, 강원 14, 충북 15, 충남 16, 전북 17, 전남 18, 경북 19, 경남 20, 제주 21, 대구 22, 인천 23, 광주 25, 대전 26, 울산 28.\n' +
     '- licenseType: the license class (1종대형, 1종보통, 1종소형, 1종특수, 2종보통, 2종소형, 2종원동기). If several are printed, give the one for a passenger car, preferring 1종보통 then 2종보통.\n' +
     '- expiry: the END date of 적성검사기간 or 갱신기간, as YYYY-MM-DD.\n' +
     '- isLicense: false if the photo is not a driver\'s license.\n' +
-    '- unclear: the Korean labels (이름, 생년월일, 주소, 면허번호, 면허종류, 유효기간) of fields you could not read with confidence.\n' +
+    '- unclear: the Korean labels (이름, 주민등록번호, 주소, 면허번호, 면허종류, 유효기간) of fields you could not read with confidence.\n' +
     'Use an empty string for anything you cannot read. Do not guess digits.';
   const LICENSE_SCHEMA = {
     type: 'object', additionalProperties: false,
-    required: ['isLicense', 'name', 'birthdate', 'address', 'licenseNo', 'licenseType', 'expiry', 'unclear'],
+    required: ['isLicense', 'name', 'rrn', 'address', 'licenseNo', 'licenseType', 'expiry', 'unclear'],
     properties: {
-      isLicense: { type: 'boolean' }, name: { type: 'string' }, birthdate: { type: 'string' }, address: { type: 'string' },
+      isLicense: { type: 'boolean' }, name: { type: 'string' }, rrn: { type: 'string' }, address: { type: 'string' },
       licenseNo: { type: 'string' }, licenseType: { type: 'string' }, expiry: { type: 'string' },
       unclear: { type: 'array', items: { type: 'string' } },
     },
@@ -363,7 +363,7 @@
         const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
           method: 'POST', headers: { 'x-goog-api-key': aiKey, 'content-type': 'application/json' },
           body: JSON.stringify({ contents: [{ parts: [ { inline_data: { mime_type: 'image/jpeg', data: b64 } },
-            { text: LICENSE_PROMPT + '\nReply with JSON only, keys: isLicense, name, birthdate, address, licenseNo, licenseType, expiry, unclear.' } ] }],
+            { text: LICENSE_PROMPT + '\nReply with JSON only, keys: isLicense, name, rrn, address, licenseNo, licenseType, expiry, unclear.' } ] }],
             generationConfig: { responseMimeType: 'application/json', temperature: 0 } }),
         });
         if(!r.ok){
@@ -400,11 +400,12 @@
       if(d.isLicense === false){ $('readStatus').innerHTML = '<span class="bad">면허증이 아닌 것 같아요. 다시 찍어주세요.</span>'; return; }
       const set = (id, v) => { if(v) $(id).value = v; };
       set('name', d.name); set('addr', d.address); set('lic', d.licenseNo);
-      if(/^\d{4}-\d{2}-\d{2}$/.test(d.birthdate || '')) $('birth').value = d.birthdate;
-      if(/^\d{4}-\d{2}-\d{2}$/.test(d.expiry || '')) $('licexp').value = d.expiry;
+      $('rrn').value = normRrn(d.rrn);
+      const exp = normDate(d.expiry); if(exp) $('licexp').value = exp;
       if([...$('lictype').options].some(o => o.value === d.licenseType)) $('lictype').value = d.licenseType;
-      const map = { 이름: 'name', 생년월일: 'birth', 주소: 'addr', 면허번호: 'lic', 면허종류: 'lictype', 유효기간: 'licexp' };
+      const map = { 이름: 'name', 주민등록번호: 'rrn', 주소: 'addr', 면허번호: 'lic', 면허종류: 'lictype', 유효기간: 'licexp' };
       const unclear = (d.unclear || []).map(u => map[u]).filter(Boolean);
+      if(!RRN_OK.test($('rrn').value)) unclear.push('rrn'); // 가려진 자리(*)가 있거나 13자리가 아님
       Object.values(map).forEach(id => $(id).classList.toggle('unclear', unclear.includes(id) || !$(id).value));
       $('readStatus').innerHTML = unclear.length ? '<span class="bad">읽었어요. 노란 칸을 면허증과 비교해 주세요.</span>' : '<span class="ok">✓ 읽었어요. 한 번 훑어보고 아래로 내려가세요.</span>';
     }catch(e){
@@ -413,16 +414,25 @@
     }finally{ $('photoBtn').disabled = false; $('photo').value = ''; }
   };
 
+  // 주민등록번호: 숫자(가려진 자리는 *)만 남기고 앞 6자리 뒤에 - 를 넣음
+  const RRN_OK = /^\d{6}-\d{7}$/;
+  function normRrn(v){ const x = String(v || '').replace(/[^0-9*]/g, ''); return x.length > 6 ? x.slice(0, 6) + '-' + x.slice(6, 13) : x; }
+  // 2030.12.31, 2030-12-31, 20301231 → 2030-12-31
+  function normDate(v){ const x = String(v || '').replace(/\D/g, ''); return x.length === 8 ? x.slice(0, 4) + '-' + x.slice(4, 6) + '-' + x.slice(6) : ''; }
+  $('rrn').onchange = ()=>{ $('rrn').value = normRrn($('rrn').value); $('rrn').classList.toggle('unclear', !RRN_OK.test($('rrn').value)); };
+
   // ── 우기 작업 보내기 ──────────────────────────────────
   $('sendBtn').onclick = async ()=>{
     const d = {
-      name: $('name').value.trim(), birth: $('birth').value, hp: $('hp').value.trim(), addr: $('addr').value.trim(),
+      // 우기 계약서 생년월일 칸에는 주민등록번호 13자리를 다 넣어요 (렌트 계약서 기준)
+      name: $('name').value.trim(), birth: normRrn($('rrn').value), hp: $('hp').value.trim(), addr: $('addr').value.trim(),
       lic: $('lic').value.trim(), lictype: $('lictype').value, licexp: $('licexp').value,
       car: $('car').value, start: $('start').value.replace('T', ' '), end: $('end').value.replace('T', ' '),
       place: $('place').value.trim(), memo: $('memo').value.trim(),
     };
-    const miss = [['name', '이름'], ['birth', '생년월일'], ['hp', '휴대폰'], ['lic', '면허번호'], ['car', '차량'], ['start', '출발'], ['end', '반납 예정']].filter(([k]) => !d[k]).map(([, t]) => t);
+    const miss = [['name', '이름'], ['birth', '주민등록번호'], ['hp', '휴대폰'], ['lic', '면허번호'], ['car', '차량'], ['start', '출발'], ['end', '반납 예정']].filter(([k]) => !d[k]).map(([, t]) => t);
     if(miss.length){ toast(miss.join(', ') + ' 칸을 채워주세요'); return; }
+    if(!RRN_OK.test(d.birth)){ toast('주민등록번호 13자리를 다 넣어 주세요 (가려진 * 자리 포함)'); $('rrn').focus(); return; }
     if(d.end <= d.start){ toast('반납 예정이 출발보다 뒤여야 해요'); return; }
     Object.keys(d).forEach(k => { if(!d[k]) delete d[k]; });
     $('sendBtn').disabled = true;
