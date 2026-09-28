@@ -17,7 +17,7 @@ import { getMessaging } from 'firebase-admin/messaging';
 import Anthropic from '@anthropic-ai/sdk';
 import {
   MAX_TEXT, MAX_TURNS, DEFAULT_DAILY_LIMIT, TOOLS,
-  isValidId, summarizeFleet, buildSystemPrompt, validPhone, validDate, todayKST,
+  isValidId, summarizeFleet, buildSystemPrompt, validPhone, validDate, validTime, todayKST,
   bookingSchedule, staffAlertText,
 } from './chat-core.js';
 
@@ -112,14 +112,17 @@ export async function answer({ c, sid, text, channel = 'web' }, deps = {}) {
     if (name === 'request_booking') {
       if (!validDate(input.startDate, today)) return { error: `시작 날짜가 올바르지 않아요. 오늘(${today}) 이후 날짜를 YYYY-MM-DD로 확인하세요.` };
       if (input.endDate && (!validDate(input.endDate) || input.endDate < input.startDate)) return { error: '반납 날짜가 올바르지 않아요. 다시 확인하세요.' };
+      if (!validTime(input.startTime || '') || !validTime(input.endTime || '')) return { error: '시간은 HH:MM(24시간) 형식이어야 해요. 다시 확인하세요.' };
       const b = { ...common, type: 'booking', status: 'pending',
         model: String(input.model || '').slice(0, 50), startDate: input.startDate, endDate: input.endDate || '',
+        startTime: input.startTime || '', endTime: input.endTime || '',
         period: String(input.period || '').slice(0, 50), note: String(input.note || '').slice(0, 300) };
       const leadRef = db.ref(`${base}/customerChat/leads`).push();
       const schedRef = db.ref(`${base}/schedules`).push();
+      const sched = bookingSchedule(b);
       await Promise.all([
-        leadRef.set({ ...b, scheduleKey: schedRef.key }),
-        schedRef.set({ ...bookingSchedule(b), leadKey: leadRef.key }),
+        leadRef.set({ ...b, scheduleKey: schedRef.key, scheduleTitle: sched.title }),
+        schedRef.set({ ...sched, leadKey: leadRef.key }),
       ]);
       leads.push(b);
       await notifyStaff(db, messaging, base, staffAlertText('booking', b));

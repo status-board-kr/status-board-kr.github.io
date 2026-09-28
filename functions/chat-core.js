@@ -84,7 +84,7 @@ export function buildSystemPrompt({ businessName, settings = {}, summary, today 
     '- 차량 보유·가능 여부는 아래 [실시간 차량 현황]만 근거로 답합니다. 목록에 없는 차종은 "현재 보유하고 있지 않다"고 답합니다.',
     '- 가격·조건은 아래 [가격 안내]와 [업체 안내]에 적힌 내용만 말합니다. 적혀 있지 않으면 지어내지 말고 담당자 연결을 제안합니다.',
     '- 계약 확정, 할인·가격 협상, 사고·보험 처리, 불만 접수처럼 직접 결정할 수 없는 문의는 고객의 이름과 연락처를 받아 request_callback 도구로 담당자에게 넘기고, "담당자가 곧 연락드릴게요"라고 안내합니다.',
-    '- 고객이 대여를 원하면 예약 신청을 받습니다: 원하는 차종, 시작 날짜, 기간(또는 반납 날짜), 이름, 연락처를 대화로 모두 확인한 뒤 request_booking 도구를 부릅니다. 한 번에 하나씩 자연스럽게 물어보세요.',
+    '- 고객이 대여를 원하면 예약 신청을 받습니다: 원하는 차종, 시작 날짜와 시간, 반납 날짜와 시간(장기면 기간), 이름, 연락처를 대화로 모두 확인한 뒤 request_booking 도구를 부릅니다. 한 번에 하나씩 자연스럽게 물어보세요.',
     '- 예약 신청 전에 고객이 말한 날짜에 그 차종이 가능한지 [실시간 차량 현황]으로 확인하고, 어려우면 가능한 다른 차종이나 날짜를 제안합니다.',
     '- 예약은 "신청 접수"일 뿐 확정이 아닙니다. 접수 후에는 "담당자가 확인 후 연락드려 확정해드릴게요"라고 안내합니다.',
     '- 연락처를 받기 전에는 어떤 도구도 부르지 않습니다.',
@@ -134,11 +134,13 @@ export const BOOKING_TOOL = {
       phone: { type: 'string', description: '고객 연락처' },
       model: { type: 'string', description: '원하는 차종 (현황판 차종 이름 그대로)' },
       startDate: { type: 'string', description: '대여 시작 날짜 YYYY-MM-DD' },
+      startTime: { type: 'string', description: '대여 시작 시각 HH:MM (24시간, 모르면 빈 문자열)' },
       endDate: { type: 'string', description: '반납 예정 날짜 YYYY-MM-DD (장기라 정해지지 않았으면 빈 문자열)' },
+      endTime: { type: 'string', description: '반납 시각 HH:MM (24시간, 모르면 빈 문자열)' },
       period: { type: 'string', description: '기간 설명 (예: 3일, 1개월, 장기 6개월)' },
       note: { type: 'string', description: '기타 요청 (배달, 보험, 나이 등. 없으면 빈 문자열)' },
     },
-    required: ['name', 'phone', 'model', 'startDate', 'endDate', 'period', 'note'],
+    required: ['name', 'phone', 'model', 'startDate', 'startTime', 'endDate', 'endTime', 'period', 'note'],
     additionalProperties: false,
   },
 };
@@ -152,18 +154,41 @@ export function validDate(d, today) {
   return !today || d >= today;
 }
 
-/** 예약 요청 → 현황판 일정(schedules) 항목. 현황판 일정 화면이 쓰는 {title, date, repeat, memo} 모양 그대로. */
+export function validTime(t) {
+  return t === '' || (typeof t === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(t));
+}
+
+// '2026-10-03', '10:00' → '10/3 10시' ('10:30' 이면 '10시30분')
+export function shortWhen(date, time) {
+  if (!date) return '';
+  const [, m, d] = date.split('-').map(Number);
+  let s = `${m}/${d}`;
+  if (time) {
+    const [h, mi] = time.split(':').map(Number);
+    s += ` ${h}시${mi ? mi + '분' : ''}`;
+  }
+  return s;
+}
+
+export function bookingRange(b) {
+  const from = shortWhen(b.startDate, b.startTime);
+  const to = b.endDate ? shortWhen(b.endDate, b.endTime) : (b.period || '');
+  return to ? `${from} ~ ${to}` : from;
+}
+
+/**
+ * 예약 요청 → 현황판 일정(schedules) 항목. 현황판 일정 화면이 쓰는 {title, date, repeat, memo} 모양 그대로.
+ * 현황판 오늘/내일 배너는 "제목 · 메모"를 한 줄로 보여주므로 메모도 한 줄로 짧게.
+ */
 export function bookingSchedule(b) {
-  const who = [b.name, b.phone].filter(Boolean).join(' ');
   const memo = [
-    `차종: ${b.model}`,
-    `기간: ${b.startDate}${b.endDate ? ' ~ ' + b.endDate : ''}${b.period ? ` (${b.period})` : ''}`,
-    `고객: ${who}`,
+    [b.name, b.phone].filter(Boolean).join(' '),
+    b.endDate && b.period ? b.period : '',
     b.note ? `요청: ${b.note}` : '',
-    '고객 문의 채팅에서 접수된 예약 요청이에요. 고객에게 연락해 확정해주세요.',
-  ].filter(Boolean).join('\n');
+    '고객채팅 접수·확정 전',
+  ].filter(Boolean).join(' · ');
   return {
-    title: `📅 예약요청 ${b.model} · ${b.name || '고객'}`.slice(0, 80),
+    title: `📅 예약요청 ${bookingRange(b)} ${b.model} · ${b.name || '고객'}`.slice(0, 100),
     date: b.startDate,
     repeat: false,
     memo,
@@ -173,7 +198,7 @@ export function bookingSchedule(b) {
 
 export function staffAlertText(kind, x) {
   if (kind === 'booking') {
-    return `📅 새 예약 요청: ${x.model} ${x.startDate}${x.endDate ? '~' + x.endDate : ''} · ${x.name || '고객'} ${x.phone}`;
+    return `📅 새 예약 요청: ${x.model} ${bookingRange(x)} · ${x.name || '고객'} ${x.phone}`;
   }
   return `📞 상담 요청: ${x.name || '고객'} ${x.phone} · ${x.request}`;
 }

@@ -49,7 +49,7 @@ test('예약 요청 → 문의 목록, 현황판 일정, 직원 채팅, 푸시�
     db, messaging: { sendEachForMulticast: async m => pushes.push(m) },
     makeClient: fakeClient([
       { stop_reason: 'tool_use', content: [{ type: 'tool_use', id: 't1', name: 'request_booking',
-        input: { name: '홍길동', phone: '010-1234-5678', model: '카니발', startDate: '2099-10-03', endDate: '2099-10-05', period: '2박3일', note: '' } }] },
+        input: { name: '홍길동', phone: '010-1234-5678', model: '카니발', startDate: '2099-10-03', startTime: '10:00', endDate: '2099-10-05', endTime: '18:00', period: '2박3일', note: '' } }] },
       { stop_reason: 'end_turn', content: [{ type: 'text', text: '예약 요청 접수했어요! 담당자가 확인 후 연락드릴게요.' }] },
     ], seen),
   });
@@ -60,7 +60,8 @@ test('예약 요청 → 문의 목록, 현황판 일정, 직원 채팅, 푸시�
   assert.equal(lead.status, 'pending');
   const sched = co.schedules[lead.scheduleKey];
   assert.equal(sched.date, '2099-10-03');
-  assert.match(sched.title, /예약요청 카니발/);
+  assert.equal(sched.title, '📅 예약요청 10/3 10시 ~ 10/5 18시 카니발 · 홍길동');
+  assert.equal(lead.scheduleTitle, sched.title);
   assert.match(Object.values(co.chat)[0].text, /새 예약 요청/);
   assert.deepEqual(pushes[0].tokens, ['tok1']);
   assert.equal(co.customerChat.sessions.s_abcdef.hasBooking, true);
@@ -75,7 +76,7 @@ test('지난 날짜 예약은 거절하고 Claude에게 다시 묻게 함', asyn
     db, messaging: { sendEachForMulticast: async () => {} },
     makeClient: fakeClient([
       { stop_reason: 'tool_use', content: [{ type: 'tool_use', id: 't1', name: 'request_booking',
-        input: { name: 'a', phone: '010-1234-5678', model: '카니발', startDate: '2000-01-01', endDate: '', period: '', note: '' } }] },
+        input: { name: 'a', phone: '010-1234-5678', model: '카니발', startDate: '2000-01-01', startTime: '', endDate: '', endTime: '', period: '', note: '' } }] },
       { stop_reason: 'end_turn', content: [{ type: 'text', text: '날짜를 다시 알려주세요.' }] },
     ], seen),
   });

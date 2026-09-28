@@ -40,16 +40,19 @@ test('입력 검증', () => {
   assert.equal(todayKST(new Date('2026-09-28T16:00:00Z')), '2026-09-29');
 });
 
-import { bookingSchedule, staffAlertText, validDate, TOOLS } from '../chat-core.js';
+import { bookingSchedule, staffAlertText, validDate, validTime, TOOLS } from '../chat-core.js';
 
-test('예약 요청은 현황판 일정 모양으로 변환', () => {
-  const s = bookingSchedule({ name: '홍길동', phone: '010-1234-5678', model: '카니발', startDate: '2026-10-03', endDate: '2026-10-05', period: '2박3일', note: '' });
+test('예약 요청은 현황판 일정 모양으로 변환 (제목에 기간·시간)', () => {
+  const s = bookingSchedule({ name: '홍길동', phone: '010-1234-5678', model: '카니발', startDate: '2026-10-03', startTime: '10:00', endDate: '2026-10-05', endTime: '18:30', period: '2박3일', note: '' });
   assert.equal(s.date, '2026-10-03');
   assert.equal(s.repeat, false);
-  assert.match(s.title, /예약요청 카니발/);
-  assert.match(s.memo, /2026-10-03 ~ 2026-10-05/);
+  assert.equal(s.title, '📅 예약요청 10/3 10시 ~ 10/5 18시30분 카니발 · 홍길동');
+  assert.ok(!s.memo.includes('\n'));
   assert.match(s.memo, /010-1234-5678/);
-  assert.match(staffAlertText('booking', { model: '카니발', startDate: '2026-10-03', endDate: '', name: '홍길동', phone: '010' }), /새 예약 요청: 카니발 2026-10-03/);
+  // 시간 모르면 날짜만, 장기면 기간
+  assert.equal(bookingSchedule({ name: 'a', phone: '1', model: 'K5', startDate: '2026-11-01', startTime: '', endDate: '', endTime: '', period: '6개월', note: '' }).title, '📅 예약요청 11/1 ~ 6개월 K5 · a');
+  assert.match(staffAlertText('booking', { model: '카니발', startDate: '2026-10-03', startTime: '', endDate: '', endTime: '', period: '', name: '홍길동', phone: '010' }), /새 예약 요청: 카니발 10\/3 · 홍길동/);
+  assert.ok(validTime('09:30') && validTime('') && !validTime('25:00') && !validTime('9시'));
 });
 
 test('날짜 검증', () => {
