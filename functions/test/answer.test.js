@@ -247,6 +247,40 @@ test('Gemini 키: 모든 모델이 실패하면 고객에게 잠시 후 다시 �
   assert.equal(calls.length, 5);
 });
 
+const GEMINI_KEY2 = 'AQ.test-gemini-key-222222222222';
+
+test('두 번째 키: 첫 번째 키가 모두 실패하면 두 번째 키로 답함', async () => {
+  const d = geminiData(); d.companies[C].aiSettings.key2 = GEMINI_KEY2;
+  const db = fakeDb(d); const calls = [];
+  const reply = await answer({ c: C, sid: 's_key2a', text: '안녕' }, {
+    db, messaging: {},
+    fetchImpl: fakeGemini([
+      ...Array(5).fill({ status: 429, data: { error: { message: 'quota' } } }),
+      { data: { candidates: [{ content: { parts: [{ text: '안녕하세요!' }] } }] } },
+    ], calls),
+  });
+  assert.equal(reply, '안녕하세요!');
+  assert.equal(calls.length, 6);
+  assert.equal(calls[4].headers['x-goog-api-key'], GEMINI_KEY);
+  assert.equal(calls[5].headers['x-goog-api-key'], GEMINI_KEY2);
+});
+
+test('두 번째 키: 첫 번째 키로 이미 접수됐으면 다시 하지 않고 접수 안내', async () => {
+  const d = geminiData(); d.companies[C].aiSettings.key2 = GEMINI_KEY2;
+  const db = fakeDb(d); const calls = [];
+  const reply = await answer({ c: C, sid: 's_key2b', text: '네 문자 받을게요' }, {
+    db, messaging: { sendEachForMulticast: async () => {} },
+    fetchImpl: fakeGemini([
+      { data: { candidates: [{ content: { role: 'model', parts: [{ functionCall: { name: 'request_consult', args: consultInput } }] } }] } },
+      { status: 503, data: { error: { message: 'overloaded' } } },
+    ], calls),
+  });
+  assert.match(reply, /접수했어요/);
+  assert.equal(calls.length, 2);
+  assert.ok(calls.every(x => x.headers['x-goog-api-key'] === GEMINI_KEY));
+  assert.equal(Object.values(db.root.companies[C].customerChat.leads).length, 1);
+});
+
 test('AI 키가 없으면 준비 중 안내', async () => {
   const d = baseData(); delete d.companies[C].aiSettings;
   await assert.rejects(answer({ c: C, sid: 's_gem4', text: '안녕' }, { db: fakeDb(d), messaging: {} }),

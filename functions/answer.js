@@ -11,12 +11,13 @@
  *
  * 직원 알림 = 현황판 직원 채팅에 시스템 메시지 + 직원 폰(앱)으로 푸시.
  * AI 키는 현황판 "🤖 AI 설정"에 넣은 업체 공용 키(aiSettings)를 그대로 씁니다. Gemini 키·Claude 키 모두 가능.
+ * 두 번째 키(key2)를 넣어두면 첫 번째 키가 막혔을 때 두 번째 키로 다시 답해요.
  */
 import { logger } from 'firebase-functions';
 import { getDatabase } from 'firebase-admin/database';
 import { getMessaging } from 'firebase-admin/messaging';
 import Anthropic from '@anthropic-ai/sdk';
-import { runModel, aiProvider } from './models.js';
+import { runModel, aiProvider, aiKeyList } from './models.js';
 import {
   MAX_TEXT, MAX_TURNS, DEFAULT_DAILY_LIMIT,
   isValidId, summarizeFleet, buildSystemPrompt, validPhone, validDate, validTime, todayKST,
@@ -84,15 +85,15 @@ export async function answer({ c, sid, text, channel = 'web' }, deps = {}) {
   const [settingsSnap, nameSnap, aiSnap, vehiclesSnap, sessionSnap, schedulesSnap] = await Promise.all([
     db.ref(`${base}/customerChat/settings`).get(),
     db.ref(`${base}/profile/name`).get(),
-    db.ref(`${base}/aiSettings/key`).get(),
+    db.ref(`${base}/aiSettings`).get(),
     db.ref(`${base}/vehicles`).get(),
     db.ref(`${base}/customerChat/sessions/${sid}`).get(),
     db.ref(`${base}/schedules`).get(),
   ]);
   const settings = settingsSnap.val() || {};
   if (!settings.enabled) throw new ChatError(403, '지금은 채팅 상담을 운영하지 않아요. 전화로 문의해주세요.');
-  const apiKey = aiSnap.val();
-  if (!aiProvider(apiKey)) {
+  const apiKeys = aiKeyList(aiSnap.val());
+  if (!apiKeys.length) {
     logger.warn('AI 키 없음', { c });
     throw new ChatError(503, '상담 준비 중이에요. 잠시 후 다시 시도해주세요.');
   }
@@ -182,12 +183,17 @@ export async function answer({ c, sid, text, channel = 'web' }, deps = {}) {
     return { error: '알 수 없는 도구예요.' };
   }
 
+  // 첫 번째 키가 실패하면 두 번째 키로 다시. 단, 이미 접수된 뒤에는 다시 하지 않음 (중복 접수 방지)
   let reply = '';
-  try {
-    reply = await runModel({ key: apiKey.trim(), system, history, msg, runTool, makeClient, fetchImpl });
-  } catch (e) {
-    logger.error('AI 호출 실패', { c, provider: aiProvider(apiKey), status: e?.status, message: e?.message });
-    throw new ChatError(502, '답변을 만드는 중 문제가 생겼어요. 잠시 후 다시 시도해주세요.');
+  for (let i = 0; i < apiKeys.length; i++) {
+    try {
+      reply = await runModel({ key: apiKeys[i], system, history, msg, runTool, makeClient, fetchImpl });
+      break;
+    } catch (e) {
+      logger.error('AI 호출 실패', { c, keyNo: i + 1, provider: aiProvider(apiKeys[i]), status: e?.status, message: e?.message });
+      if (leads.length) break; // 접수는 끝났으니 아래에서 "접수했어요"로 답함
+      if (i === apiKeys.length - 1) throw new ChatError(502, '답변을 만드는 중 문제가 생겼어요. 잠시 후 다시 시도해주세요.');
+    }
   }
   if (!reply) reply = leads.length ? '접수했어요. 담당자가 곧 연락드릴게요!' : '죄송해요, 다시 한 번 말씀해주시겠어요?';
 

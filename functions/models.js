@@ -19,6 +19,16 @@ export function aiProvider(key) {
   return key.startsWith('sk-ant-') ? 'claude' : 'gemini';
 }
 
+/**
+ * 현황판 "🤖 AI 설정"의 키 목록: 첫 번째 키(key) → 두 번째 키(key2) 순서.
+ * 첫 번째 키가 막히면(무료 사용량 끝, 키 오류 등) 두 번째 키로 다시 시도합니다.
+ */
+export function aiKeyList(settings) {
+  const s = settings && typeof settings === 'object' ? settings : {};
+  const keys = [s.key, s.key2].filter(k => aiProvider(k)).map(k => k.trim());
+  return [...new Set(keys)];
+}
+
 /** Claude 도구 정의(JSON Schema) → Gemini 함수 선언 형식 (지원하지 않는 항목은 뺌) */
 export function toGeminiSchema(s) {
   const out = { type: String(s.type || 'string').toUpperCase() };

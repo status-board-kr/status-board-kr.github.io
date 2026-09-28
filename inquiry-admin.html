@@ -12,6 +12,7 @@
   body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;font-size:15px;}
   main{max-width:640px;margin:0 auto;padding:16px;}
   h1{font-size:20px;margin:8px 0 16px;}
+  .back{display:inline-block;margin-top:4px;padding:8px 12px;border-radius:10px;border:1px solid var(--line);color:var(--sub);text-decoration:none;font-size:14px;}
   h2{font-size:16px;margin:0 0 10px;}
   .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px;}
   label{display:block;font-weight:600;margin:12px 0 4px;}
@@ -38,6 +39,7 @@
 </head>
 <body>
 <main>
+  <a href="index.html" class="back">← 현황판</a>
   <h1>💬 고객 문의 채팅 관리</h1>
 
   <!-- 로그인 (현황판과 같은 계정) -->
@@ -152,11 +154,12 @@
     document.querySelectorAll('#settingsCard input, #settingsCard textarea, #saveBtn').forEach(el => el.disabled = !isOwner);
 
     onValue(ref(db, P('aiSettings')), snap=>{
-      const key = snap.exists() ? snap.val().key : '';
-      // functions/models.js aiProvider 와 같은 규칙: sk-ant- 로 시작하면 Claude, 그 밖의 키는 Gemini
-      const k = typeof key === 'string' ? key.trim() : '';
-      $('aiStatus').innerHTML = k.length >= 20
-        ? `<span class="ok">✓ AI 키가 연결돼 있어요 (${/^sk-ant-/.test(k) ? 'Claude' : 'Gemini'}, 현황판 🤖 AI 설정)</span>`
+      const v = snap.val() || {};
+      // functions/models.js aiKeyList·aiProvider 와 같은 규칙: sk-ant- 로 시작하면 Claude, 그 밖의 키는 Gemini
+      const keys = [v.key, v.key2].map(x => typeof x === 'string' ? x.trim() : '').filter(x => x.length >= 20);
+      const k = keys[0] || '';
+      $('aiStatus').innerHTML = k
+        ? `<span class="ok">✓ AI 키가 연결돼 있어요 (${/^sk-ant-/.test(k) ? 'Claude' : 'Gemini'}${keys.length > 1 ? ', 예비 키까지 2개' : ''}, 현황판 🤖 AI 설정)</span>`
         : '<span class="bad">⚠ 현황판의 "🤖 AI 설정"에 Gemini 키(또는 Claude 키)를 넣어야 채팅이 답변해요.</span>';
     }, ()=>{});
 

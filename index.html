@@ -673,6 +673,7 @@
   </div>
   <div class="header-actions">
     <button class="link-btn telegram" onclick="openChatModal()" style="position:relative;">💬 메신저<span class="chat-badge" id="chatBadge" style="display:none;top:-6px;right:-6px;">0</span></button>
+    <button class="link-btn" style="color:#34d399;border:1px solid rgba(52,211,153,.5);" onclick="isNativeApp() ? openExternalUrl('https://status-board-kr.github.io/inquiry-admin.html') : (location.href = 'inquiry-admin.html')">🤖 AI 상담</button>
     <button class="link-btn" style="color:#f472b6;border:1px solid rgba(244,114,182,.5);position:relative;" onclick="openLocModal()">📍 위치보기<span class="chat-badge" id="locBadge" style="display:none;top:-6px;right:-6px;">0</span></button>
     <button class="link-btn kakao" style="color:#fde047;border:1px solid rgba(253,224,71,.45);" onclick="openKakaoTalk()">💬 카카오톡</button>
     <button class="link-btn" id="quickAppBtn" style="color:#fbbf24;border:1px solid rgba(251,191,36,.5);" onclick="openQuickApp()" oncontextmenu="if(window.COMPANY_ROLE==='owner'){event.preventDefault();setupQuickApp();}">⭐ 자주 쓰는 앱</button>
@@ -2683,8 +2684,13 @@ const REG_PROMPT =
   'For EACH photo return one entry. Reply with JSON only: ' +
   '{"cars": [{"plate": "12가3456", "model": "쏘나타", "fuel": "가솔린|디젤|LPG|전기|하이브리드 or null", "year": 2023 or null}]}';
 async function readRegCards(photos){
-  const key = getAiKey();
-  if(!key) return { cars: [], reason: 'nokey' };
+  const keys = getAiKeys();
+  if(!keys.length) return { cars: [], reason: 'nokey' };
+  let res = null;
+  for(const key of keys){ res = await readRegCardsWithKey(photos, key); if(!res.reason) return res; } // 실패하면 두 번째 키로
+  return res;
+}
+async function readRegCardsWithKey(photos, key){
   const b64s = photos.map(d => d.split(',')[1]);
   const provider = aiProvider(key);
   try{
@@ -3947,12 +3953,18 @@ let _chatPendingPhotos = [];    // 첨부 대기 중인 사진들 (dataURL 배�
 const _photoCache = {};
 // 업체 공용 키(관리자가 한 번 넣으면 전 직원 사용) → 없으면 이 폰에만 넣은 키
 let _companyAiKey = '';
-function getAiKey(){ return _companyAiKey || localStorage.getItem(AI_KEY_LS) || localStorage.getItem(OLD_CLAUDE_KEY_LS) || ''; }
+let _companyAiKey2 = ''; // 두 번째 키: 첫 번째 키가 막히면(무료 사용량 끝 등) 자동으로 이 키로 다시 시도
+function getAiKey(){ return _companyAiKey || _companyAiKey2 || localStorage.getItem(AI_KEY_LS) || localStorage.getItem(OLD_CLAUDE_KEY_LS) || ''; }
+function getAiKeys(){
+  const ks = [getAiKey(), _companyAiKey2].map(k => (k || '').trim()).filter(k => k.length >= 20);
+  return ks.filter((k, i) => ks.indexOf(k) === i);
+}
 function startAiKeySync(){
   const { ref, onValue, db } = window._fb;
   onValue(ref(db, P('aiSettings')), (snap)=>{
     const v = snap.exists() ? snap.val() : null;
     _companyAiKey = (v && typeof v.key === 'string') ? v.key : '';
+    _companyAiKey2 = (v && typeof v.key2 === 'string') ? v.key2 : '';
     updateAiKeyLabel();
   }, (err)=> console.warn('AI 설정 수신 실패:', err && err.code));
 }
@@ -3961,7 +3973,7 @@ function aiProvider(key){ return /^sk-ant-/.test(key || '') ? 'claude' : (key ? 
 function updateAiKeyLabel(){
   const b = document.getElementById('aiKeyBtn');
   const pv = aiProvider(getAiKey());
-  const shared = !!_companyAiKey ? '·공용' : '';
+  const shared = (_companyAiKey ? '·공용' : '') + (getAiKeys().length > 1 ? '·키2개' : '');
   if(b) b.textContent = pv === 'gemini' ? `🤖 AI 켜짐(Gemini${shared})` : pv === 'claude' ? `🤖 AI 켜짐(Claude${shared})` : '🤖 AI 설정';
 }
 async function setupClaudeKey(){
@@ -3973,21 +3985,37 @@ async function setupClaudeKey(){
       : '🤖 아직 사진 자동 인식이 설정되지 않았어요.\n관리자에게 "AI 설정"을 부탁해주세요. (관리자가 한 번 넣으면 모든 직원 폰에 적용돼요)');
     return;
   }
-  const cur = _companyAiKey;
-  const v = await appPrompt('AI 설정 (사진 자동 인식)',
-    '여기 넣으면 모든 직원 폰에 자동 적용돼요.\n구글 Gemini 키 또는 Claude 키 모두 가능합니다.\n\n' +
-    (cur ? '현재 키: ' + cur.slice(0, 6) + '…' + cur.slice(-4) + ' (' + aiProvider(cur) + ')' : '현재 키: 없음'),
-    '', { placeholder:'키 붙여넣기', hint:'비워두고 확인하면 키를 지웁니다' });
+  const mask = k => k ? k.slice(0, 6) + '…' + k.slice(-4) + ' (' + (aiProvider(k) === 'claude' ? 'Claude' : 'Gemini') + ')' : '없음';
+  const slot = await showAppDialog({ title: 'AI 설정',
+    message: '여기 넣은 키는 모든 직원 폰(사진 자동 인식)과 고객 AI 상담에 같이 쓰여요.\n구글 Gemini 키 또는 Claude 키 모두 가능해요.\n\n' +
+      '첫 번째 키: ' + mask(_companyAiKey) + '\n두 번째 키: ' + mask(_companyAiKey2) +
+      '\n\n첫 번째 키가 막히면(오늘 무료 사용량 끝 등) 두 번째 키로 자동으로 넘어가요.',
+    buttons: [
+      { text: _companyAiKey ? '첫 번째 키 바꾸기' : '첫 번째 키 넣기', value: 'key', primary: true },
+      { text: _companyAiKey2 ? '두 번째 키 바꾸기' : '두 번째 키 넣기', value: 'key2' },
+      { text: '닫기', value: null }] });
+  if(!slot) return;
+  const cur = slot === 'key' ? _companyAiKey : _companyAiKey2;
+  const other = slot === 'key' ? _companyAiKey2 : _companyAiKey;
+  const v = await appPrompt(slot === 'key' ? '첫 번째 키' : '두 번째 키 (예비)',
+    '현재: ' + mask(cur), '', { placeholder:'키 붙여넣기', hint: cur ? '비워두고 확인하면 이 키를 지웁니다' : '' });
   if(v === null) return;
   const t = v.trim();
+  if(!t && !cur) return;
   if(t && (t.length < 20 || t.length > 300 || /\s/.test(t))){ showToast('키 모양이 이상해요. 다시 복사해주세요'); return; }
+  if(t && t === other){ showToast('다른 칸에 넣은 키와 같아요. 다른 키를 넣어주세요'); return; }
+  // 첫 번째 칸이 비면 남은 키가 첫 번째 키가 됨 (두 번째 키만 있는 상태는 만들지 않음)
+  let k1 = slot === 'key' ? t : _companyAiKey;
+  let k2 = slot === 'key2' ? t : _companyAiKey2;
+  if(!k1 && k2){ k1 = k2; k2 = ''; }
   try{
     const { ref, set, remove, db } = window._fb;
-    if(!t){ await remove(ref(db, P('aiSettings'))); showToast('공용 API 키를 지웠어요'); }
+    if(!k1){ await remove(ref(db, P('aiSettings'))); showToast('공용 API 키를 지웠어요'); }
     else{
-      await set(ref(db, P('aiSettings')), { key: t, provider: aiProvider(t),
+      await set(ref(db, P('aiSettings')), { key: k1, provider: aiProvider(k1),
+        ...(k2 ? { key2: k2, provider2: aiProvider(k2) } : {}),
         updatedAt: new Date().toISOString(), updatedBy: (window.CURRENT_USER && window.CURRENT_USER.email) || '' });
-      showToast('저장했어요 · 모든 직원 폰에 자동 적용돼요');
+      showToast(t ? '저장했어요 · 모든 직원 폰에 자동 적용돼요' : '키를 지웠어요');
     }
     // 예전에 이 폰에만 넣어둔 키는 정리 (공용 키로 통일)
     localStorage.removeItem(AI_KEY_LS); localStorage.removeItem(OLD_CLAUDE_KEY_LS);
@@ -4126,9 +4154,14 @@ async function aiHttpPost(url, headers, body, timeoutMs){
   }finally{ if(t) clearTimeout(t); }
 }
 async function readPhotoWithAI(dataUrls){
+  const keys = getAiKeys();
+  if(!keys.length) return { plates: [], plate: null, km: null, reason: 'nokey' };
+  let res = null;
+  for(const key of keys){ res = await readPhotoWithAIKey(dataUrls, key); if(!res.keyFail) return res; } // 키·연결 문제면 두 번째 키로
+  return res;
+}
+async function readPhotoWithAIKey(dataUrls, key){
   const list = Array.isArray(dataUrls) ? dataUrls.slice(0, 4) : [dataUrls];  // 앞의 4장까지 같이 보고 판단
-  const key = getAiKey();
-  if(!key) return { plates: [], plate: null, km: null, reason: 'nokey' };
   const b64 = list[0].split(',')[1];
   const b64s = list.map(d => d.split(',')[1]);
   if(aiProvider(key) === 'claude'){
@@ -4141,10 +4174,10 @@ async function readPhotoWithAI(dataUrls){
         { type: 'text', text: AI_PHOTO_PROMPT } ] }] }, 30000);
       if(r.status < 200 || r.status >= 300){
         const m = r.data && r.data.error && r.data.error.message;
-        return { plate: null, km: null, reason: r.status === 401 ? 'API 키가 올바르지 않아요' : (m || ('오류 ' + r.status)) };
+        return { plate: null, km: null, keyFail: true, reason: r.status === 401 ? 'API 키가 올바르지 않아요' : (m || ('오류 ' + r.status)) };
       }
       return normalizeAiResult(parseAiJson(((r.data && r.data.content) || []).map(c => c.text || '').join('')));
-    }catch(e){ return { plate: null, km: null, reason: '연결 실패: ' + (e.message || e) }; }
+    }catch(e){ return { plate: null, km: null, keyFail: true, reason: '연결 실패: ' + (e.message || e) }; }
   }
   // Gemini: 되는 모델을 순서대로 시도 (바쁨·없어짐·한도초과면 다음 모델로)
   let lastReason = '';
@@ -4160,13 +4193,13 @@ async function readPhotoWithAI(dataUrls){
         return normalizeAiResult(parseAiJson(text));
       }
       const e = r.data && r.data.error;
-      if(r.status === 400 && e && /API key|API_KEY/i.test(e.message || '')) return { plate: null, km: null, reason: 'API 키가 올바르지 않아요' };
-      if(r.status === 401 || r.status === 403) return { plate: null, km: null, reason: 'API 키 권한이 없어요' };
+      if(r.status === 400 && e && /API key|API_KEY/i.test(e.message || '')) return { plate: null, km: null, keyFail: true, reason: 'API 키가 올바르지 않아요' };
+      if(r.status === 401 || r.status === 403) return { plate: null, km: null, keyFail: true, reason: 'API 키 권한이 없어요' };
       lastReason = r.status === 429 ? '오늘 무료 사용량을 다 썼어요' : r.status === 503 ? 'AI가 바빠요' : ('오류 ' + r.status);
       // 404(모델 없어짐)·429(한도)·503(바쁨)·500 → 다음 모델 시도
     }catch(e){ lastReason = (e && e.name === 'AbortError') ? '응답이 너무 늦어요' : ('연결 실패: ' + (e.message || e)); }
   }
-  return { plate: null, km: null, reason: lastReason || '자동 인식 실패' };
+  return { plate: null, km: null, keyFail: true, reason: lastReason || '자동 인식 실패' };
 }
 // 옛 이름 호환 (다른 곳에서 부르던 이름)
 async function readOdometerWithClaude(dataUrl){ return readPhotoWithAI(dataUrl); }
