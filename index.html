@@ -1045,7 +1045,7 @@
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
         <button class="chat-tool-btn" onclick="toggleChatSearch()">🔍 검색</button>
         <button class="chat-tool-btn" onclick="backupChat()">💾 백업</button>
-        <button class="chat-tool-btn" onclick="setupClaudeKey()" id="aiKeyBtn">🤖 AI 설정</button>
+        <button class="chat-tool-btn" onclick="setupAiKeys()" id="aiKeyBtn">🤖 AI 설정</button>
       </div>
       <div id="chatSearchBox" style="display:none;margin-bottom:10px;">
         <div style="display:flex;gap:6px;">
@@ -2666,42 +2666,18 @@ const REG_PROMPT =
   'For EACH photo return one entry. Reply with JSON only: ' +
   '{"cars": [{"plate": "12가3456", "model": "쏘나타", "fuel": "가솔린|디젤|LPG|전기|하이브리드 or null", "year": 2023 or null}]}';
 async function readRegCards(photos){
-  const key = getAiKey();
-  if(!key) return { cars: [], reason: 'nokey' };
+  if(!hasAnyAiKey()) return { cars: [], reason: 'nokey' };
   const b64s = photos.map(d => d.split(',')[1]);
-  const provider = aiProvider(key);
-  try{
-    if(provider === 'claude'){
-      const r = await aiHttpPost('https://api.anthropic.com/v1/messages', {
-        'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      }, { model: CLAUDE_MODEL, max_tokens: 800, messages: [{ role: 'user', content: [
-        ...b64s.map(d => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: d } })),
-        { type: 'text', text: REG_PROMPT } ] }] }, 40000);
-      if(r.status < 200 || r.status >= 300) return { cars: [], reason: '오류 ' + r.status };
-      const j = parseAiJson(((r.data && r.data.content) || []).map(c => c.text || '').join(''));
-      return { cars: (j && j.cars) || [] };
-    }
-    for(const model of GEMINI_MODELS){
-      const r = await aiHttpPost('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent',
-        { 'x-goog-api-key': key, 'content-type': 'application/json' },
-        { contents: [{ parts: [ ...b64s.map(d => ({ inline_data: { mime_type: 'image/jpeg', data: d } })), { text: REG_PROMPT } ] }],
-          generationConfig: { responseMimeType: 'application/json', temperature: 0 } }, 40000);
-      if(r.status >= 200 && r.status < 300){
-        const cand = r.data && r.data.candidates && r.data.candidates[0];
-        const text = cand && cand.content ? (cand.content.parts || []).map(p => p.text || '').join('') : '';
-        const j = parseAiJson(text);
-        return { cars: (j && j.cars) || [] };
-      }
-    }
-    return { cars: [], reason: 'AI가 바쁜요. 잠시 후 다시 해주세요' };
-  }catch(e){ return { cars: [], reason: e.message || '연결 실패' }; }
+  const { text, reason } = await callVisionAi(REG_PROMPT, b64s, 40000);
+  if(!text) return { cars: [], reason: reason || 'AI가 바빠요. 잠시 후 다시 해주세요' };
+  const j = parseAiJson(text);
+  return { cars: (j && j.cars) || [] };
 }
 async function onBulkPhotoPicked(input){
   const files = [...(input.files || [])];
   input.value = '';
   if(!files.length) return;
-  if(!getAiKey()){ bulkStatus('⚠️ 등록증 사진을 읽으려면 ⚙️에서 AI 설정(API 키)이 필요해요.'); return; }
+  if(!hasAnyAiKey()){ bulkStatus('⚠️ 등록증 사진을 읽으려면 ⚙️에서 AI 설정(API 키)이 필요해요.'); return; }
   bulkStatus('🪪 사진 ' + files.length + '장을 읽는 중... (조금 걸려요)');
   const all = [];
   try{
@@ -3915,65 +3891,90 @@ async function applyChatCommand(cmd){
 }
 
 
-// ── 사진 첨부 + 계기판 주행거리 자동 인식 (Claude API) ──────────────
+// ── 사진 첨부 + 계기판 주행거리 자동 인식 (Gemini / Grok API) ──────────────
 // 사진은 Realtime DB의 companies/{id}/photos 에 압축해서 저장합니다(무료 요금제용).
 // API 키는 이 기기(localStorage)에만 저장하고, 서버·코드에는 절대 넣지 않습니다.
-const AI_KEY_LS = 'fleetAiApiKey';
+const GEMINI_KEY_LS = 'fleetGeminiApiKey';
+const GROK_KEY_LS = 'fleetGrokApiKey';
+// 예전(단일 키) 버전에서 쓰던 저장 위치 — 남아있으면 마이그레이션만 하고 더는 쓰지 않음
+const OLD_AI_KEY_LS = 'fleetAiApiKey';
 const OLD_CLAUDE_KEY_LS = 'fleetClaudeApiKey';
-const CLAUDE_MODEL = 'claude-sonnet-5';
 // 무료로 쓸 수 있고 실제 테스트에서 번호판·주행거리를 정확히 읽은 모델부터 순서대로 시도
-// (구글은 모델 이름이 자주 바뀌고, 바쁠 땐 "잠시 후 다시" 오류를 주기 때문에 여러 개를 준비)
+// (모델 이름이 자주 바뀌고, 바쁠 땐 "잠시 후 다시" 오류를 주기 때문에 여러 개를 준비)
 const GEMINI_MODELS = ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-flash-lite-latest', 'gemini-3.6-flash', 'gemini-flash-latest'];
+const GROK_MODELS = ['grok-4.5', 'grok-4.3'];
 const PHOTO_MAX_B64 = 550000;   // DB 한 장 최대 약 400KB (보안규칙과 맞춤)
 const CHAT_PHOTO_MAX = 12;      // 한 번에 보낼 수 있는 사진 수 (AI 판독은 앞의 4장만 사용)
 let _chatPendingPhotos = [];    // 첨부 대기 중인 사진들 (dataURL 배열)
 const _photoCache = {};
 // 업체 공용 키(관리자가 한 번 넣으면 전 직원 사용) → 없으면 이 폰에만 넣은 키
-let _companyAiKey = '';
-function getAiKey(){ return _companyAiKey || localStorage.getItem(AI_KEY_LS) || localStorage.getItem(OLD_CLAUDE_KEY_LS) || ''; }
+let _companyAiKeys = { gemini: '', grok: '' };
+function getAiKeys(){
+  return {
+    gemini: _companyAiKeys.gemini || localStorage.getItem(GEMINI_KEY_LS) || '',
+    grok: _companyAiKeys.grok || localStorage.getItem(GROK_KEY_LS) || ''
+  };
+}
+function hasAnyAiKey(){ const k = getAiKeys(); return !!(k.gemini || k.grok); }
 function startAiKeySync(){
   const { ref, onValue, db } = window._fb;
   onValue(ref(db, P('aiSettings')), (snap)=>{
     const v = snap.exists() ? snap.val() : null;
-    _companyAiKey = (v && typeof v.key === 'string') ? v.key : '';
+    if(v && (typeof v.geminiKey === 'string' || typeof v.grokKey === 'string')){
+      _companyAiKeys = { gemini: v.geminiKey || '', grok: v.grokKey || '' };
+    }else if(v && typeof v.key === 'string'){
+      // 예전(단일 키) 형식 호환 — Claude 키였다면 더는 지원하지 않으니 비워둠
+      _companyAiKeys = { gemini: v.provider === 'gemini' ? v.key : '', grok: '' };
+    }else{
+      _companyAiKeys = { gemini: '', grok: '' };
+    }
     updateAiKeyLabel();
   }, (err)=> console.warn('AI 설정 수신 실패:', err && err.code));
 }
-function getClaudeKey(){ return getAiKey(); } // (예전 이름 호환)
-function aiProvider(key){ return /^sk-ant-/.test(key || '') ? 'claude' : (key ? 'gemini' : ''); }
 function updateAiKeyLabel(){
   const b = document.getElementById('aiKeyBtn');
-  const pv = aiProvider(getAiKey());
-  const shared = !!_companyAiKey ? '·공용' : '';
-  if(b) b.textContent = pv === 'gemini' ? `🤖 AI 켜짐(Gemini${shared})` : pv === 'claude' ? `🤖 AI 켜짐(Claude${shared})` : '🤖 AI 설정';
+  if(!b) return;
+  const k = getAiKeys();
+  const parts = [];
+  if(k.gemini) parts.push('Gemini');
+  if(k.grok) parts.push('Grok');
+  const shared = (_companyAiKeys.gemini || _companyAiKeys.grok) ? '·공용' : '';
+  b.textContent = parts.length ? `🤖 AI 켜짐(${parts.join('+')}${shared})` : '🤖 AI 설정';
 }
-async function setupClaudeKey(){
+async function setupAiKeys(){
   const isOwner = window.COMPANY_ROLE === 'owner';
   if(!isOwner){
     // 직원은 관리자가 넣은 공용 키를 자동으로 씁니다
-    alert(_companyAiKey
+    alert(hasAnyAiKey()
       ? '🤖 사진 자동 인식이 켜져 있어요.\n관리자가 업체 공용으로 설정해둔 키를 자동으로 쓰고 있어요.'
       : '🤖 아직 사진 자동 인식이 설정되지 않았어요.\n관리자에게 "AI 설정"을 부탁해주세요. (관리자가 한 번 넣으면 모든 직원 폰에 적용돼요)');
     return;
   }
-  const cur = _companyAiKey;
-  const v = await appPrompt('AI 설정 (사진 자동 인식)',
-    '여기 넣으면 모든 직원 폰에 자동 적용돼요.\n구글 Gemini 키 또는 Claude 키 모두 가능합니다.\n\n' +
-    (cur ? '현재 키: ' + cur.slice(0, 6) + '…' + cur.slice(-4) + ' (' + aiProvider(cur) + ')' : '현재 키: 없음'),
-    '', { placeholder:'키 붙여넣기', hint:'비워두고 확인하면 키를 지웁니다' });
-  if(v === null) return;
-  const t = v.trim();
-  if(t && (t.length < 20 || t.length > 300 || /\s/.test(t))){ showToast('키 모양이 이상해요. 다시 복사해주세요'); return; }
+  const cur = _companyAiKeys;
+  const mask = (k) => k ? (k.slice(0, 6) + '…' + k.slice(-4)) : '없음';
+  const gv = await appPrompt('AI 설정 1/2 — Gemini 키',
+    '여기 넣으면 모든 직원 폰에 자동 적용돼요.\n비워두고 확인하면 Gemini 키를 지웁니다.\n\n현재 Gemini 키: ' + mask(cur.gemini),
+    '', { placeholder:'Gemini API 키 붙여넣기' });
+  if(gv === null) return;
+  const grv = await appPrompt('AI 설정 2/2 — Grok 키',
+    '두 키를 모두 넣으면 Gemini가 실패할 때 Grok으로 자동 전환돼요.\n비워두고 확인하면 Grok 키를 지웁니다.\n\n현재 Grok 키: ' + mask(cur.grok),
+    '', { placeholder:'Grok(xAI) API 키 붙여넣기' });
+  if(grv === null) return;
+  const gt = gv.trim(), grt = grv.trim();
+  for(const t of [gt, grt]){
+    if(t && (t.length < 20 || t.length > 300 || /\s/.test(t))){ showToast('키 모양이 이상해요. 다시 복사해주세요'); return; }
+  }
   try{
     const { ref, set, remove, db } = window._fb;
-    if(!t){ await remove(ref(db, P('aiSettings'))); showToast('공용 API 키를 지웠어요'); }
+    if(!gt && !grt){ await remove(ref(db, P('aiSettings'))); showToast('공용 API 키를 지웠어요'); }
     else{
-      await set(ref(db, P('aiSettings')), { key: t, provider: aiProvider(t),
+      await set(ref(db, P('aiSettings')), { geminiKey: gt, grokKey: grt,
         updatedAt: new Date().toISOString(), updatedBy: (window.CURRENT_USER && window.CURRENT_USER.email) || '' });
       showToast('저장했어요 · 모든 직원 폰에 자동 적용돼요');
     }
     // 예전에 이 폰에만 넣어둔 키는 정리 (공용 키로 통일)
-    localStorage.removeItem(AI_KEY_LS); localStorage.removeItem(OLD_CLAUDE_KEY_LS);
+    localStorage.removeItem(GEMINI_KEY_LS); localStorage.removeItem(GROK_KEY_LS);
+    localStorage.removeItem(OLD_AI_KEY_LS); localStorage.removeItem(OLD_CLAUDE_KEY_LS);
   }catch(e){ console.error(e); showToast('저장 실패 - 관리자 권한을 확인해주세요'); }
   updateAiKeyLabel();
 }
@@ -4108,48 +4109,61 @@ async function aiHttpPost(url, headers, body, timeoutMs){
     return { status: r.status, data: await r.json().catch(()=>null) };
   }finally{ if(t) clearTimeout(t); }
 }
+// Gemini → Grok 순서로 시도하는 공용 이미지 판독 함수. 키가 있는 것만, 실패하면 다음으로 넘어갑니다.
+async function callVisionAi(prompt, b64s, timeoutMs){
+  const keys = getAiKeys();
+  if(!keys.gemini && !keys.grok) return { text: null, reason: 'nokey' };
+  let lastReason = '';
+  if(keys.gemini){
+    for(const model of GEMINI_MODELS){
+      try{
+        const r = await aiHttpPost(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+          { 'x-goog-api-key': keys.gemini, 'content-type': 'application/json' },
+          { contents: [{ parts: [ ...b64s.map(d => ({ inline_data: { mime_type: 'image/jpeg', data: d } })), { text: prompt } ] }],
+            generationConfig: { responseMimeType: 'application/json', temperature: 0 } }, timeoutMs);
+        if(r.status >= 200 && r.status < 300){
+          const cand = r.data && r.data.candidates && r.data.candidates[0];
+          const text = cand && cand.content ? (cand.content.parts || []).map(p => p.text || '').join('') : '';
+          if(text) return { text, reason: '' };
+          lastReason = '빈 응답';
+        }else{
+          const e = r.data && r.data.error;
+          if(r.status === 400 && e && /API key|API_KEY/i.test(e.message || '')) lastReason = 'Gemini API 키가 올바르지 않아요';
+          else if(r.status === 401 || r.status === 403) lastReason = 'Gemini API 키 권한이 없어요';
+          else lastReason = r.status === 429 ? 'Gemini 오늘 무료 사용량을 다 썼어요' : r.status === 503 ? 'Gemini가 바빠요' : ('Gemini 오류 ' + r.status);
+        }
+        // 404(모델 없어짐)·429(한도)·503(바쁨)·500 → 다음 모델 시도
+      }catch(e){ lastReason = (e && e.name === 'AbortError') ? 'Gemini 응답이 너무 늦어요' : ('Gemini 연결 실패: ' + (e.message || e)); }
+    }
+  }
+  if(keys.grok){
+    for(const model of GROK_MODELS){
+      try{
+        const r = await aiHttpPost('https://api.x.ai/v1/chat/completions',
+          { 'Authorization': 'Bearer ' + keys.grok, 'content-type': 'application/json' },
+          { model, response_format: { type: 'json_object' }, temperature: 0, messages: [{ role: 'user', content: [
+            ...b64s.map(d => ({ type: 'image_url', image_url: { url: 'data:image/jpeg;base64,' + d } })),
+            { type: 'text', text: prompt } ] }] }, timeoutMs);
+        if(r.status >= 200 && r.status < 300){
+          const text = r.data && r.data.choices && r.data.choices[0] && r.data.choices[0].message && r.data.choices[0].message.content;
+          if(text) return { text, reason: '' };
+          lastReason = '빈 응답';
+        }else{
+          const m = r.data && r.data.error && r.data.error.message;
+          if(r.status === 401 || r.status === 403) lastReason = 'Grok API 키가 올바르지 않아요';
+          else lastReason = r.status === 429 ? 'Grok 오늘 사용량을 다 썼어요' : (m || ('Grok 오류 ' + r.status));
+        }
+      }catch(e){ lastReason = (e && e.name === 'AbortError') ? 'Grok 응답이 너무 늦어요' : ('Grok 연결 실패: ' + (e.message || e)); }
+    }
+  }
+  return { text: null, reason: lastReason || '자동 인식 실패' };
+}
 async function readPhotoWithAI(dataUrls){
   const list = Array.isArray(dataUrls) ? dataUrls.slice(0, 4) : [dataUrls];  // 앞의 4장까지 같이 보고 판단
-  const key = getAiKey();
-  if(!key) return { plates: [], plate: null, km: null, reason: 'nokey' };
-  const b64 = list[0].split(',')[1];
   const b64s = list.map(d => d.split(',')[1]);
-  if(aiProvider(key) === 'claude'){
-    try{
-      const r = await aiHttpPost('https://api.anthropic.com/v1/messages', {
-        'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      }, { model: CLAUDE_MODEL, max_tokens: 300, messages: [{ role: 'user', content: [
-        ...b64s.map(d => ({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: d } })),
-        { type: 'text', text: AI_PHOTO_PROMPT } ] }] }, 30000);
-      if(r.status < 200 || r.status >= 300){
-        const m = r.data && r.data.error && r.data.error.message;
-        return { plate: null, km: null, reason: r.status === 401 ? 'API 키가 올바르지 않아요' : (m || ('오류 ' + r.status)) };
-      }
-      return normalizeAiResult(parseAiJson(((r.data && r.data.content) || []).map(c => c.text || '').join('')));
-    }catch(e){ return { plate: null, km: null, reason: '연결 실패: ' + (e.message || e) }; }
-  }
-  // Gemini: 되는 모델을 순서대로 시도 (바쁨·없어짐·한도초과면 다음 모델로)
-  let lastReason = '';
-  for(const model of GEMINI_MODELS){
-    try{
-      const r = await aiHttpPost(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
-        { 'x-goog-api-key': key, 'content-type': 'application/json' },
-        { contents: [{ parts: [ ...b64s.map(d => ({ inline_data: { mime_type: 'image/jpeg', data: d } })), { text: AI_PHOTO_PROMPT } ] }],
-          generationConfig: { responseMimeType: 'application/json', temperature: 0 } }, 25000);
-      if(r.status >= 200 && r.status < 300){
-        const cand = r.data && r.data.candidates && r.data.candidates[0];
-        const text = cand && cand.content ? (cand.content.parts || []).map(p => p.text || '').join('') : '';
-        return normalizeAiResult(parseAiJson(text));
-      }
-      const e = r.data && r.data.error;
-      if(r.status === 400 && e && /API key|API_KEY/i.test(e.message || '')) return { plate: null, km: null, reason: 'API 키가 올바르지 않아요' };
-      if(r.status === 401 || r.status === 403) return { plate: null, km: null, reason: 'API 키 권한이 없어요' };
-      lastReason = r.status === 429 ? '오늘 무료 사용량을 다 썼어요' : r.status === 503 ? 'AI가 바빠요' : ('오류 ' + r.status);
-      // 404(모델 없어짐)·429(한도)·503(바쁨)·500 → 다음 모델 시도
-    }catch(e){ lastReason = (e && e.name === 'AbortError') ? '응답이 너무 늦어요' : ('연결 실패: ' + (e.message || e)); }
-  }
-  return { plate: null, km: null, reason: lastReason || '자동 인식 실패' };
+  const { text, reason } = await callVisionAi(AI_PHOTO_PROMPT, b64s, 25000);
+  if(!text) return { plates: [], plate: null, km: null, reason: reason || 'nokey' };
+  return normalizeAiResult(parseAiJson(text));
 }
 // 옛 이름 호환 (다른 곳에서 부르던 이름)
 async function readOdometerWithClaude(dataUrl){ return readPhotoWithAI(dataUrl); }
@@ -4199,7 +4213,7 @@ async function sendChatPhoto(text){
   // AI에 한 번만 물어봄 (번호판·주행거리·같이 찍힌 상대차량 번호를 한 번에)
   let ai = null;
   if(needPlate || recallWords || cmd){
-    if(getAiKey()){
+    if(hasAnyAiKey()){
       showToast('🤖 사진 읽는 중...');
       try{ ai = await readPhotoWithAI(photos); }catch(e){ ai = { plates:[], plate:null, km:null, reason: e.message || '' }; }
     }else{
