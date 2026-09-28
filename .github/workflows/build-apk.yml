@@ -9,6 +9,10 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # 빌드할 때마다 자동으로 올라가는 앱 버전 (1.0.빌드번호)
+      APP_VERSION_CODE: ${{ github.run_number }}
+      APP_VERSION_NAME: 1.0.${{ github.run_number }}
     steps:
       - name: 소스 가져오기
         uses: actions/checkout@v4
@@ -78,16 +82,19 @@ jobs:
         run: |
           mkdir -p apk
           cp status-board-app/status-board-app/android/app/build/outputs/apk/debug/app-debug.apk apk/status-board.apk
-          date '+%Y-%m-%d %H:%M 빌드' > apk/version.txt
+          # 버전이 붙은 파일도 같이 (이전 버전 파일은 지워서 최신 하나만 남김)
+          git rm -q --ignore-unmatch 'apk/status-board-v*.apk'
+          cp apk/status-board.apk "apk/status-board-v$APP_VERSION_NAME.apk"
+          echo "v$APP_VERSION_NAME · $(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M') 빌드" > apk/version.txt
           git config user.name 'github-actions'
           git config user.email 'actions@github.com'
-          git add apk/status-board.apk apk/version.txt apk/debug.keystore
-          git commit -m 'APK 업데이트' || echo '변경 없음'
+          git add apk/status-board.apk "apk/status-board-v$APP_VERSION_NAME.apk" apk/version.txt apk/debug.keystore
+          git commit -m "APK 업데이트 v$APP_VERSION_NAME" || echo '변경 없음'
           git push
 
       - name: APK 올리기(보관용)
         uses: actions/upload-artifact@v4
         with:
-          name: status-board-apk
+          name: status-board-apk-v${{ env.APP_VERSION_NAME }}
           path: status-board-app/status-board-app/android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
