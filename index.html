@@ -3278,6 +3278,8 @@ async function openPhoneSetup(force){
     return;
   }
   if(!force && localStorage.getItem(setupDoneKey()) === '1') return;
+  // 자동으로는 처음 한 번만 띄웁니다 (어떻게 닫든 다시 자동으로 뜨지 않음 · 필요하면 ⚙️ 버튼으로)
+  if(!force) localStorage.setItem(setupDoneKey(), '1');
   const ver = await appVersionLabel();
   const r = await showAppDialog({
     title: '📱 처음 한 번 설정해주세요',
