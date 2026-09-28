@@ -21,17 +21,41 @@ async function log(text, ok) {
   await chrome.storage.local.set({ logs: logs.slice(0, 20) });
 }
 
+// 인터넷 요청: 15초 넘게 답이 없거나 연결이 안 되면 어디서 막혔는지 알려줌
+async function fetchT(url, opt, what) {
+  const ac = new AbortController();
+  const t = setTimeout(() => ac.abort(), 15000);
+  try {
+    return await fetch(url, Object.assign({ signal: ac.signal }, opt));
+  } catch (e) {
+    throw new AgentError(ac.signal.aborted
+      ? `${what}에서 15초 동안 답이 없어요. 인터넷이나 백신·보안 프로그램을 확인해 주세요.`
+      : `${what}에 연결하지 못했어요 (${(e && e.message) || e}).`);
+  } finally { clearTimeout(t); }
+}
+async function readJson(r) { try { return await r.json(); } catch (e) { return null; } }
+
 // ── 현황판 로그인 (비밀번호는 저장하지 않고 refreshToken 만 보관) ──
 async function signIn(email, password) {
-  const r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FB_KEY}`, {
+  await chrome.storage.local.set({ loginStep: '로그인 서버에 확인 중...' });
+  const r = await fetchT(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FB_KEY}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password, returnSecureToken: true }),
-  });
-  const j = await r.json();
-  if (!r.ok) throw new AgentError('현황판 로그인 실패: 이메일과 비밀번호를 확인해 주세요.');
+  }, '현황판 로그인 서버');
+  const j = await readJson(r) || {};
+  if (!r.ok) {
+    const code = (j.error && j.error.message) || ('HTTP ' + r.status);
+    throw new AgentError(/INVALID_LOGIN_CREDENTIALS|INVALID_PASSWORD|EMAIL_NOT_FOUND|INVALID_EMAIL|MISSING_PASSWORD/.test(code)
+      ? '이메일이나 비밀번호가 틀려요.'
+      : /TOO_MANY_ATTEMPTS/.test(code) ? '여러 번 틀려서 잠시 막혔어요. 몇 분 뒤 다시 해 주세요.'
+      : '현황판 로그인 실패 (' + code + ')');
+  }
   const token = j.idToken;
-  const idx = await (await fetch(`${DB}/userIndex/${j.localId}.json?auth=${token}`)).json();
-  if (!idx || !idx.companyId) throw new AgentError('이 계정의 업체를 찾지 못했어요.');
+  await chrome.storage.local.set({ loginStep: '업체 정보 확인 중...' });
+  const ir = await fetchT(`${DB}/userIndex/${j.localId}.json?auth=${token}`, {}, '현황판 데이터 서버');
+  const idx = await readJson(ir);
+  if (!ir.ok) throw new AgentError('업체 정보를 읽지 못했어요 (HTTP ' + ir.status + ').');
+  if (!idx || !idx.companyId) throw new AgentError('이 계정의 업체를 찾지 못했어요. 현황판에서 업체를 먼저 만들어 주세요.');
   await chrome.storage.local.set({
     fb: { email, uid: j.localId, companyId: idx.companyId, refreshToken: j.refreshToken, token, exp: Date.now() + (Number(j.expiresIn) - 120) * 1000 },
   });
@@ -42,12 +66,12 @@ async function fbToken() {
   const { fb } = await chrome.storage.local.get('fb');
   if (!fb) return null;
   if (fb.token && Date.now() < fb.exp) return fb;
-  const r = await fetch(`https://securetoken.googleapis.com/v1/token?key=${FB_KEY}`, {
+  const r = await fetchT(`https://securetoken.googleapis.com/v1/token?key=${FB_KEY}`, {
     method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: 'grant_type=refresh_token&refresh_token=' + encodeURIComponent(fb.refreshToken),
-  });
-  const j = await r.json();
-  if (!r.ok) throw new AgentError('현황판 연결이 끊겼어요. 확장 프로그램 설정에서 다시 로그인해 주세요.');
+  }, '현황판 로그인 서버');
+  const j = await readJson(r);
+  if (!r.ok || !j) throw new AgentError('현황판 연결이 끊겼어요. 확장 프로그램에서 다시 연결해 주세요.');
   Object.assign(fb, { token: j.id_token, refreshToken: j.refresh_token, exp: Date.now() + (Number(j.expires_in) - 120) * 1000 });
   await chrome.storage.local.set({ fb });
   return fb;
@@ -56,9 +80,9 @@ async function fbToken() {
 async function fb(method, sub, body) {
   const f = await fbToken();
   if (!f) return null;
-  const r = await fetch(`${DB}/companies/${f.companyId}/${sub}.json?auth=${f.token}`, {
+  const r = await fetchT(`${DB}/companies/${f.companyId}/${sub}.json?auth=${f.token}`, {
     method, headers: { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  }, '현황판 데이터 서버');
   if (!r.ok) throw new AgentError(`현황판 ${method} 실패 (${r.status}). 보안 규칙에서 wooky 경로 권한을 확인해 주세요.`);
   return r.json();
 }
@@ -251,7 +275,8 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   if (msg.type === 'login') {
     signIn(msg.email, msg.password)
       .then(async c => { await log('현황판과 연결됐어요.'); reply({ ok: true, companyId: c }); })
-      .catch(e => reply({ ok: false, error: e.message }));
+      .catch(e => reply({ ok: false, error: e instanceof AgentError ? e.message : '연결 오류: ' + ((e && e.message) || e) }))
+      .finally(() => chrome.storage.local.remove('loginStep'));
     return true;
   }
   if (msg.type === 'logout') { chrome.storage.local.remove('fb').then(() => reply({ ok: true })); return true; }
