@@ -177,10 +177,52 @@
     }, ()=>{});
     const statusText = v => v.status === '대기' ? '대기' : v.status === '준비중' ? '준비중' : (v.type === '장기' ? '장기' : '운행중');
 
+    // 일정 제목 만들기 (functions/chat-core.js 의 bookingSchedule 제목과 같은 모양)
+    const shortWhen = (d, t) => { if(!d) return ''; const p = d.split('-'); let s = (+p[1]) + '/' + (+p[2]);
+      if(t){ const [h, mi] = t.split(':').map(Number); s += ` ${h}시${mi ? mi + '분' : ''}`; } return s; };
+    const rangeOf = l => { const from = shortWhen(l.startDate, l.startTime); const to = l.endDate ? shortWhen(l.endDate, l.endTime) : (l.period || ''); return to ? `${from} ~ ${to}` : from; };
+    const titleOf = (l, confirmed, plate) =>
+      `${confirmed ? '✅ 예약확정' : '📅 예약요청'} ${rangeOf(l)} ${l.model || ''}${plate ? `(${plate})` : ''} · ${l.name || '고객'}`.slice(0, 100);
+
+    // 날짜 변경: 예약 날짜가 바뀌면 문의 목록, 현황판 일정(날짜·제목), 차량 카드 표시가 같이 바뀜
+    function openDates(k, l){
+      const box = $('pick-' + k);
+      if(!box.classList.contains('hidden') && box.dataset.mode === 'dates'){ box.classList.add('hidden'); return; }
+      box.dataset.mode = 'dates';
+      const inp = 'style="padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:inherit;"';
+      box.innerHTML = `
+        <label>대여 시작</label>
+        <div class="row"><input type="date" id="sd-${esc(k)}" value="${esc(l.startDate || '')}" ${inp}><input type="time" id="st-${esc(k)}" value="${esc(l.startTime || '')}" ${inp}></div>
+        <label>반납 <span class="hint">(연장이면 여기를 늦추세요)</span></label>
+        <div class="row"><input type="date" id="ed-${esc(k)}" value="${esc(l.endDate || '')}" ${inp}><input type="time" id="et-${esc(k)}" value="${esc(l.endTime || '')}" ${inp}></div>
+        <p></p><button id="dok-${esc(k)}">날짜 저장</button>`;
+      box.classList.remove('hidden');
+      $('dok-' + k).onclick = async ()=>{
+        const n = { ...l, startDate: $('sd-' + k).value, startTime: $('st-' + k).value, endDate: $('ed-' + k).value, endTime: $('et-' + k).value };
+        if(!n.startDate){ toast('시작 날짜를 넣어주세요'); return; }
+        if(n.endDate && n.endDate < n.startDate){ toast('반납 날짜가 시작보다 빨라요'); return; }
+        if(n.endDate) n.period = '';
+        const confirmed = l.status === 'confirmed';
+        const lk = P('customerChat/leads/' + k);
+        const changes = { [lk + '/startDate']: n.startDate, [lk + '/startTime']: n.startTime, [lk + '/endDate']: n.endDate,
+                          [lk + '/endTime']: n.endTime, [lk + '/period']: n.period || '', [lk + '/scheduleTitle']: titleOf(n, false, ''),
+                          [lk + '/changedAt']: new Date().toISOString() };
+        if(l.scheduleKey){
+          const sk = P('schedules/' + l.scheduleKey);
+          Object.assign(changes, { [sk + '/date']: n.startDate, [sk + '/title']: titleOf(n, confirmed, confirmed ? l.plate : ''),
+            [sk + '/resvStart']: n.startDate, [sk + '/resvStartTime']: n.startTime, [sk + '/resvEnd']: n.endDate,
+            [sk + '/resvEndTime']: n.endTime, [sk + '/resvPeriod']: n.period || '' });
+        }
+        try{ await update(ref(db), changes); toast('날짜를 바꿨어요. 현황판 일정과 차량 표시에도 반영됐어요'); }
+        catch(e){ console.error(e); toast('저장 실패 - 권한을 확인해주세요'); }
+      };
+    }
+
     // 예약 확정: 차량을 고르면 일정 제목에 차량번호를 넣고, 현황판 차량 카드에 "예약" 표시가 뜨게 resvPlate 저장
     function openPicker(k, l){
       const box = $('pick-' + k);
-      if(!box.classList.contains('hidden')){ box.classList.add('hidden'); return; }
+      if(!box.classList.contains('hidden') && box.dataset.mode === 'pick'){ box.classList.add('hidden'); return; }
+      box.dataset.mode = 'pick';
       const same = vehicles.filter(v => (v.model || '').trim() === (l.model || '').trim());
       const others = vehicles.filter(v => !same.includes(v));
       const opt = v => `<option value="${esc(v.plate)}" ${v.plate === l.plate ? 'selected' : ''}>${esc(v.plate)} · ${esc(v.model || '')} (${statusText(v)})</option>`;
@@ -195,8 +237,7 @@
       box.classList.remove('hidden');
       $('ok-' + k).onclick = async ()=>{
         const plate = $('sel-' + k).value;
-        const base = (l.scheduleTitle || `📅 예약요청 ${l.model || ''} · ${l.name || '고객'}`).replace('📅 예약요청', '✅ 예약확정');
-        const title = plate ? base.replace(` ${l.model} · `, ` ${l.model}(${plate}) · `) : base;
+        const title = titleOf(l, true, plate);
         const changes = { [P('customerChat/leads/' + k + '/status')]: 'confirmed',
                           [P('customerChat/leads/' + k + '/plate')]: plate || null,
                           [P('customerChat/leads/' + k + '/done')]: true,
@@ -224,9 +265,9 @@
         : esc(l.request);
       const actions = (k, l) => {
         if(l.type === 'booking' && l.status === 'pending')
-          return `<button data-act="pick" data-lead="${esc(k)}">확정</button><button class="ghost" data-act="cancel" data-lead="${esc(k)}">취소</button>`;
+          return `<button data-act="pick" data-lead="${esc(k)}">확정</button><button class="ghost" data-act="dates" data-lead="${esc(k)}">날짜 변경</button><button class="ghost" data-act="cancel" data-lead="${esc(k)}">취소</button>`;
         if(l.type === 'booking' && l.status === 'confirmed')
-          return `<button class="ghost" data-act="pick" data-lead="${esc(k)}">차량 변경</button><button class="ghost" data-act="cancel" data-lead="${esc(k)}">취소</button>`;
+          return `<button class="ghost" data-act="pick" data-lead="${esc(k)}">차량 변경</button><button class="ghost" data-act="dates" data-lead="${esc(k)}">날짜 변경</button><button class="ghost" data-act="cancel" data-lead="${esc(k)}">취소</button>`;
         if(l.type === 'booking') return '';
         return `<button class="ghost" data-act="done" data-lead="${esc(k)}" data-done="${l.done ? 1 : 0}">${l.done ? '되돌리기' : '처리 완료'}</button>`;
       };
@@ -246,6 +287,7 @@
         try{
           if(b.dataset.act === 'done'){ await set(ref(db, P('customerChat/leads/' + k + '/done')), b.dataset.done !== '1'); return; }
           if(b.dataset.act === 'pick') return openPicker(k, l);
+          if(b.dataset.act === 'dates') return openDates(k, l);
           if(!confirm('이 예약을 취소할까요? 현황판 일정에서도 지워져요.')) return;
           const changes = { [P('customerChat/leads/' + k + '/status')]: 'cancelled',
                             [P('customerChat/leads/' + k + '/done')]: true,

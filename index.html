@@ -2000,11 +2000,12 @@ function renderStats(){
   `;
 }
 
-// 고객 문의 채팅에서 받은 예약 중 이 차량으로 확정된 것 (inquiry-admin.html 에서 확정할 때 resvPlate 저장)
+// 고객 문의 채팅에서 받은 예약 중 이 차량으로 확정되고 아직 시작 안 된 것 (inquiry-admin.html 에서 확정할 때 resvPlate 저장)
 function reservationBadge(v){
   const today = todayStr();
+  // 대여가 시작된 뒤에는 현황판의 운행 정보(반납일자·연장)가 기준이라, 시작 전 예약만 표시
   const list = Object.values(schedules || {}).filter(s => s && s.resvStatus === 'confirmed' && s.resvPlate === v.plate
-    && ((s.resvEnd || s.resvStart || '') >= today || (!s.resvEnd && s.resvPeriod)))
+    && (s.resvStart || '') >= today)
     .sort((a, b) => String(a.resvStart).localeCompare(String(b.resvStart)));
   if(!list.length) return '';
   const md = d => { const p = String(d || '').split('-'); return p.length === 3 ? (+p[1]) + '/' + (+p[2]) : ''; };
