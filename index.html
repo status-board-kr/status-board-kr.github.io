@@ -3138,7 +3138,8 @@ function startMembersSync(){
   onValue(ref(db, P('members')), (snap)=>{
     _members = snap.exists() ? (snap.val() || {}) : {};
     if(_chatModalOpen) renderChatList();
-    if(_locModalOpen) renderLocList();
+    if(_locModalOpen){ renderLocList(); renderLocMarkers(); }
+    updateLocBadge();
   }, (err)=> console.warn('직원 목록 수신 실패:', err && err.code));
 }
 async function setMemberName(uid, currentName){
@@ -3279,6 +3280,7 @@ async function openPhoneSetup(force){
       { text: '② 알림 설정 열기', value: 'notification' },
       { text: '③ 배터리 설정 열기', value: 'battery' },
       { text: '🔔 알림 소리 시험하기', value: 'testnoti' },
+      { text: '📨 푸시 점검', value: 'pushcheck' },
       { text: '다 했어요', value: 'done' }
     ]});
   if(r === 'done' || r === null){
@@ -3286,6 +3288,7 @@ async function openPhoneSetup(force){
     return;
   }
   if(r === 'testnoti'){ await testNotification(); setTimeout(()=> openPhoneSetup(true), 4000); return; }
+  if(r === 'pushcheck'){ await checkPushStatus(); return; }
   const opened = openAndroidSettings(r);
   if(opened) setTimeout(()=> openPhoneSetup(true), 1500);   // 설정 다녀오면 다시 안내
   else setTimeout(()=> openPhoneSetup(true), 300);
@@ -3478,13 +3481,43 @@ async function requestChatPush(text){
     const idToken = await user.getIdToken();
     const payload = { companyId: window.COMPANY_ID, title: memberLabel(user.uid, user.email), body: String(text || '').slice(0, 100) };
     if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorHttp){
-      await window.Capacitor.Plugins.CapacitorHttp.request({ url: PUSH_FN_URL, method: 'POST',
+      const r = await window.Capacitor.Plugins.CapacitorHttp.request({ url: PUSH_FN_URL, method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + idToken },
         data: payload, connectTimeout: 8000, readTimeout: 8000 });
+      return { status: r.status, body: typeof r.data === 'string' ? r.data : JSON.stringify(r.data) };
     }else{
-      await fetch(PUSH_FN_URL, { method:'POST', headers: { 'Content-Type':'application/json', Authorization: 'Bearer ' + idToken }, body: JSON.stringify(payload) });
+      const r = await fetch(PUSH_FN_URL, { method:'POST', headers: { 'Content-Type':'application/json', Authorization: 'Bearer ' + idToken }, body: JSON.stringify(payload) });
+      return { status: r.status, body: await r.text() };
     }
-  }catch(e){ console.warn('푸시 요청 실패:', e); }
+  }catch(e){ console.warn('푸시 요청 실패:', e); return { status: 0, body: String((e && e.message) || e) }; }
+}
+// ── 푸시 점검 (폰 설정 도우미에서) ──
+// 콘솔을 뒤지지 않아도 되게, 앱이 직접 확인해서 결과를 한 화면에 보여줍니다.
+async function checkPushStatus(){
+  const lines = [];
+  const PN = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.PushNotifications;
+  if(!PN){ showToast('앱에서만 점검할 수 있어요'); return; }
+  try{
+    const st = await PN.checkPermissions();
+    lines.push('① 이 폰 알림 권한: ' + (st.receive === 'granted' ? '✅ 허용' : '❌ 꺼짐 → ② 알림 설정에서 켜주세요'));
+  }catch(e){ lines.push('① 이 폰 알림 권한: 확인 실패'); }
+  lines.push('② 이 폰 푸시 주소: ' + (_pushToken ? '✅ 받음' : '❌ 못 받음 (앱을 껐다 켜보세요)'));
+  lines.push('', '③ 직원별 푸시 주소');
+  Object.entries(_members || {}).forEach(([uid, m])=>{
+    lines.push(`  ${m && m.pushToken ? '✅' : '❌'} ${memberLabel(uid, m && m.email)}${m && m.pushAt ? ' (' + String(m.pushAt).slice(5, 10) + ')' : ''}`);
+  });
+  lines.push('  ❌인 직원은 그 폰에서 새 앱을 한 번 열어야 해요');
+  const r = await showAppDialog({ title: '📨 푸시 점검', message: lines.join('\n'),
+    buttons: [ { text: '서버로 시험 푸시 보내기', value: 'send', primary: true }, { text: '닫기', value: 'close' } ] });
+  if(r !== 'send') return;
+  showToast('서버에 요청 중...');
+  const res = await requestChatPush('🔔 푸시 시험이에요 (무시하셔도 돼요)');
+  const ok = res && res.status >= 200 && res.status < 300;
+  await showAppDialog({ title: ok ? '✅ 서버가 받았어요' : '❌ 서버 오류',
+    message: `응답 코드: ${res ? res.status : '없음'}\n응답 내용: ${res ? String(res.body || '').slice(0, 400) : ''}\n\n`
+      + (ok ? '다른 직원 폰(앱을 닫은 상태)에 알림이 왔는지 확인해주세요.\n안 왔다면 이 화면을 캡처해서 Claude에게 보여주세요.'
+            : '이 화면을 캡처해서 Claude에게 보여주세요.'),
+    buttons: [ { text: '확인', value: 'ok', primary: true } ] });
 }
 // ── 메신저 알림 ───────────────────────────────────────────────
 // 앱: 휴대폰 알림으로 / 브라우저: 알림 권한이 있으면 알림, 없으면 화면 안내로
@@ -4518,8 +4551,10 @@ function locActiveEntries(){
   // 10분 넘게 갱신이 없어도 목록에서 빼지 않고 '마지막 위치'로 표시합니다 (stale=true).
   const myUid = window.CURRENT_USER && window.CURRENT_USER.uid;
   const viewAll = canViewOthersLoc();
+  const hasMembers = _members && Object.keys(_members).length > 0;
   return Object.entries(_locations || {})
     .filter(([uid]) => viewAll || uid === myUid)
+    .filter(([uid]) => !hasMembers || _members[uid])   // 내보낸 직원의 마지막 위치는 안 보이게
     .filter(([uid, v]) => v && typeof v === 'object' && typeof v.lat === 'number' && typeof v.lng === 'number')
     .map(([uid, v]) => ({ uid, ...v, isMe: uid === myUid,
       stale: !(Date.now() - new Date(v.at).getTime() <= LOC_STALE_MS) }));
