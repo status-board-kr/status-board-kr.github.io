@@ -33,7 +33,7 @@ const C = 'c_test1';
 function baseData() {
   return { companies: { [C]: {
     profile: { name: '장성렌트' },
-    aiSettings: { key: 'sk-ant-test' },
+    aiSettings: { key: 'sk-ant-test-000000000000000000' },
     customerChat: { settings: { enabled: true, priceGuide: '카니발 하루 10만원' } },
     members: { u1: { role: 'owner', pushToken: 'tok1' }, u2: { role: 'staff' } },
     vehicles: [
@@ -177,4 +177,78 @@ test('생년월일이 이상하면 Claude에게 다시 확인하게 함', async 
   });
   assert.equal(seen[1].messages.at(-1).content[0].is_error, true);
   assert.equal(db.root.companies[C].customerChat.leads, undefined);
+});
+
+// ── Gemini 키 (사장님 현황판 AI 설정) ──
+const GEMINI_KEY = 'AQ.test-gemini-key-000000000000';
+function geminiData() { const d = baseData(); d.companies[C].aiSettings.key = GEMINI_KEY; d.companies[C].customerChat.settings.sheetUrl = SHEET; return d; }
+function fakeGemini(replies, calls) {
+  return async (url, opt) => {
+    if (url.startsWith('https://script.google.com/')) return { status: 200, json: async () => ({ success: true }) };
+    calls.push({ url, headers: opt.headers, body: JSON.parse(opt.body) });
+    const r = replies.shift();
+    return { status: r.status || 200, json: async () => r.data };
+  };
+}
+
+test('Gemini 키: 상담 신청 도구를 부르고 결과를 돌려준 뒤 답함 (바쁜 모델은 건너뜀)', async () => {
+  const db = fakeDb(geminiData()); const calls = [];
+  const reply = await answer({ c: C, sid: 's_gem1', text: '네 문자 받을게요' }, {
+    db, messaging: { sendEachForMulticast: async () => {} },
+    makeClient: () => { throw new Error('Claude를 부르면 안 됨'); },
+    fetchImpl: fakeGemini([
+      { status: 429, data: { error: { message: 'busy' } } },
+      { data: { candidates: [{ finishReason: 'STOP', content: { role: 'model', parts: [{ functionCall: { name: 'request_consult', args: consultInput }, thoughtSignature: 'sig1' }] } }] } },
+      { data: { candidates: [{ finishReason: 'STOP', content: { role: 'model', parts: [{ text: '상담 신청 접수했어요! 담당자가 연락드릴게요.' }] } }] } },
+    ], calls),
+  });
+  assert.equal(reply, '상담 신청 접수했어요! 담당자가 연락드릴게요.');
+  // 첫 모델이 바빠서 두 번째 모델로, 도구 결과 뒤에도 같은 모델로 이어감
+  assert.match(calls[0].url, /gemini-3\.1-flash-lite:generateContent$/);
+  assert.match(calls[1].url, /gemini-3\.5-flash-lite:generateContent$/);
+  assert.equal(calls[2].url, calls[1].url);
+  assert.equal(calls[1].headers['x-goog-api-key'], GEMINI_KEY);
+  // 안내문·도구가 같이 가고, 도구 정의는 Gemini 형식
+  const body = calls[1].body;
+  assert.match(body.systemInstruction.parts[0].text, /request_consult/);
+  const decl = body.tools[0].functionDeclarations.find(f => f.name === 'request_consult');
+  assert.equal(decl.parameters.type, 'OBJECT');
+  assert.equal(decl.parameters.properties.agreeMarketing.type, 'BOOLEAN');
+  assert.equal(decl.parameters.additionalProperties, undefined);
+  // 두 번째 호출: 모델 답(서명 포함)을 그대로 + 도구 결과
+  const c2 = calls[2].body.contents;
+  assert.equal(c2.at(-2).parts[0].thoughtSignature, 'sig1');
+  assert.equal(c2.at(-1).parts[0].functionResponse.name, 'request_consult');
+  assert.match(c2.at(-1).parts[0].functionResponse.response.result, /접수/);
+  const lead = Object.values(db.root.companies[C].customerChat.leads)[0];
+  assert.equal(lead.type, 'consult');
+  assert.equal(lead.sheet, 'saved');
+  assert.deepEqual(db.root.companies[C].customerChat.sessions.s_gem1.messages.map(m => m.role), ['user', 'assistant']);
+});
+
+test('Gemini 키: 이전 대화는 user/model 로 이어 붙임', async () => {
+  const d = geminiData();
+  d.companies[C].customerChat.sessions = { s_gem2: { messages: [{ role: 'user', text: '카니발 돼요?' }, { role: 'assistant', text: '언제 필요하세요?' }] } };
+  const db = fakeDb(d); const calls = [];
+  await answer({ c: C, sid: 's_gem2', text: '토요일이요' }, {
+    db, messaging: { sendEachForMulticast: async () => {} },
+    fetchImpl: fakeGemini([{ data: { candidates: [{ content: { parts: [{ text: '토요일 가능해요.' }] } }] } }], calls),
+  });
+  assert.deepEqual(calls[0].body.contents.map(x => [x.role, x.parts[0].text]),
+    [['user', '카니발 돼요?'], ['model', '언제 필요하세요?'], ['user', '토요일이요']]);
+});
+
+test('Gemini 키: 모든 모델이 실패하면 고객에게 잠시 후 다시 안내', async () => {
+  const db = fakeDb(geminiData()); const calls = [];
+  await assert.rejects(answer({ c: C, sid: 's_gem3', text: '안녕' }, {
+    db, messaging: {},
+    fetchImpl: fakeGemini(Array(5).fill({ status: 503, data: { error: { message: 'overloaded' } } }), calls),
+  }), e => e instanceof ChatError && e.status === 502);
+  assert.equal(calls.length, 5);
+});
+
+test('AI 키가 없으면 준비 중 안내', async () => {
+  const d = baseData(); delete d.companies[C].aiSettings;
+  await assert.rejects(answer({ c: C, sid: 's_gem4', text: '안녕' }, { db: fakeDb(d), messaging: {} }),
+    e => e instanceof ChatError && e.status === 503);
 });

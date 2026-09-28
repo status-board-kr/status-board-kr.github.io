@@ -3,28 +3,27 @@
  *
  *  1. 업체가 고객 응대를 켜뒀는지 확인 (companies/{id}/customerChat/settings/enabled)
  *  2. 현황판 차량 데이터를 "차종별 가능 대수" 요약으로 바꿈 (차량번호·고객정보·금액 제외)
- *  3. Claude가 요약 + 가격 안내를 보고 답변
+ *  3. AI(업체 키 종류에 따라 Gemini 또는 Claude)가 요약 + 가격 안내를 보고 답변 (models.js)
  *  4. 상담 요청 → customerChat/leads 저장 + 직원 알림
  *     예약 요청 → customerChat/leads 저장 + 현황판 일정(schedules)에 "예약요청" 등록 + 직원 알림 + 고객 명단 시트
  *     상담 신청 → 신청서 대신 대화로 받아 leads + 일정 "상담신청" + 직원 알림 + 고객 명단 시트
  *  5. 대화는 customerChat/sessions/{대화방ID} 에 저장 → inquiry-admin.html 에서 확인
  *
  * 직원 알림 = 현황판 직원 채팅에 시스템 메시지 + 직원 폰(앱)으로 푸시.
- * Claude 키는 현황판 "🤖 AI 설정"에 넣은 업체 공용 Claude 키(aiSettings)를 그대로 씁니다.
+ * AI 키는 현황판 "🤖 AI 설정"에 넣은 업체 공용 키(aiSettings)를 그대로 씁니다. Gemini 키·Claude 키 모두 가능.
  */
 import { logger } from 'firebase-functions';
 import { getDatabase } from 'firebase-admin/database';
 import { getMessaging } from 'firebase-admin/messaging';
 import Anthropic from '@anthropic-ai/sdk';
+import { runModel, aiProvider } from './models.js';
 import {
-  MAX_TEXT, MAX_TURNS, DEFAULT_DAILY_LIMIT, TOOLS,
+  MAX_TEXT, MAX_TURNS, DEFAULT_DAILY_LIMIT,
   isValidId, summarizeFleet, buildSystemPrompt, validPhone, validDate, validTime, todayKST,
   bookingSchedule, staffAlertText, upcomingReservations,
   consultSchedule, consultAlertText, validBirthdate, validSheetUrl, sheetRow,
 } from './chat-core.js';
 
-// 현황판 index.html 의 CLAUDE_MODEL 과 같은 모델
-const MODEL = 'claude-sonnet-5';
 const LONG_TERM_BRANCH = '장기'; // index.html APP_CONFIG.longTermBranch 와 같게
 const NOTI_CHANNEL = 'fleet_alerts_v2'; // index.html NOTI_CHANNEL 과 같게 (안드로이드 알림 채널)
 
@@ -93,8 +92,8 @@ export async function answer({ c, sid, text, channel = 'web' }, deps = {}) {
   const settings = settingsSnap.val() || {};
   if (!settings.enabled) throw new ChatError(403, '지금은 채팅 상담을 운영하지 않아요. 전화로 문의해주세요.');
   const apiKey = aiSnap.val();
-  if (typeof apiKey !== 'string' || !apiKey.startsWith('sk-ant-')) {
-    logger.warn('Claude 키 없음', { c });
+  if (!aiProvider(apiKey)) {
+    logger.warn('AI 키 없음', { c });
     throw new ChatError(503, '상담 준비 중이에요. 잠시 후 다시 시도해주세요.');
   }
 
@@ -183,38 +182,11 @@ export async function answer({ c, sid, text, channel = 'web' }, deps = {}) {
     return { error: '알 수 없는 도구예요.' };
   }
 
-  const client = makeClient(apiKey);
-  const messages = [
-    ...history.map(m => ({ role: m.role, content: m.text })),
-    { role: 'user', content: msg },
-  ];
   let reply = '';
   try {
-    // 도구 호출이 있으면 결과를 돌려주고 한 번 더 (최대 3회)
-    for (let i = 0; i < 3; i++) {
-      const response = await client.messages.create({
-        model: MODEL,
-        max_tokens: 4000,
-        output_config: { effort: 'low' },
-        system,
-        tools: TOOLS,
-        messages,
-      });
-      if (response.stop_reason === 'refusal') { reply = '죄송해요, 그 문의는 도와드리기 어려워요.'; break; }
-      const out = response.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
-      const calls = response.content.filter(b => b.type === 'tool_use');
-      if (response.stop_reason !== 'tool_use' || !calls.length) { reply = out; break; }
-
-      messages.push({ role: 'assistant', content: response.content });
-      const results = [];
-      for (const call of calls) {
-        const r = await runTool(call.name, call.input || {});
-        results.push({ type: 'tool_result', tool_use_id: call.id, content: r.ok || r.error, ...(r.error ? { is_error: true } : {}) });
-      }
-      messages.push({ role: 'user', content: results });
-    }
+    reply = await runModel({ key: apiKey.trim(), system, history, msg, runTool, makeClient, fetchImpl });
   } catch (e) {
-    logger.error('Claude 호출 실패', { c, status: e?.status, message: e?.message });
+    logger.error('AI 호출 실패', { c, provider: aiProvider(apiKey), status: e?.status, message: e?.message });
     throw new ChatError(502, '답변을 만드는 중 문제가 생겼어요. 잠시 후 다시 시도해주세요.');
   }
   if (!reply) reply = leads.length ? '접수했어요. 담당자가 곧 연락드릴게요!' : '죄송해요, 다시 한 번 말씀해주시겠어요?';

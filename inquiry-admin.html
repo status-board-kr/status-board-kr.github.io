@@ -153,9 +153,11 @@
 
     onValue(ref(db, P('aiSettings')), snap=>{
       const key = snap.exists() ? snap.val().key : '';
-      $('aiStatus').innerHTML = /^sk-ant-/.test(key || '')
-        ? '<span class="ok">✓ Claude 키가 연결돼 있어요 (현황판 🤖 AI 설정)</span>'
-        : '<span class="bad">⚠ 현황판의 "🤖 AI 설정"에 Claude 키(sk-ant-로 시작)를 넣어야 채팅이 답변해요.</span>';
+      // functions/models.js aiProvider 와 같은 규칙: sk-ant- 로 시작하면 Claude, 그 밖의 키는 Gemini
+      const k = typeof key === 'string' ? key.trim() : '';
+      $('aiStatus').innerHTML = k.length >= 20
+        ? `<span class="ok">✓ AI 키가 연결돼 있어요 (${/^sk-ant-/.test(k) ? 'Claude' : 'Gemini'}, 현황판 🤖 AI 설정)</span>`
+        : '<span class="bad">⚠ 현황판의 "🤖 AI 설정"에 Gemini 키(또는 Claude 키)를 넣어야 채팅이 답변해요.</span>';
     }, ()=>{});
 
     get(ref(db, P('customerChat/settings'))).then(snap=>{
