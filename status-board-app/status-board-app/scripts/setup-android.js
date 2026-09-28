@@ -103,6 +103,31 @@ if (fs.existsSync(gradlePath)) {
   }
 }
 
+// 위치 추적 부품이 GPS를 1초마다·최고 정확도로 켜두도록 고정돼 있어 배터리를 많이 먹습니다.
+// 1분마다(최소 30초 간격), 절전 모드(와이파이·기지국 위주)로 바꿉니다.
+const bgSvc = path.join(__dirname, '..', 'node_modules', '@capacitor-community', 'background-geolocation',
+  'android', 'src', 'main', 'java', 'com', 'equimaps', 'capacitor_background_geolocation', 'BackgroundGeolocationService.java');
+if (fs.existsSync(bgSvc)) {
+  let b = fs.readFileSync(bgSvc, 'utf8');
+  if (b.includes('setInterval(60000)')) {
+    console.log('location battery patch already applied');
+  } else {
+    const before = b;
+    b = b.replace('locationRequest.setMaxWaitTime(1000);', 'locationRequest.setMaxWaitTime(60000);')
+         .replace('locationRequest.setInterval(1000);', 'locationRequest.setInterval(60000);\n            locationRequest.setFastestInterval(30000);')
+         .replace('LocationRequest.PRIORITY_HIGH_ACCURACY', 'LocationRequest.PRIORITY_BALANCED_POWER_ACCURACY');
+    if (b === before || !b.includes('setInterval(60000)') || !b.includes('PRIORITY_BALANCED_POWER_ACCURACY')) {
+      console.error('위치 배터리 설정을 바꾸지 못했습니다 (위치 부품 코드가 바뀜). setup-android.js를 확인하세요.');
+      process.exit(1);
+    }
+    fs.writeFileSync(bgSvc, b);
+    console.log('location battery patch applied (60s, balanced)');
+  }
+} else {
+  console.error('위치 부품 파일이 없습니다: ' + bgSvc);
+  process.exit(1);
+}
+
 const javaRoot = path.join(res, 'java');
 function findMain(dir){ for(const f of fs.readdirSync(dir,{withFileTypes:true})){ const p2=path.join(dir,f.name);
   if(f.isDirectory()){ const r=findMain(p2); if(r) return r; } else if(f.name==='MainActivity.java') return p2; } return null; }
