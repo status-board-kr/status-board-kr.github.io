@@ -349,7 +349,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
 #docsToast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 
 /* ── 휴대폰·태블릿 ── */
-@media (max-width: 900px) {
+@media screen and (max-width: 900px) {
   /* 화면 높이에 가둬서 입력칸과 미리보기가 겹치던 것 → 위에서 아래로 자연스럽게 스크롤 */
   #adminScreen { height:auto; min-height:100vh; overflow:visible; }
   .top-bar { position:sticky; top:0; z-index:20; }
@@ -377,13 +377,20 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
   .doc-fit { overflow:hidden; }
   .doc-fit > .doc-wrap { transform-origin:top left; margin:0; }
 }
-@media (max-width: 600px) {
+@media screen and (max-width: 600px) {
   .top-bar { height:46px; }
   .top-bar h1 { font-size:15px; }
   .home-btn { padding:6px 9px; }
   .top-bar .tbadge { display:none; }
   .login-box { padding:28px 20px; }
   .login-box input { font-size:16px !important; }
+}
+
+/* 인쇄할 땐 문서만 (휴대폰용 화면 설정·알림·편집 표시는 빼고) */
+@media print {
+  #docsToast, .edit-banner, .to-contract-btn, .saved-tab, .home-btn { display:none !important; }
+  .doc-fit { height:auto !important; overflow:visible !important; }
+  .doc-fit > .doc-wrap, .doc-wrap { transform:none !important; width:auto !important; }
 }
 
 </style>
@@ -1821,7 +1828,7 @@ function genSimple() {
   var carnum  = g("s_carnum").trim();
   var type    = g("s_type") || "단기대여";
   var unit    = (document.getElementById("s_unit") || {}).value || "day";
-  var priceLabel = unit === "hour" ? "일 렌트료 (24시간)" : "일 렌트료";
+  var priceLabel = unit === "hour" ? "시간 렌트료" : "일 렌트료";
   var docTitle = type === "사고대차" ? "사고대차 견적서" : type === "장기대여" ? "장기렌트 견적서" : "일반렌트 견적서";
   var period  = g("s_period").trim();
   var price   = g("s_price").trim();
