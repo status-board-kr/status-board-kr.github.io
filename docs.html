@@ -458,6 +458,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
             <input type="text" id="s_birth" placeholder="19900101" maxlength="8" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'')"/>
             <input type="text" id="s_biznum" placeholder="사업자등록번호 000-00-00000" maxlength="12" style="display:none;" oninput="fmtBizNum(this)"/>
             <input type="text" id="s_corpnum" placeholder="법인등록번호 000000-0000000 (선택)" maxlength="14" inputmode="numeric" style="display:none;margin-top:6px;" oninput="fmtRRN(this)"/>
+            <input type="text" id="s_ceo" placeholder="대표자 이름 (선택)" maxlength="20" style="display:none;margin-top:6px;"/>
           </div>
           <div class="afield"><label>견적일자</label><input type="date" id="s_date"/></div>
           <div class="afield" style="grid-column:1/-1;"><label>주소</label><input type="text" id="s_addr" placeholder="주소를 입력하세요"/></div>
@@ -570,6 +571,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
             <input type="text" id="st_birth" placeholder="19900101" maxlength="8" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'')"/>
             <input type="text" id="st_biznum" placeholder="사업자등록번호 000-00-00000" maxlength="12" style="display:none;" oninput="fmtBizNum(this)"/>
             <input type="text" id="st_corpnum" placeholder="법인등록번호 000000-0000000 (선택)" maxlength="14" inputmode="numeric" style="display:none;margin-top:6px;" oninput="fmtRRN(this)"/>
+            <input type="text" id="st_ceo" placeholder="대표자 이름 (선택)" maxlength="20" style="display:none;margin-top:6px;"/>
           </div>
           <div class="afield"><label>발행일자</label><input type="date" id="st_date"/></div>
           <div class="afield" style="grid-column:1/-1;"><label>주소</label><input type="text" id="st_addr" placeholder="주소를 입력하세요"/></div>
@@ -656,6 +658,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
             <input type="text" id="q_birth" placeholder="19900101" maxlength="8" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'')"/>
             <input type="text" id="q_biznum" placeholder="사업자등록번호 000-00-00000" maxlength="12" style="display:none;" oninput="fmtBizNum(this)"/>
             <input type="text" id="q_corpnum" placeholder="법인등록번호 000000-0000000 (선택)" maxlength="14" inputmode="numeric" style="display:none;margin-top:6px;" oninput="fmtRRN(this)"/>
+            <input type="text" id="q_ceo" placeholder="대표자 이름 (선택)" maxlength="20" style="display:none;margin-top:6px;"/>
           </div>
           <div class="afield"><label>견적일자</label><input type="date" id="q_date"/></div>
           <div class="afield" style="grid-column:1/-1;"><label>주소</label><input type="text" id="q_addr" placeholder="주소를 입력하세요"/></div>
@@ -822,6 +825,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
             <input type="text" id="c_birth" placeholder="000000-0000000" maxlength="14" inputmode="numeric" oninput="fmtRRN(this)"/>
             <input type="text" id="c_biznum" placeholder="사업자등록번호 000-00-00000" maxlength="12" style="display:none;" oninput="fmtBizNum(this)"/>
             <input type="text" id="c_corpnum" placeholder="법인등록번호 000000-0000000 (선택)" maxlength="14" inputmode="numeric" style="display:none;margin-top:6px;" oninput="fmtRRN(this)"/>
+            <input type="text" id="c_ceo" placeholder="대표자 이름 (선택)" maxlength="20" style="display:none;margin-top:6px;"/>
           </div>
           <div class="afield" style="grid-column:1/-1;">
             <label>주소</label>
@@ -993,6 +997,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
             <input type="text" id="r_birth" placeholder="19900101" maxlength="8" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'')"/>
             <input type="text" id="r_biznum" placeholder="사업자등록번호 000-00-00000" maxlength="12" style="display:none;" oninput="fmtBizNum(this)"/>
             <input type="text" id="r_corpnum" placeholder="법인등록번호 000000-0000000 (선택)" maxlength="14" inputmode="numeric" style="display:none;margin-top:6px;" oninput="fmtRRN(this)"/>
+            <input type="text" id="r_ceo" placeholder="대표자 이름 (선택)" maxlength="20" style="display:none;margin-top:6px;"/>
           </div>
           <div class="afield"><label>발행일자</label><input type="date" id="r_date"/></div>
           <div class="afield" style="grid-column:1/-1;"><label>주소 <span style="color:var(--soft);font-size:10px;">(선택)</span></label><input type="text" id="r_addr" placeholder="주소를 입력하세요"/></div>
@@ -2273,7 +2278,7 @@ function genReceipt() {
   var priceNum = Number(price.replace(/[^0-9]/g,""));
   var korAmt   = numToKor(priceNum);
 
-  var rTH = "padding:10px 14px;font-size:15px;font-weight:700;color:#475569;background:#f8fafc;border-bottom:1px solid #f1f5f9;vertical-align:middle;width:130px;";
+  var rTH = "padding:10px 14px;font-size:15px;font-weight:700;color:#475569;background:#f8fafc;border-bottom:1px solid #f1f5f9;vertical-align:middle;width:130px;text-align:left;";
   var rTD = "padding:10px 14px;font-size:15px;color:#1a1a1a;border-bottom:1px solid #f1f5f9;vertical-align:middle;";
 
   // 헤더
@@ -2435,6 +2440,7 @@ var _curDocId = {};          // 탭별로 지금 고치고 있는 저장 문서 
 var _savedDocs = {};         // 저장된 문서 전체 (실시간)
 var _savedFilter = "all";
 var _silentGen = false;      // 불러와서 미리보기만 다시 그릴 때는 저장 안 함
+var _genOriginals = {};      // 문서 만들 때 잠깐 모양만 바꾼 칸의 원래 값 (저장은 원래 값으로)
 
 function docsToast(msg) {
   var t = document.getElementById("docsToast");
@@ -2477,7 +2483,7 @@ function collectForm(tab) {
   var fields = {}, radios = {};
   box.querySelectorAll("input[id], select[id], textarea[id]").forEach(function (el) {
     if (el.type === "radio" || isDynamicId(el.id)) return;
-    fields[el.id] = el.type === "checkbox" ? !!el.checked : el.value;
+    fields[el.id] = el.type === "checkbox" ? !!el.checked : (el.id in _genOriginals ? _genOriginals[el.id] : el.value);
   });
   box.querySelectorAll("input[type=radio]:checked").forEach(function (el) { if (el.name) radios[el.name] = el.value; });
   var rec = { fields: fields, radios: radios };
@@ -2549,9 +2555,16 @@ function docSummary(tab, rec) {
     amount: v("total") || v("price"), date: v("date") || v("start")
   };
 }
-async function saveCurrentDoc(tab) {
+var _savePending = {};       // 탭별로 저장이 끝나기 전에 또 누르면 앞 저장이 끝난 뒤 같은 문서에 덮어씀 (중복 저장 방지)
+function saveCurrentDoc(tab) {
   if (!window.DOCS_DB) return;
   var rec = collectForm(tab);
+  var prev = _savePending[tab] || Promise.resolve();
+  var job = prev.then(function () { return saveCurrentDocNow(tab, rec); });
+  _savePending[tab] = job.catch(function () {});
+  return job;
+}
+async function saveCurrentDocNow(tab, rec) {
   var sum = docSummary(tab, rec);
   var data = Object.assign({ type: tab }, sum, rec, { updatedAt: new Date().toISOString() });
   try {
@@ -2788,6 +2801,8 @@ function showIdFields(prefix, isBiz) {
   if (b) b.style.display = isBiz ? "none" : "";
   if (z) z.style.display = isBiz ? "" : "none";
   if (c) c.style.display = isBiz ? "" : "none";
+  var ceo = document.getElementById(prefix + "_ceo");
+  if (ceo) ceo.style.display = isBiz ? "" : "none";
   // 바꾼 쪽 칸만 비움 (예전엔 반대쪽 값을 지웠는데, 되돌아가면 다시 입력해야 해서 그대로 둠 — 문서엔 선택한 것만 나감)
 }
 // 문서에 넣을 사업자·법인번호 (법인등록번호는 주민번호 가림에 안 걸리게 특수 하이픈 사용)
@@ -2847,7 +2862,21 @@ Object.keys(DOC_TABS).forEach(function (tab) {
       var msgs = checkTab(tab);
       if (msgs.length && !confirm("확인해주세요:\n- " + msgs.join("\n- ") + "\n\n그래도 만들까요?")) return;
     }
-    return orig.apply(this, arguments);
+    var p = DOC_TABS[tab].prefix, temp = {};
+    var typeName = tab === "contract" ? "c_id_type" : p + "_birth_type";
+    var r = document.querySelector("input[name='" + typeName + "']:checked");
+    var isBiz = r && r.value === "biz";
+    var nameEl = document.getElementById(p + "_name"), ceoEl = document.getElementById(p + "_ceo");
+    // 법인: 상호 옆에 (대표 이름)
+    if (isBiz && nameEl && ceoEl && ceoEl.value.trim() && nameEl.value.trim()) temp[nameEl.id] = nameEl.value.trim() + " (대표 " + ceoEl.value.trim() + ")";
+    // 개인: 생년월일 19850505 → 1985.05.05 (계약서는 주민번호라 그대로)
+    var bEl = document.getElementById(p + "_birth");
+    if (!isBiz && tab !== "contract" && bEl && /^\d{8}$/.test(bEl.value.trim())) { var v = bEl.value.trim(); temp[bEl.id] = v.slice(0, 4) + "." + v.slice(4, 6) + "." + v.slice(6); }
+    Object.keys(temp).forEach(function (id) { var el = document.getElementById(id); _genOriginals[id] = el.value; el.value = temp[id]; });
+    try { return orig.apply(this, arguments); }
+    finally {
+      Object.keys(temp).forEach(function (id) { document.getElementById(id).value = _genOriginals[id]; delete _genOriginals[id]; });
+    }
   };
 });
 
