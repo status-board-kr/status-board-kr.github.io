@@ -678,6 +678,7 @@
     <button class="link-btn" id="quickAppBtn" style="color:#fbbf24;border:1px solid rgba(251,191,36,.5);" onclick="openQuickApp()" oncontextmenu="if(window.COMPANY_ROLE==='owner'){event.preventDefault();setupQuickApp();}">⭐ 자주 쓰는 앱</button>
     <button class="link-btn" style="color:var(--purple);border:1px solid rgba(167,139,250,.5);" onclick="openSchedModal()">📅 일정</button>
     <a class="link-btn" style="color:var(--amber);border:1px solid rgba(245,166,35,.5);" href="payment.html">💳 결제일 알림</a>
+    <a class="link-btn" id="docsBtn" style="display:none;color:#38bdf8;border:1px solid rgba(56,189,248,.5);" href="docs.html">📄 견적·계약서</a>
   </div>
   <div class="stats" id="statsRow"></div>
   <div class="sched-banner" id="schedBanner"></div>
@@ -5560,6 +5561,9 @@ async function startApp(){
   // 🕒 변경기록(되돌리기)은 관리자에게만 보여줌
   const hb = document.getElementById('historyBtn');
   if(hb) hb.style.display = (window.COMPANY_ROLE === 'owner') ? '' : 'none';
+  // 📄 견적·계약서(docs.html)도 관리자에게만
+  const db2 = document.getElementById('docsBtn');
+  if(db2) db2.style.display = (window.COMPANY_ROLE === 'owner') ? '' : 'none';
   const ok = await loadData();
   if(!ok) return; // 권한 없는 계정 - loadData 안에서 이미 로그아웃 처리됨
   render();
