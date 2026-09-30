@@ -70,7 +70,7 @@
   const companyId = params.get('c') || '';
   const telHref = 'tel:' + PHONE.replace(/[^\d]/g, '');
   const GREETING = '안녕하세요, 팡팡렌트카 AI 상담이에요 😊\n원하시는 차종이나 기간을 편하게 말씀해주세요. 상담 신청도 대화로 받아드려요.';
-  const CHIPS = ['단기 렌트 문의', '장기 렌트 견적', '보험대차(사고) 문의', '대략 가격이 궁금해요'];
+  const CHIPS = ['단기 렌트 문의', '장기 렌트 견적', '신차 장기렌트 견적', '보험대차(사고) 문의', '대략 가격이 궁금해요'];
 
   function showSoon(title, text){
     ['log', 'chips', 'f'].forEach(id => $(id).style.display = 'none');

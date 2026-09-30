@@ -64,7 +64,16 @@ function systemPrompt(companyName, phone){
     '- 계약 확정, 할인 약속, 보험 처리 확답은 하지 마세요. 모르는 건 담당자 연결로 안내하세요.',
     '- 렌터카와 상관없는 요청(코딩, 숙제 등)은 정중히 거절하고 렌트 상담으로 돌아오세요.',
     '',
-    '[대략 가격 (만원)] 경형 캐스퍼 월40~/일4~, 소형 아반떼·베뉴 월50~/일5~, 중형 쏘나타 월60~/일6~, 소형 SUV 투싼·스포티지 월60~/일6~. 그 외 차종(카니발, 그랜저, 수입차 등)은 상담 후 안내.',
+    '[대략 가격 (만원, 자차 미포함)] 경형 캐스퍼 월40~/일4~, 소형 아반떼·베뉴 월50~/일5~, 중형 쏘나타 월60~/일6~, 소형 SUV 투싼·스포티지 월60~/일6~. 그 외 차종(카니발, 그랜저, 수입차 등)은 상담 후 안내.',
+    '가격을 말할 때는 꼭 "자차(자기차량손해) 미포함 기준이고, 연식·옵션에 따라 금액이 달라요"라고 함께 말하세요. 정확한 금액은 담당자가 안내한다고 하세요.',
+    '',
+    '[신차 장기렌트]',
+    '고객이 신차 장기렌트를 원하면 원하는 차종·트림, 차량 가격(옵션 포함, 대략이라도), 기간(12·24·36·48·60개월), 운전자 나이(만 21세 이상인지 26세 이상인지), 원하는 보증금 비율을 하나씩 물어보세요.',
+    '차량 가격과 기간을 알게 되면 답의 맨 끝에 아래 한 줄을 붙이세요 (고객에게는 안 보이고, 서버가 예상 월 렌트료를 계산해서 붙여 보여줍니다):',
+    '<<NEWCAR {"price":48000000,"months":60,"age":26,"deposit":0}>>',
+    'price는 원 단위 숫자, age는 21 또는 26(모르면 26), deposit은 고객이 말한 보증금 %(없으면 0). 월 렌트료 숫자는 절대 직접 계산하거나 지어내지 마세요.',
+    '차량 가격을 모르면 "차량 가격을 알려주시면 예상 금액을 바로 계산해드릴게요, 모르시면 담당자가 확인해드려요"라고 하세요.',
+    '예상 금액을 보여준 뒤 상담 신청을 받으면 memo에 "신차 · 차량가 ○○ · ○○개월 · 예상 월 ○○원"을 넣으세요.',
     '',
     '[상담 신청 받기]',
     '고객이 상담·예약을 원하면 대화로 아래를 자연스럽게 하나씩 물어보세요. 모르는 건 건너뛰어도 괜찮다고 해주세요.',
@@ -147,6 +156,42 @@ function extractInquiry(text){
   }catch(e){ return { reply, inquiry: null }; }
 }
 
+// ── 신차 장기렌트 예상 금액 (현황판 문서 발행 → 신차 렌트 견적서의 ⚙️ 계산 기준과 같은 계산) ──
+// 원가 = 내 할부금(할부 금리·기간·내 선수금) + (내 선수금 + 취등록세 + 등록 부대비용) ÷ 계약기간 + 보험료 + 지입료 + 기타
+// 월 렌트료 = 원가 + 마진 − 고객 보증금 × 월 금리 (+21세 추가), 천원 단위 반올림
+const NEWCAR_RATES_DEFAULT = { rate: 6, months: 60, down: 0, acq: 4, reg: 0, ins: 100000, fee: 50000, etc: 0, margin: 50000, age21: 30000, d2: 10, d3: 30 };
+function extractNewcar(text){
+  const m = String(text).match(/<<NEWCAR\s*(\{[\s\S]*?\})\s*>>/);
+  const reply = String(text).replace(/<<NEWCAR[\s\S]*?>>/g, '').trim();
+  if(!m) return { reply, req: null };
+  try{
+    const j = JSON.parse(m[1]);
+    const price = Math.round(Number(String(j.price).replace(/[^0-9.]/g, '')));
+    const months = Number(j.months);
+    const age = Number(j.age) === 21 ? 21 : 26;
+    const deposit = Math.max(0, Math.min(50, Number(j.deposit) || 0));
+    if(!(price >= 5000000 && price <= 300000000) || [12, 24, 36, 48, 60].indexOf(months) < 0) return { reply, req: null };
+    return { reply, req: { price, months, age, deposit } };
+  }catch(e){ return { reply, req: null }; }
+}
+function newcarMonthly(R, price, months, age, depositPct){
+  const r = (Number(R.rate) || 0) / 100 / 12, H = Number(R.months) || 60;
+  const P = price * (1 - (Number(R.down) || 0) / 100);
+  const inst = r ? P * r / (1 - Math.pow(1 + r, -H)) : P / H;
+  const upfront = price * ((Number(R.down) || 0) + (Number(R.acq) || 0)) / 100 + (Number(R.reg) || 0);
+  const cost = inst + upfront / months + (Number(R.ins) || 0) + (Number(R.fee) || 0) + (Number(R.etc) || 0)
+    - price * depositPct / 100 * r + (age === 21 ? (Number(R.age21) || 0) : 0);
+  return Math.max(0, Math.round((Math.max(0, cost) + (Number(R.margin) || 0)) / 1000) * 1000);
+}
+function newcarEstimateText(R, q){
+  const won = n => Math.round(n).toLocaleString('ko-KR') + '원';
+  const man = n => (n % 10000 === 0 ? (n / 10000).toLocaleString('ko-KR') + '만원' : won(n));
+  const pcts = [0, Number(R.d2) || 0, Number(R.d3) || 0, q.deposit].filter((v, i, a) => i === 0 || (v > 0 && a.indexOf(v) === i)).sort((a, b) => a - b).slice(0, 4);
+  const lines = pcts.map(d => '· ' + (d ? '보증금 ' + d + '%(' + man(Math.round(q.price * d / 100)) + ')' : '보증금 없음') + ': 월 ' + won(newcarMonthly(R, q.price, q.months, q.age, d)));
+  return '📋 신차 장기렌트 예상 월 렌트료\n차량 가격 ' + man(q.price) + ' · ' + q.months + '개월 · 만 ' + q.age + '세 이상\n' + lines.join('\n')
+    + '\n(부가세·보험 포함 예상 금액이에요. 보증금은 계약이 끝나면 돌려드려요. 정확한 견적은 담당자가 안내드려요)';
+}
+
 // ── 상담 신청 저장 + 직원 메신저 + 푸시 ──
 async function saveInquiry(companyId, sessionId, inquiry, messages){
   const base = db().ref('companies/' + companyId);
@@ -223,7 +268,14 @@ async function handle(req, res){
     const phone = String(prof.phone || '010-5145-8990').slice(0, 20);
 
     const raw = await callAi(keys, systemPrompt(companyName, phone), messages);
-    const { reply, inquiry } = extractInquiry(raw);
+    const nc = extractNewcar(raw);
+    let { reply, inquiry } = extractInquiry(nc.reply);
+    if(nc.req){
+      const saved = (await db().ref('companyDocs/' + companyId + '/_newcarRates').once('value')).val() || {};
+      const R = Object.assign({}, NEWCAR_RATES_DEFAULT);
+      Object.keys(NEWCAR_RATES_DEFAULT).forEach(k => { if(saved[k] != null && isFinite(Number(saved[k]))) R[k] = Number(saved[k]); });
+      reply = (reply ? reply + '\n\n' : '') + newcarEstimateText(R, nc.req);
+    }
     let submitted = false;
     if(inquiry) submitted = await saveInquiry(companyId, sessionId, inquiry, messages.concat([{ role: 'assistant', text: reply }]));
     return res.json({ reply: reply || '잠시만요, 다시 한 번 말씀해주시겠어요?', submitted: !!inquiry, firstSubmit: submitted });
@@ -234,4 +286,4 @@ async function handle(req, res){
 }
 
 functions.http('aiconsult', handle);
-module.exports = { handle, extractInquiry, systemPrompt, deps, _hits };
+module.exports = { handle, extractInquiry, extractNewcar, newcarMonthly, newcarEstimateText, NEWCAR_RATES_DEFAULT, systemPrompt, deps, _hits };
