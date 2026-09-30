@@ -412,6 +412,8 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
 .nc-manual { font-size:11.5px; color:var(--sun); margin-top:4px; }
 .nc-manual:empty { display:none; }
 .nc-manual a { color:var(--sky); }
+.nc-cost { color:var(--soft); }
+.nc-warn { color:var(--coral); font-weight:700; }
 
 </style>
 </head>
@@ -863,7 +865,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
           <div class="afield"><label>연료</label><select id="n_fuel"><option value="">선택</option><option>가솔린</option><option>디젤</option><option>LPG</option><option>하이브리드</option><option>전기</option><option>수소</option></select></div>
           <div class="afield"><label>외장 색상</label><input type="text" id="n_color" placeholder="어비스 블랙 펄"/></div>
           <div class="afield"><label>내장 색상</label><input type="text" id="n_incolor" placeholder="블랙"/></div>
-          <div class="afield"><label>차량 가격 (옵션 포함, 원)</label><input type="text" id="n_carprice" placeholder="45,000,000" inputmode="numeric" oninput="fmtMon(this);calcNewcar()"/></div>
+          <div class="afield"><label>차량 가격 * (옵션 포함, 원)</label><input type="text" id="n_carprice" placeholder="45,000,000 — 넣으면 월 렌트료 자동 계산" inputmode="numeric" oninput="fmtMon(this);calcNewcar()"/></div>
           <div class="afield"><label>출고 예정</label><input type="text" id="n_eta" placeholder="계약 후 약 1개월"/></div>
           <div class="afield" style="grid-column:1/-1;"><label>선택 옵션</label><textarea id="n_options" placeholder="파노라마 선루프, 빌트인 캠 …"></textarea></div>
         </div>
@@ -874,14 +876,17 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
         <details class="nc-rates" id="nc-rates">
           <summary>⚙️ 계산 기준 <span id="nc-rates-sum"></span></summary>
           <div class="nc-rates-body">
-            <div class="nc-rates-note">월 렌트료 = 차량 가격 × 기간 요율 − 보증금 할인 − 선납금 ÷ 개월 + 21세 추가 (천원 단위 반올림)</div>
+            <div class="nc-rates-note">원가 = 내 할부금 + 내 선수금 ÷ 계약기간 + 보험료 + 지입료 + 기타<br>월 렌트료 = 원가 + <b>마진</b> − 고객 보증금 이자 − 고객 선납금 ÷ 계약기간 (+21세 추가) · 천원 단위 반올림<br>→ 마진을 0으로 하면 딱 원가, 그 밑으로 받으면 손해예요.</div>
             <div class="form-grid">
-              <div class="afield"><label>12개월 요율 (%)</label><input type="text" id="nr_12" inputmode="decimal" oninput="ncRateInput(this)"/></div>
-              <div class="afield"><label>24개월 요율 (%)</label><input type="text" id="nr_24" inputmode="decimal" oninput="ncRateInput(this)"/></div>
-              <div class="afield"><label>36개월 요율 (%)</label><input type="text" id="nr_36" inputmode="decimal" oninput="ncRateInput(this)"/></div>
-              <div class="afield"><label>48개월 요율 (%)</label><input type="text" id="nr_48" inputmode="decimal" oninput="ncRateInput(this)"/></div>
-              <div class="afield"><label>60개월 요율 (%)</label><input type="text" id="nr_60" inputmode="decimal" oninput="ncRateInput(this)"/></div>
-              <div class="afield"><label>보증금 할인 (연 %)</label><input type="text" id="nr_dep" inputmode="decimal" oninput="ncRateInput(this)"/></div>
+              <div class="afield" style="grid-column:1/-1;"><label>내가 차 살 때 할부</label></div>
+              <div class="afield"><label>할부 금리 (연 %)</label><input type="text" id="nr_rate" inputmode="decimal" oninput="ncRateInput(this)"/></div>
+              <div class="afield"><label>할부 기간</label><select id="nr_months" onchange="ncRateInput(this)"><option value="12">12개월</option><option value="24">24개월</option><option value="36">36개월</option><option value="48">48개월</option><option value="60">60개월</option></select></div>
+              <div class="afield"><label>내 선수금 (차량가의 %)</label><input type="text" id="nr_down" inputmode="decimal" oninput="ncRateInput(this)"/></div>
+              <div class="afield" style="grid-column:1/-1;"><label style="margin-top:4px;">매달 드는 돈</label></div>
+              <div class="afield"><label>보험료 (원/월)</label><input type="text" id="nr_ins" inputmode="numeric" oninput="fmtMon(this);ncRateInput(this)"/></div>
+              <div class="afield"><label>지입료 (원/월)</label><input type="text" id="nr_fee" inputmode="numeric" oninput="fmtMon(this);ncRateInput(this)"/></div>
+              <div class="afield"><label>기타 · 세금 등 (원/월)</label><input type="text" id="nr_etc" inputmode="numeric" oninput="fmtMon(this);ncRateInput(this)"/></div>
+              <div class="afield"><label>마진 · 남길 돈 (원/월)</label><input type="text" id="nr_margin" inputmode="numeric" oninput="fmtMon(this);ncRateInput(this)"/></div>
               <div class="afield"><label>만 21세 추가 (원/월)</label><input type="text" id="nr_age21" inputmode="numeric" oninput="fmtMon(this);ncRateInput(this)"/></div>
               <div class="afield"><label>2안 기본 보증금 (%)</label><input type="text" id="nr_d2" inputmode="decimal" oninput="ncRateInput(this)"/></div>
               <div class="afield"><label>3안 기본 보증금 (%)</label><input type="text" id="nr_d3" inputmode="decimal" oninput="ncRateInput(this)"/></div>
@@ -2599,8 +2604,11 @@ function downloadPDF(docId) {
 // ══════ 현황판 추가: 신차 견적서 (보증금별 1~3안 비교, 월 렌트료 자동 계산, 총액은 넣지 않음) ══════
 var NC_OPTS = 3;
 var NC_PERIODS = [12, 24, 36, 48, 60];
-// 계산 기준 (예시 값 — 화면의 ⚙️ 계산 기준에서 바꾸고 저장)
-var NC_RATES_DEFAULT = { r12: 2.8, r24: 2.4, r36: 2.1, r48: 1.9, r60: 1.75, dep: 6, age21: 30000, d2: 10, d3: 30 };   // d2·d3: 새 견적 때 2안·3안에 미리 들어가는 보증금 %
+// 계산 기준 (금리·보험료는 예시 값 — 화면의 ⚙️ 계산 기준에서 실제 숫자로 바꾸고 저장)
+//  rate/months/down: 내가 차 살 때 할부 금리(연 %)·기간·선수금 % · ins/fee/etc/margin: 월 보험료·지입료·기타·마진 · d2/d3: 2·3안 기본 보증금 %
+var NC_RATES_DEFAULT = { rate: 6, months: 60, down: 0, ins: 100000, fee: 50000, etc: 0, margin: 50000, age21: 30000, d2: 10, d3: 30 };
+var NC_WON_KEYS = ["ins", "fee", "etc", "margin", "age21"];
+var NC_PCT_KEYS = ["rate", "months", "down", "d2", "d3"];
 var ncRates = Object.assign({}, NC_RATES_DEFAULT);
 var _ncRatesSavedJson = "";
 
@@ -2646,14 +2654,28 @@ function ncActive(k) {
   var p = "n_p" + k + "_";
   return ncVal(p + "deposit") !== "" || ncVal(p + "prepay") !== "";
 }
-// 월 렌트료 = 차량가 × 기간 요율 − 보증금 × 연 할인율 ÷ 12 − 선납금 ÷ 개월 + 21세 추가 → 천원 단위 반올림
-function ncAutoPrice(k) {
-  var car = ncNum("n_carprice"), months = Number(ncVal("n_period")), rate = ncRates["r" + months];
-  if (!car || !months || !rate) return 0;
-  var p = "n_p" + k + "_";
+// 원가 = 내 할부금(차량가 − 내 선수금, 할부 금리·기간, 원리금 균등) + 내 선수금 ÷ 계약기간 + 보험료 + 지입료 + 기타
+function ncInstallment(car) {
+  var r = (ncRates.rate || 0) / 100 / 12, H = ncRates.months || 60, P = car * (1 - (ncRates.down || 0) / 100);
+  return r ? P * r / (1 - Math.pow(1 + r, -H)) : P / H;
+}
+function ncBaseCost() {
+  var car = ncNum("n_carprice"), n = Number(ncVal("n_period"));
+  if (!car || !n) return null;
+  return ncInstallment(car) + car * (ncRates.down || 0) / 100 / n + (ncRates.ins || 0) + (ncRates.fee || 0) + (ncRates.etc || 0);
+}
+// 이 안의 원가 (고객 보증금 이자·선납금은 빼고, 21세면 추가)
+function ncCost(k) {
+  var base = ncBaseCost();
+  if (base == null) return null;
+  var car = ncNum("n_carprice"), n = Number(ncVal("n_period")), p = "n_p" + k + "_", r = (ncRates.rate || 0) / 100 / 12;
   var dep = car * ncNum(p + "deposit") / 100, pre = car * ncNum(p + "prepay") / 100;
-  var v = car * rate / 100 - dep * (ncRates.dep || 0) / 100 / 12 - pre / months + (ncVal("n_age") === "21" ? (ncRates.age21 || 0) : 0);
-  return Math.max(0, Math.round(v / 1000) * 1000);
+  return Math.max(0, base - dep * r - pre / n + (ncVal("n_age") === "21" ? (ncRates.age21 || 0) : 0));
+}
+function ncAutoPrice(k) {
+  var cost = ncCost(k);
+  if (cost == null) return 0;
+  return Math.max(0, Math.round((cost + (ncRates.margin || 0)) / 1000) * 1000);
 }
 function ncPriceInput(k, el) {
   fmtMon(el);
@@ -2661,13 +2683,20 @@ function ncPriceInput(k, el) {
   document.getElementById(p + "manual").value = el.value ? "1" : "";
   ncManualNote(k);   // 다 지우면 칸을 벗어날 때 자동 금액으로 (지우고 새로 입력하는 중엔 그대로)
 }
+// 칸 아래 안내: 원가·마진 (관리자만 보는 화면, 문서에는 안 나감) / 직접 입력했으면 원가보다 낮은지 경고
 function ncManualNote(k) {
   var p = "n_p" + k + "_", note = document.getElementById(p + "manual_note");
   if (!note) return;
+  var cost = ncCost(k), price = ncNum(p + "price"), won = function (n) { return (Math.round(n / 1000) * 1000).toLocaleString() + "원"; };
+  var html = "";
   if (ncVal(p + "manual") === "1") {
     var auto = ncAutoPrice(k);
-    note.innerHTML = "✏️ 직접 입력" + (auto ? " (자동 계산 " + auto.toLocaleString() + "원)" : "") + ' · <a href="javascript:void 0" onclick="ncBackToAuto(' + k + ')">자동으로 되돌리기</a>';
-  } else note.innerHTML = "";
+    html = "✏️ 직접 입력" + (auto ? " (자동 계산 " + auto.toLocaleString() + "원)" : "") + ' · <a href="javascript:void 0" onclick="ncBackToAuto(' + k + ')">자동으로 되돌리기</a>';
+  } else if (cost != null && price && ncActive(k)) {
+    html = '<span class="nc-cost">원가 ' + won(cost) + " + 마진 " + won(price - cost) + "</span>";
+  }
+  if (cost != null && price && price < cost) html += '<br><span class="nc-warn">⚠️ 원가 ' + won(cost) + "보다 " + won(cost - price) + " 낮아요 (손해)</span>";
+  note.innerHTML = html;
 }
 function ncBackToAuto(k) {
   document.getElementById("n_p" + k + "_manual").value = "";
@@ -2711,17 +2740,13 @@ function ncPctText(pct) {
 
 // ── 계산 기준 (요율) ──
 function ncFillRates() {
-  NC_PERIODS.forEach(function (m) { var e = document.getElementById("nr_" + m); if (e) e.value = ncRates["r" + m]; });
-  var d = document.getElementById("nr_dep"); if (d) d.value = ncRates.dep;
-  var a = document.getElementById("nr_age21"); if (a) a.value = Number(ncRates.age21 || 0).toLocaleString();
-  ["d2", "d3"].forEach(function (k) { var e = document.getElementById("nr_" + k); if (e) e.value = ncRates[k] || ""; });
+  NC_PCT_KEYS.forEach(function (key) { var e = document.getElementById("nr_" + key); if (e) e.value = ncRates[key] == null ? "" : ncRates[key]; });
+  NC_WON_KEYS.forEach(function (key) { var e = document.getElementById("nr_" + key); if (e) e.value = Number(ncRates[key] || 0).toLocaleString(); });
 }
 function ncRateInput(el) {
-  if (el.id !== "nr_age21") el.value = el.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1");
-  NC_PERIODS.forEach(function (m) { ncRates["r" + m] = ncNum("nr_" + m); });
-  ncRates.dep = ncNum("nr_dep");
-  ncRates.age21 = ncNum("nr_age21");
-  ncRates.d2 = ncNum("nr_d2"); ncRates.d3 = ncNum("nr_d3");
+  var key = el.id.slice(3);
+  if (NC_PCT_KEYS.indexOf(key) >= 0 && el.tagName !== "SELECT") el.value = el.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1");
+  NC_PCT_KEYS.concat(NC_WON_KEYS).forEach(function (key) { ncRates[key] = ncNum("nr_" + key); });
   calcNewcar();
 }
 function ncRatesSummary() {
@@ -2729,7 +2754,8 @@ function ncRatesSummary() {
   if (!s) return;
   var m = Number(ncVal("n_period"));
   var changed = _ncRatesSavedJson ? JSON.stringify(ncRates) !== _ncRatesSavedJson : JSON.stringify(ncRates) !== JSON.stringify(NC_RATES_DEFAULT);
-  s.textContent = (m && ncRates["r" + m] ? "· " + m + "개월 " + ncRates["r" + m] + "% · 보증금 연 " + ncRates.dep + "%" : "") + (changed ? " · 저장 안 됨" : "") + (!_ncRatesSavedJson && !changed ? " · 예시 값" : "");
+  s.textContent = "· 할부 " + ncRates.months + "개월 " + ncRates.rate + "%" + (ncRates.down ? " · 선수금 " + ncRates.down + "%" : "") + " · 마진 월 " + Number(ncRates.margin || 0).toLocaleString() + "원"
+    + (changed ? " · 저장 안 됨" : "") + (!_ncRatesSavedJson && !changed ? " · 예시 값" : "");
 }
 async function saveNewcarRates() {
   if (!window.DOCS_DB || !window.DOCS_DB.saveSetting) { docsToast("⚠️ 로그인 후 저장할 수 있어요"); return; }
@@ -2743,7 +2769,9 @@ async function saveNewcarRates() {
 // Firebase에서 저장된 기준이 오면 적용 (같은 값이면 무시 — 고치던 중인 칸을 덮지 않게)
 function applyNewcarRates(obj) {
   if (!obj) return;
-  var next = Object.assign({}, NC_RATES_DEFAULT, obj), js = JSON.stringify(next);
+  var next = Object.assign({}, NC_RATES_DEFAULT);
+  NC_PCT_KEYS.concat(NC_WON_KEYS).forEach(function (key) { if (obj[key] != null) next[key] = obj[key]; });   // 예전 요율 방식 값은 무시
+  var js = JSON.stringify(next);
   if (js === _ncRatesSavedJson) return;
   _ncRatesSavedJson = js;
   ncRates = next;
@@ -2790,7 +2818,7 @@ function genNewcar() {
   var carprice = ncNum("n_carprice");
   var opts = ncOptions();
 
-  if (!name || !phone || !model) { alert("고객명, 연락처, 차량모델은 필수입니다."); return; }
+  if (!name || !phone || !model || !carprice) { alert("고객명, 연락처, 차량모델, 차량 가격은 필수입니다."); if (!carprice) { var cp = document.getElementById("n_carprice"); cp.focus(); } return; }
   var months = Number(g("n_period"));
   if (!months) { alert("계약기간을 선택해주세요."); return; }
   if (!opts.length) { alert("월 렌트료가 없어요. 차량 가격을 넣거나 월 렌트료를 직접 넣어주세요."); return; }
