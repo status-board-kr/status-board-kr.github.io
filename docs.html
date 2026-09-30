@@ -883,6 +883,8 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
               <div class="afield"><label>60개월 요율 (%)</label><input type="text" id="nr_60" inputmode="decimal" oninput="ncRateInput(this)"/></div>
               <div class="afield"><label>보증금 할인 (연 %)</label><input type="text" id="nr_dep" inputmode="decimal" oninput="ncRateInput(this)"/></div>
               <div class="afield"><label>만 21세 추가 (원/월)</label><input type="text" id="nr_age21" inputmode="numeric" oninput="fmtMon(this);ncRateInput(this)"/></div>
+              <div class="afield"><label>2안 기본 보증금 (%)</label><input type="text" id="nr_d2" inputmode="decimal" oninput="ncRateInput(this)"/></div>
+              <div class="afield"><label>3안 기본 보증금 (%)</label><input type="text" id="nr_d3" inputmode="decimal" oninput="ncRateInput(this)"/></div>
             </div>
             <button type="button" class="nc-rates-save" onclick="saveNewcarRates()">💾 계산 기준 저장</button>
           </div>
@@ -2598,7 +2600,7 @@ function downloadPDF(docId) {
 var NC_OPTS = 3;
 var NC_PERIODS = [12, 24, 36, 48, 60];
 // 계산 기준 (예시 값 — 화면의 ⚙️ 계산 기준에서 바꾸고 저장)
-var NC_RATES_DEFAULT = { r12: 2.8, r24: 2.4, r36: 2.1, r48: 1.9, r60: 1.75, dep: 6, age21: 30000 };
+var NC_RATES_DEFAULT = { r12: 2.8, r24: 2.4, r36: 2.1, r48: 1.9, r60: 1.75, dep: 6, age21: 30000, d2: 10, d3: 30 };   // d2·d3: 새 견적 때 2안·3안에 미리 들어가는 보증금 %
 var ncRates = Object.assign({}, NC_RATES_DEFAULT);
 var _ncRatesSavedJson = "";
 
@@ -2610,7 +2612,7 @@ var _ncRatesSavedJson = "";
   for (var k = 1; k <= NC_OPTS; k++) {
     var p = "n_p" + k + "_";
     html += '<div class="nc-opt">'
-      + '<div class="nc-opt-title">' + k + '안' + (k === 1 ? ' <span>(기본)</span>' : ' <span>(비교용 · 보증금을 넣으면 계산돼요)</span>') + '</div>'
+      + '<div class="nc-opt-title">' + k + '안' + (k === 1 ? ' <span>(기본)</span>' : ' <span>(비교용 · 안 쓰려면 보증금 칸을 비우세요)</span>') + '</div>'
       + '<div class="form-grid">'
       + '<div class="afield"><label>보증금 (차량가의 %)</label><input type="text" id="' + p + 'deposit" placeholder="' + ph[k - 1] + '" inputmode="decimal" oninput="ncPct(this)"/><div class="nc-amt" id="' + p + 'deposit_amt"></div></div>'
       + '<div class="afield"><label>선납금 (차량가의 %, 선택)</label><input type="text" id="' + p + 'prepay" placeholder="없음" inputmode="decimal" oninput="ncPct(this)"/><div class="nc-amt" id="' + p + 'prepay_amt"></div></div>'
@@ -2712,12 +2714,14 @@ function ncFillRates() {
   NC_PERIODS.forEach(function (m) { var e = document.getElementById("nr_" + m); if (e) e.value = ncRates["r" + m]; });
   var d = document.getElementById("nr_dep"); if (d) d.value = ncRates.dep;
   var a = document.getElementById("nr_age21"); if (a) a.value = Number(ncRates.age21 || 0).toLocaleString();
+  ["d2", "d3"].forEach(function (k) { var e = document.getElementById("nr_" + k); if (e) e.value = ncRates[k] || ""; });
 }
 function ncRateInput(el) {
   if (el.id !== "nr_age21") el.value = el.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1");
   NC_PERIODS.forEach(function (m) { ncRates["r" + m] = ncNum("nr_" + m); });
   ncRates.dep = ncNum("nr_dep");
   ncRates.age21 = ncNum("nr_age21");
+  ncRates.d2 = ncNum("nr_d2"); ncRates.d3 = ncNum("nr_d3");
   calcNewcar();
 }
 function ncRatesSummary() {
@@ -2744,10 +2748,20 @@ function applyNewcarRates(obj) {
   _ncRatesSavedJson = js;
   ncRates = next;
   ncFillRates();
+  // 아직 차량 가격을 안 넣은 새 견적이면 2·3안 보증금도 저장된 기본값으로
+  if (!ncVal("n_carprice") && !(typeof _curDocId !== "undefined" && _curDocId.newcar)) ncPrefillDeposits();
   calcNewcar(true);
 }
+// 새 견적: 2안·3안 보증금을 기본값으로 채워둠 → 차량 가격만 넣으면 세 안이 다 계산됨 (안 쓰는 안은 보증금 칸을 비우면 빠짐)
+function ncPrefillDeposits() {
+  ["d2", "d3"].forEach(function (key, i) {
+    var e = document.getElementById("n_p" + (i + 2) + "_deposit");
+    if (e) e.value = ncRates[key] ? String(ncRates[key]) : "";
+  });
+}
 ncFillRates();
-ncRatesSummary();
+ncPrefillDeposits();
+calcNewcar();
 
 function clearNewcar() {
   document.querySelectorAll("#tab-newcar input[id], #tab-newcar select[id], #tab-newcar textarea[id]").forEach(function (el) {
@@ -2760,6 +2774,7 @@ function clearNewcar() {
   var rb = document.querySelector("input[name='n_birth_type'][value='birth']");
   if (rb) { rb.checked = true; toggleBirthType("n"); }
   var dt = document.getElementById("n_date"); if (dt) dt.value = todayLocal();
+  ncPrefillDeposits();
   calcNewcar();
   document.getElementById("newcarDoc").style.display = "none";
   document.getElementById("newcarEmpty").style.display = "flex";
