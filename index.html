@@ -1043,19 +1043,11 @@
     <div class="sched-modal-scroll" id="chatScroll">
       <h3 style="margin-bottom:6px;">💬 직원 메신저</h3>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
-        <button class="chat-tool-btn" onclick="toggleChatSearch()">🔍 검색</button>
         <button class="chat-tool-btn" onclick="backupChat()">💾 백업</button>
         <button class="chat-tool-btn" onclick="setupAiKeys()" id="aiKeyBtn">🤖 AI 설정</button>
       </div>
-      <div id="chatSearchBox" style="display:none;margin-bottom:10px;">
-        <div style="display:flex;gap:6px;">
-          <input id="chatSearchInput" placeholder="검색어 (예: 9585, 회수, 윤상)" style="flex:1;min-width:0;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:14px;"
-                 onkeydown="if(event.key==='Enter'){event.preventDefault();runChatSearch();}">
-          <button class="btn-save" style="padding:0 14px;font-size:13px;border-radius:8px;" onclick="runChatSearch()">찾기</button>
-        </div>
-        <div id="chatSearchResult" style="margin-top:8px;"></div>
-      </div>
-      <div class="sub">최근 300개를 보여줘요 · 대화는 2년간 보관 (예전 대화는 🔍검색·💾백업)</div>
+      <div class="sub">최근 50개를 보여줘요 · 위로 올리면 더 불러와요 · 대화는 2년간 보관 (🔍검색·💾백업)</div>
+      <div id="chatOlderStatus" style="text-align:center;font-size:11px;color:var(--sub);min-height:14px;margin-bottom:4px;"></div>
       <div id="chatHistoryBanner" style="display:none;align-items:center;gap:8px;background:rgba(245,166,35,.12);border:1px solid var(--amber);border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:12px;">
         <span style="flex:1;">📜 예전 대화를 보고 있어요</span>
         <button class="chat-tool-btn" onclick="backToRecentChat()">최근 대화로 ›</button>
@@ -1063,6 +1055,14 @@
       <div id="chatList"><div class="empty">불러오는 중...</div></div>
     </div>
     <div class="modal-footer-inflow">
+      <div id="chatSearchBox" style="display:none;margin-bottom:10px;">
+        <div style="display:flex;gap:6px;">
+          <input id="chatSearchInput" placeholder="검색어 (예: 9585, 회수, 윤상)" style="flex:1;min-width:0;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--text);font-size:14px;"
+                 onkeydown="if(event.key==='Enter'){event.preventDefault();runChatSearch();}">
+          <button class="btn-save" style="padding:0 14px;font-size:13px;border-radius:8px;" onclick="runChatSearch()">찾기</button>
+        </div>
+        <div id="chatSearchResult" style="margin-top:8px;max-height:40vh;overflow-y:auto;"></div>
+      </div>
       <div id="chatPhotoPreview" style="display:none;margin-bottom:8px;padding:8px;background:var(--panel2);border-radius:10px;">
         <div id="chatPhotoThumbs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;"></div>
         <div style="display:flex;align-items:center;gap:8px;">
@@ -1075,6 +1075,7 @@
       <div class="chat-inputbar">
         <button class="chat-icon-btn" title="카메라로 찍기" aria-label="카메라로 찍기" onclick="document.getElementById('chatCameraInput').click()"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></button>
         <button class="chat-icon-btn" title="앨범에서 고르기(여러 장)" aria-label="사진 고르기" onclick="document.getElementById('chatPhotoInput').click()"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></button>
+        <button class="chat-icon-btn" title="대화 검색" aria-label="대화 검색" onclick="toggleChatSearch()"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></button>
         <input id="chatInput" class="chat-text-input" placeholder="메시지를 입력하세요" maxlength="2000"
                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChatMessage();}">
         <button class="chat-send-btn" id="chatSendBtn" title="보내기" aria-label="보내기" onclick="sendChatMessage()"><svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg></button>
@@ -1717,6 +1718,7 @@ const MODAL_CLOSERS = {
   appDialogBg: () => (typeof closeAppDialog === 'function') && closeAppDialog(null)
 };
 function closeTopModal(){
+  if(typeof isPhotoViewerOpen === 'function' && isPhotoViewerOpen()){ closePhotoViewer(); return true; }
   // 위에 열린 창부터 닫습니다 (확인창이 가장 위)
   const order = ['appDialogBg','addModalBg','historyModalBg','modalBg','schedModalBg','staffModalBg','chatModalBg','locModalBg'];
   for(const id of order){
@@ -2447,10 +2449,37 @@ async function saveModal(){
   }else if(v.branch===LONG_BRANCH){
     v.branch = HOME_BRANCH;
   }
+  // 일반 매출 기록: 일반 + 금액이 있으면 이 대여 건을 매출로 남김 (회수해도 기록은 남음)
+  let saleToRemove = null;
+  if(v.type==='일반' && v.amount){
+    if(!v.saleKey) v.saleKey = makeSaleKey(v);
+  }else if(v.saleKey){
+    if(v.type==='일반') saleToRemove = v.saleKey;   // 일반인데 금액을 지웠으면 기록도 지움
+    v.saleKey = null;                               // 구분이 바뀌면 기록은 남기고 연결만 끊음
+  }
   closeModal();
   render();
   await persist({type:'upsert', vehicle: v});
   await syncReturnSchedule(v.plate, oldReturnDate, v.returnDate, v.type, v.depositPaid);
+  await syncGeneralSale(v, saleToRemove);
+}
+function makeSaleKey(v){
+  return (String(v.plate) + '_' + (v.startDate || todayStr()) + '_' + Date.now().toString(36)).replace(/[.#$\[\]\/\s]/g, '_');
+}
+async function syncGeneralSale(v, removeKey){
+  try{
+    const { ref, set, remove, db } = window._fb;
+    if(removeKey) await remove(ref(db, P('generalSales/' + removeKey)));
+    if(v.type==='일반' && v.amount && v.saleKey){
+      await set(ref(db, P('generalSales/' + v.saleKey)), {
+        plate: v.plate, model: v.model || '', customerName: v.customerName || '',
+        amount: Number(v.amount) || 0, depositPaid: !!v.depositPaid,
+        date: v.startDate || todayStr(), startDate: v.startDate || null, returnDate: v.returnDate || null,
+        updatedAt: new Date().toISOString(),
+        by: (window.CURRENT_USER && window.CURRENT_USER.email) || ''
+      });
+    }
+  }catch(e){ console.warn('일반 매출 기록 실패 (보안규칙에 generalSales가 있는지 확인):', e && e.code); }
 }
 
 async function deleteVehicle(){
@@ -3172,8 +3201,10 @@ async function setMemberName(uid, currentName){
 // ── 직원 채팅 ────────────────────────────────────────────────
 // 업체별 단톡방 1개. /companies/{업체ID}/chat 아래에 메시지가 쌓입니다.
 // 지금은 글만 가능하고, 나중에 사진을 붙일 수 있게 type 필드를 미리 둡니다.
-const CHAT_KEEP = 300;        // 화면에 보여줄 최근 메시지 수
-let _chatMessages = {};       // 실시간으로 받아온 메시지
+const CHAT_KEEP = 50;         // 처음에 불러올 최근 메시지 수 (적을수록 빨리 열림)
+let _chatMessages = {};       // 실시간으로 받아온 최근 메시지
+let _chatOlder = {};          // 위로 올려서 더 불러온 예전 메시지
+let _chatNoMore = false, _chatLoadingOlder = false;
 let _chatStarted = false;     // 실시간 수신 시작 여부
 let _chatLastRead = 0;        // 내가 마지막으로 읽은 시각(ms)
 let _chatModalOpen = false;
@@ -3193,10 +3224,45 @@ function chatDayLabel(iso){
   return `${d.getFullYear()}.${pad2(d.getMonth()+1)}.${pad2(d.getDate())} (${days[d.getDay()]})`;
 }
 function chatSortedList(){
-  return Object.entries(_chatMessages || {})
+  const src = _chatHistoryMode ? (_chatMessages || {}) : Object.assign({}, _chatOlder, _chatMessages);
+  return Object.entries(src)
     .filter(([,m]) => m && typeof m === 'object' && m.text)
-    .sort((a,b) => (a[1].at||'').localeCompare(b[1].at||''))
-    .slice(-CHAT_KEEP);
+    .sort((a,b) => (a[1].at||'').localeCompare(b[1].at||''));
+}
+// 목록 맨 위까지 올리면 그 앞 50개를 더 불러옴 (스크롤 위치는 그대로)
+async function loadOlderChat(){
+  if(_chatLoadingOlder || _chatNoMore || _chatHistoryMode) return;
+  const keys = Object.keys(Object.assign({}, _chatOlder, _chatMessages)).sort();
+  if(keys.length < CHAT_KEEP){ _chatNoMore = true; return; }   // 처음부터 50개가 안 되면 더 없음
+  _chatLoadingOlder = true;
+  const st = document.getElementById('chatOlderStatus');
+  if(st) st.textContent = '예전 대화 불러오는 중...';
+  try{
+    const { ref, get, query, orderByKey, endAt, limitToLast, db } = window._fb;
+    const snap = await get(query(ref(db, P('chat')), orderByKey(), endAt(keys[0]), limitToLast(CHAT_KEEP + 1)));
+    const got = snap.exists() ? (snap.val() || {}) : {};
+    delete got[keys[0]];
+    const n = Object.keys(got).length;
+    if(n < CHAT_KEEP) _chatNoMore = true;
+    if(n){
+      const sc = document.getElementById('chatScroll');
+      const prevH = sc ? sc.scrollHeight : 0, prevTop = sc ? sc.scrollTop : 0;
+      Object.assign(_chatOlder, got);
+      renderChatList();
+      hydrateChatPhotos();
+      if(sc) sc.scrollTop = sc.scrollHeight - prevH + prevTop;
+    }
+    if(st) st.textContent = _chatNoMore ? '처음 대화예요' : '';
+  }catch(e){
+    console.warn('예전 대화 불러오기 실패:', e);
+    if(st) st.textContent = '';
+  }finally{ _chatLoadingOlder = false; }
+}
+function initChatOlderScroll(){
+  const sc = document.getElementById('chatScroll');
+  if(!sc || sc._olderBound) return;
+  sc._olderBound = true;
+  sc.addEventListener('scroll', ()=>{ if(sc.scrollTop < 60) loadOlderChat(); }, { passive: true });
 }
 // 메신저 글 속 전화번호를 눌러서 바로 걸 수 있게 (010-1234-5678, 02-123-4567, 1588-1234 등)
 const PHONE_RE = /(?<!\d)(01[016789][-. ]?\d{3,4}[-. ]?\d{4}|0(?:2|[3-6][1-5]|70)[-. ]?\d{3,4}[-. ]?\d{4}|1[5-9]\d{2}-\d{4})(?!\d)/g;
@@ -3626,7 +3692,12 @@ function startChatSync(force){
   const { query, orderByKey, limitToLast } = window._fb;
   onValue(query(ref(db, P('chat')), orderByKey(), limitToLast(CHAT_KEEP)), (snap)=>{
     if(_chatHistoryMode) return;   // 예전 대화를 보는 중에는 화면을 바꾸지 않음
-    _chatMessages = snap.exists() ? (snap.val() || {}) : {};
+    const next = snap.exists() ? (snap.val() || {}) : {};
+    // 새 메시지가 와서 최근 50개 밖으로 밀려난 메시지는 사라지지 않게 예전 목록으로 옮김
+    // (가장 오래된 키보다 앞선 것만 — 그 뒤쪽에서 빠진 건 삭제된 메시지)
+    const minKey = Object.keys(next).sort()[0];
+    if(minKey) Object.keys(_chatMessages || {}).forEach(k => { if(!(k in next) && k < minKey) _chatOlder[k] = _chatMessages[k]; });
+    _chatMessages = next;
     if(_chatModalOpen){
       renderChatList();
       scrollChatToBottom();
@@ -3653,6 +3724,7 @@ function openChatModal(){
   pushModalHistoryState('chatModalBg');
   renderChatList();
   setTimeout(scrollChatToBottom, 30);
+  setTimeout(initChatOlderScroll, 300);   // 처음 아래로 내린 뒤부터 '위로 올리면 더 불러오기'
   markChatRead();
   const inp = document.getElementById('chatInput');
   if(inp) setTimeout(()=>inp.focus(), 80);
@@ -3815,6 +3887,7 @@ async function applyChatCommand(cmd){
 
   const oldReturnDate = v.returnDate || null;
   const typeBefore = v.type || null; // 회수로 구분이 지워지기 전 값 (일반 차량 청구 제외 판단용)
+  if(cmd.isRecall || cmd.typeToken) v.saleKey = null;   // 일반 매출 기록은 남기고 이 차와의 연결만 끊음
   if(cmd.isRecall){
     v.type=''; v.note='차고지'; v.status='대기';
     v.startDate=null; v.amount=null; v.payDay=null; v.returnDate=null;
@@ -4057,25 +4130,126 @@ function hydrateChatPhotos(){
     }
   });
 }
-async function openPhotoViewer(id){
-  const d = await loadPhoto(id);
-  if(!d){ showToast('사진을 불러오지 못했어요'); return; }
+// ── 사진 크게 보기: 좌우로 밀어 넘기기 · 두 손가락/두 번 탭 확대 · 확대 중 끌어서 이동 ──
+const _pv = { ids: [], idx: 0, scale: 1, tx: 0, ty: 0 };
+function photoViewerEl(){
   let ov = document.getElementById('photoViewer');
-  if(!ov){
-    ov = document.createElement('div'); ov.id = 'photoViewer';
-    ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:2000;display:flex;align-items:center;justify-content:center;padding:12px;';
-    ov.onclick = ()=>{ ov.style.display = 'none'; };
-    ov.innerHTML = '<img style="max-width:100%;max-height:100%;border-radius:8px;">';
-    document.body.appendChild(ov);
+  if(ov) return ov;
+  ov = document.createElement('div'); ov.id = 'photoViewer';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:2000;display:none;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;';
+  ov.innerHTML = `
+    <img id="pvImg" alt="사진" draggable="false" style="position:absolute;left:50%;top:50%;max-width:100%;max-height:100%;transform-origin:center center;will-change:transform;">
+    <div id="pvCount" style="position:absolute;top:14px;left:0;right:0;text-align:center;color:#fff;font-size:14px;font-weight:700;text-shadow:0 1px 3px #000;pointer-events:none;"></div>
+    <button id="pvClose" aria-label="닫기" style="position:absolute;top:8px;right:8px;width:44px;height:44px;border:none;border-radius:22px;background:rgba(255,255,255,.18);color:#fff;font-size:22px;">✕</button>
+    <button id="pvPrev" aria-label="이전 사진" style="position:absolute;left:6px;top:50%;margin-top:-26px;width:44px;height:52px;border:none;border-radius:10px;background:rgba(255,255,255,.14);color:#fff;font-size:30px;">‹</button>
+    <button id="pvNext" aria-label="다음 사진" style="position:absolute;right:6px;top:50%;margin-top:-26px;width:44px;height:52px;border:none;border-radius:10px;background:rgba(255,255,255,.14);color:#fff;font-size:30px;">›</button>`;
+  document.body.appendChild(ov);
+  const img = ov.querySelector('#pvImg');
+  ov.querySelector('#pvClose').onclick = (e)=>{ e.stopPropagation(); closePhotoViewer(); };
+  // 사진 바깥 빈 곳을 누르면 닫기 (확대 중엔 안 닫힘)
+  ov.addEventListener('click', (e)=>{ if(e.target === ov && _pv.scale === 1) closePhotoViewer(); });
+  ov.querySelector('#pvPrev').onclick = (e)=>{ e.stopPropagation(); showPhotoAt(_pv.idx - 1); };
+  ov.querySelector('#pvNext').onclick = (e)=>{ e.stopPropagation(); showPhotoAt(_pv.idx + 1); };
+  // 터치: 한 손가락 = 넘기기(확대 안 했을 때) / 끌기(확대했을 때), 두 손가락 = 확대, 두 번 탭 = 확대/원래대로
+  let t0 = null, pinch = null, lastTap = 0, swipeDx = 0;
+  const dist = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+  ov.addEventListener('touchstart', (e)=>{
+    if(e.target.tagName === 'BUTTON') return;
+    if(e.touches.length === 2){ pinch = { d: dist(e.touches[0], e.touches[1]), s: _pv.scale }; t0 = null; }
+    else if(e.touches.length === 1){ t0 = { x: e.touches[0].clientX, y: e.touches[0].clientY, tx: _pv.tx, ty: _pv.ty, time: Date.now(), moved: false }; swipeDx = 0; }
+  }, { passive: true });
+  ov.addEventListener('touchmove', (e)=>{
+    if(pinch && e.touches.length === 2){
+      _pv.scale = Math.min(5, Math.max(1, pinch.s * dist(e.touches[0], e.touches[1]) / pinch.d));
+      if(_pv.scale === 1){ _pv.tx = 0; _pv.ty = 0; }
+      applyPhotoTransform(false);
+    }else if(t0 && e.touches.length === 1){
+      const dx = e.touches[0].clientX - t0.x, dy = e.touches[0].clientY - t0.y;
+      if(Math.abs(dx) > 8 || Math.abs(dy) > 8) t0.moved = true;
+      if(_pv.scale > 1){ _pv.tx = t0.tx + dx; _pv.ty = t0.ty + dy; applyPhotoTransform(false); }
+      else { swipeDx = dx; img.style.transform = `translate(calc(-50% + ${dx}px), -50%)`; }
+    }
+  }, { passive: true });
+  ov.addEventListener('touchend', (e)=>{
+    if(pinch){ if(e.touches.length < 2) pinch = null; return; }
+    if(!t0) return;
+    const wasTap = !t0.moved && Date.now() - t0.time < 250;
+    t0 = null;
+    if(_pv.scale === 1 && Math.abs(swipeDx) > 60){ showPhotoAt(_pv.idx + (swipeDx < 0 ? 1 : -1)); return; }
+    if(_pv.scale === 1) applyPhotoTransform(true);   // 덜 밀었으면 제자리로
+    if(wasTap){
+      const now = Date.now();
+      if(now - lastTap < 300){ _pv.scale = _pv.scale > 1 ? 1 : 2.5; _pv.tx = 0; _pv.ty = 0; applyPhotoTransform(true); lastTap = 0; }
+      else lastTap = now;
+    }
+  });
+  // PC: 휠로 확대, 두 번 클릭 확대, 방향키로 넘기기, Esc로 닫기
+  ov.addEventListener('wheel', (e)=>{
+    e.preventDefault();
+    _pv.scale = Math.min(5, Math.max(1, _pv.scale * (e.deltaY < 0 ? 1.15 : 1/1.15)));
+    if(_pv.scale === 1){ _pv.tx = 0; _pv.ty = 0; }
+    applyPhotoTransform(false);
+  }, { passive: false });
+  img.addEventListener('dblclick', ()=>{ _pv.scale = _pv.scale > 1 ? 1 : 2.5; _pv.tx = 0; _pv.ty = 0; applyPhotoTransform(true); });
+  document.addEventListener('keydown', (e)=>{
+    if(ov.style.display === 'none') return;
+    if(e.key === 'Escape') closePhotoViewer();
+    else if(e.key === 'ArrowLeft') showPhotoAt(_pv.idx - 1);
+    else if(e.key === 'ArrowRight') showPhotoAt(_pv.idx + 1);
+  });
+  return ov;
+}
+function applyPhotoTransform(animate){
+  const img = document.getElementById('pvImg');
+  if(!img) return;
+  img.style.transition = animate ? 'transform .2s' : 'none';
+  img.style.transform = `translate(calc(-50% + ${_pv.tx}px), calc(-50% + ${_pv.ty}px)) scale(${_pv.scale})`;
+}
+async function showPhotoAt(i){
+  if(i < 0 || i >= _pv.ids.length) { applyPhotoTransform(true); return; }
+  _pv.idx = i; _pv.scale = 1; _pv.tx = 0; _pv.ty = 0;
+  const ov = photoViewerEl(), img = ov.querySelector('#pvImg');
+  const n = _pv.ids.length;
+  ov.querySelector('#pvCount').textContent = n > 1 ? `${i + 1} / ${n}` : '';
+  ov.querySelector('#pvPrev').style.display = i > 0 ? '' : 'none';
+  ov.querySelector('#pvNext').style.display = i < n - 1 ? '' : 'none';
+  applyPhotoTransform(false);
+  img.style.opacity = '.3';
+  const d = await loadPhoto(_pv.ids[i]);
+  if(_pv.idx !== i) return;   // 그사이 다른 사진으로 넘어감
+  if(!d){ showToast('사진을 불러오지 못했어요'); img.style.opacity = '1'; return; }
+  img.src = d; img.style.opacity = '1';
+  // 옆 사진 미리 불러오기
+  [i - 1, i + 1].forEach(j => { if(_pv.ids[j]) loadPhoto(_pv.ids[j]); });
+}
+function closePhotoViewer(){
+  const ov = document.getElementById('photoViewer');
+  if(ov) ov.style.display = 'none';
+}
+function isPhotoViewerOpen(){
+  const ov = document.getElementById('photoViewer');
+  return !!(ov && ov.style.display !== 'none');
+}
+// 메신저에 보이는 사진 전체를 순서대로 묶어서 보여줌 (메신저 밖에서 부르면 그 한 장만)
+async function openPhotoViewer(id, list){
+  let ids = Array.isArray(list) && list.length ? list : [];
+  if(!ids.length){
+    ids = Array.from(document.querySelectorAll('#chatList img[data-photo]')).map(im => im.dataset.photo)
+      .filter((x, k, a) => a.indexOf(x) === k);
+    if(ids.indexOf(id) < 0) ids = [id];
   }
-  ov.querySelector('img').src = d;
-  ov.style.display = 'flex';
+  _pv.ids = ids;
+  photoViewerEl().style.display = 'block';
+  await showPhotoAt(Math.max(0, ids.indexOf(id)));
 }
 // AI에게 사진을 보내 번호판과 누적 주행거리(ODO)를 한 번에 읽어옵니다
 const AI_PHOTO_PROMPT =
   'These photos are from a Korean rental car company. They may show the car instrument cluster (dashboard), the license plate of our car, and the other party\'s damaged car. ' +
   'Reply with JSON only, no other text: ' +
-  '{"plates": an array of ALL Korean license plates visible in the photo, exactly as printed like ["105하9585","12가3456"], most prominent first (empty array if none), ' +
+  '{"plates": a JSON array of Korean license plates of the MAIN SUBJECT car in each photo only — the car that is large, close to the camera and in focus, taking up a big part of the frame. ' +
+  'At most ONE plate per photo. IGNORE plates that are far away, small, in the background, blurry or only partly visible (parked cars, passing cars, cars behind). ' +
+  'If you cannot read the main car\'s plate with certainty, do not include it. Write each exactly as printed like "105하9585". ' +
+  'Order: the photo with the most prominent plate first. Empty array if none, ' +
   '"odometer_km": the TOTAL odometer (ODO, cumulative distance) as an integer, or null — ignore trip meters (TRIP A/B), distance-to-empty/fuel range, speed and RPM, ' +
   '"confidence": "high" or "low"}';
 function parseAiJson(text){
@@ -4385,6 +4559,7 @@ async function deleteChatMessage(msgId){
   try{
     const { ref, remove, db } = window._fb;
     await remove(ref(db, P('chat/' + msgId)));
+    if(_chatOlder[msgId]){ delete _chatOlder[msgId]; renderChatList(); }
   }catch(e){
     console.error(e);
     showToast('삭제 실패 - 내 메시지만 지울 수 있어요');
