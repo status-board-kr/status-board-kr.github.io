@@ -1,7 +1,7 @@
 // 홈페이지 AI 상담 서버 (Cloud Run 함수, 진입점: aiconsult)
 //
 // 홈페이지(pang-rent.github.io/main)의 AI 상담 창 → 현황판 chat.html → 여기로 대화를 보냅니다.
-// - AI 키는 페이지에 두지 않고, 관리자가 현황판 🤖 AI 설정에 넣은 공용 키(Gemini 먼저, 안 되면 Grok)를 여기서 읽어 씁니다.
+// - AI 키는 페이지에 두지 않고, 관리자가 현황판에 넣은 공용 키를 여기서 읽어 씁니다. 대화는 Grok 먼저(안 되면 Gemini), 신차 찻값 검색은 Gemini(구글 검색).
 // - 차량 재고·번호판·고객 정보는 AI에 넘기지 않습니다 (가능 여부는 담당자가 확인해서 연락).
 // - 고객이 이름·연락처를 알려주면 상담 신청으로 저장하고, 직원 메신저에 올리고, 직원 폰에 푸시를 보냅니다.
 //
@@ -69,10 +69,10 @@ function systemPrompt(companyName, phone){
     '',
     '[신차 장기렌트]',
     '고객이 신차 장기렌트를 원하면 원하는 차종·트림, 차량 가격(옵션 포함, 대략이라도), 기간(12·24·36·48·60개월), 운전자 나이(만 21세 이상인지 26세 이상인지), 원하는 보증금 비율을 하나씩 물어보세요.',
-    '차량 가격과 기간을 알게 되면 답의 맨 끝에 아래 한 줄을 붙이세요 (고객에게는 안 보이고, 서버가 예상 월 렌트료를 계산해서 붙여 보여줍니다):',
-    '<<NEWCAR {"price":48000000,"months":60,"age":26,"deposit":0}>>',
-    'price는 원 단위 숫자, age는 21 또는 26(모르면 26), deposit은 고객이 말한 보증금 %(없으면 0). 월 렌트료 숫자는 절대 직접 계산하거나 지어내지 마세요.',
-    '차량 가격을 모르면 "차량 가격을 알려주시면 예상 금액을 바로 계산해드릴게요, 모르시면 담당자가 확인해드려요"라고 하세요.',
+    '차종(트림까지 알면 좋음)과 기간을 알게 되면, 차량 가격을 몰라도 답의 맨 끝에 아래 한 줄을 붙이세요 (고객에게는 안 보이고, 서버가 찻값을 검색하고 예상 월 렌트료를 계산해서 붙여 보여줍니다):',
+    '<<NEWCAR {"car":"기아 쏘렌토 하이브리드 1.6 시그니처","price":0,"months":60,"age":26,"deposit":0}>>',
+    'car는 제조사·모델·트림, price는 고객이 말한 차량 가격(원 단위, 모르면 0 — 서버가 찾아요), age는 21 또는 26(모르면 26), deposit은 고객이 말한 보증금 %(없으면 0).',
+    '찻값이나 월 렌트료 숫자는 절대 직접 말하거나 지어내지 마세요. "바로 계산해드릴게요"처럼만 말하세요.',
     '예상 금액을 보여준 뒤 상담 신청을 받으면 memo에 "신차 · 차량가 ○○ · ○○개월 · 예상 월 ○○원"을 넣으세요.',
     '',
     '[상담 신청 받기]',
@@ -85,12 +85,9 @@ function systemPrompt(companyName, phone){
   ].join('\n');
 }
 
-// ── AI 호출: Gemini(모델이 바쁘면 다음 모델) → 다 안 되면 Grok ──
+// ── AI 호출: 대화는 Grok 먼저 → 안 되면 Gemini (Gemini는 찻값 검색에 주로 씀) ──
 async function callAi(keys, sys, messages){
   let last = '';
-  if(keys.gemini){
-    try{ return await callGemini(keys.gemini, sys, messages); }catch(e){ last = e.message; }
-  }
   if(keys.grok){
     for(const model of GROK_MODELS){
       try{
@@ -108,6 +105,9 @@ async function callAi(keys, sys, messages){
         }else{ last = 'grok status ' + r.status; }
       }catch(e){ last = 'grok ' + String(e && e.message || e); }
     }
+  }
+  if(keys.gemini){
+    try{ return await callGemini(keys.gemini, sys, messages); }catch(e){ last = e.message; }
   }
   throw new Error('AI 응답 실패: ' + last);
 }
@@ -170,9 +170,44 @@ function extractNewcar(text){
     const months = Number(j.months);
     const age = Number(j.age) === 21 ? 21 : 26;
     const deposit = Math.max(0, Math.min(50, Number(j.deposit) || 0));
-    if(!(price >= 5000000 && price <= 300000000) || [12, 24, 36, 48, 60].indexOf(months) < 0) return { reply, req: null };
-    return { reply, req: { price, months, age, deposit } };
+    const car = String(j.car || '').replace(/[\u0000-\u001f<>]/g, ' ').trim().slice(0, 60);
+    const okPrice = price >= 5000000 && price <= 300000000;
+    if([12, 24, 36, 48, 60].indexOf(months) < 0 || (!okPrice && !car)) return { reply, req: null };
+    return { reply, req: { car, price: okPrice ? price : 0, months, age, deposit } };
   }catch(e){ return { reply, req: null }; }
+}
+// 찻값 검색: Gemini의 구글 검색으로 국내 신차 판매가를 찾음 (같은 차는 하루 동안 기억)
+const _priceCache = new Map();
+async function searchCarPrice(key, car){
+  const ck = car.replace(/\s+/g, ' ').toLowerCase();
+  const hit = _priceCache.get(ck);
+  if(hit && deps.now() - hit.at < 86400000) return hit.v;
+  const prompt = '대한민국에서 판매 중인 "' + car + '" 신차의 현재 판매 가격(부가세 포함, 제조사 공식 가격, 선택 옵션 제외)을 검색해서 찾으세요. '
+    + '트림이 없으면 가장 많이 팔리는 트림 기준. 아래 JSON 한 줄로만 답하세요. 못 찾으면 price를 0으로.\n'
+    + '{"price": 원 단위 숫자, "name": "제조사 모델 트림", "year": "연식"}';
+  let last = '';
+  for(const model of GEMINI_MODELS){
+    try{
+      const r = await deps.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
+        method: 'POST',
+        headers: { 'x-goog-api-key': key, 'content-type': 'application/json' },
+        body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }], tools: [{ google_search: {} }], generationConfig: { temperature: 0 } })
+      });
+      if(r.status < 200 || r.status >= 300){ last = 'status ' + r.status; continue; }
+      const d = await r.json();
+      const cand = d && d.candidates && d.candidates[0];
+      const text = cand && cand.content ? (cand.content.parts || []).map(p => p.text || '').join('') : '';
+      const m = text.match(/\{[^{}]*"price"[^{}]*\}/);
+      if(!m){ last = 'no json'; continue; }
+      const j = JSON.parse(m[0]);
+      const price = Math.round(Number(String(j.price).replace(/[^0-9.]/g, '')));
+      const v = price >= 5000000 && price <= 300000000 ? { price, name: String(j.name || car).slice(0, 60), year: String(j.year || '').slice(0, 20) } : null;
+      _priceCache.set(ck, { at: deps.now(), v });
+      return v;
+    }catch(e){ last = String(e && e.message || e); }
+  }
+  console.warn('car price search failed', last);
+  return null;
 }
 function newcarMonthly(R, price, months, age, depositPct){
   const r = (Number(R.rate) || 0) / 100 / 12, H = Number(R.months) || 60;
@@ -188,8 +223,11 @@ function newcarEstimateText(R, q){
   const man = n => (n % 10000 === 0 ? (n / 10000).toLocaleString('ko-KR') + '만원' : won(n));
   const pcts = [0, Number(R.d2) || 0, Number(R.d3) || 0, q.deposit].filter((v, i, a) => i === 0 || (v > 0 && a.indexOf(v) === i)).sort((a, b) => a - b).slice(0, 4);
   const lines = pcts.map(d => '· ' + (d ? '보증금 ' + d + '%(' + man(Math.round(q.price * d / 100)) + ')' : '보증금 없음') + ': 월 ' + won(newcarMonthly(R, q.price, q.months, q.age, d)));
-  return '📋 신차 장기렌트 예상 월 렌트료\n차량 가격 ' + man(q.price) + ' · ' + q.months + '개월 · 만 ' + q.age + '세 이상\n' + lines.join('\n')
-    + '\n(부가세·보험 포함 예상 금액이에요. 보증금은 계약이 끝나면 돌려드려요. 정확한 견적은 담당자가 안내드려요)';
+  const priceLine = q.searched
+    ? '차량 가격 약 ' + (Math.round(q.price / 10000)).toLocaleString('ko-KR') + '만원 (인터넷 검색: ' + q.searched + ', 옵션 제외)'
+    : '차량 가격 ' + man(q.price);
+  return '📋 신차 장기렌트 예상 월 렌트료\n' + (q.car ? q.car + '\n' : '') + priceLine + ' · ' + q.months + '개월 · 만 ' + q.age + '세 이상\n' + lines.join('\n')
+    + '\n(부가세·보험 포함 예상 금액이에요. ' + (q.searched ? '옵션을 넣으면 올라가요. ' : '') + '보증금은 계약이 끝나면 돌려드려요. 정확한 견적은 담당자가 안내드려요)';
 }
 
 // ── 상담 신청 저장 + 직원 메신저 + 푸시 ──
@@ -270,6 +308,14 @@ async function handle(req, res){
     const raw = await callAi(keys, systemPrompt(companyName, phone), messages);
     const nc = extractNewcar(raw);
     let { reply, inquiry } = extractInquiry(nc.reply);
+    if(nc.req && !nc.req.price){
+      const found = keys.gemini ? await searchCarPrice(keys.gemini, nc.req.car) : null;
+      if(found){ nc.req.price = found.price; nc.req.searched = [found.name, found.year].filter(Boolean).join(' '); }
+      else{
+        reply = (reply ? reply + '\n\n' : '') + '차량 가격을 바로 찾지 못했어요. 대략적인 차량 가격(옵션 포함)을 알려주시면 바로 계산해드릴게요.';
+        nc.req = null;
+      }
+    }
     if(nc.req){
       const saved = (await db().ref('companyDocs/' + companyId + '/_newcarRates').once('value')).val() || {};
       const R = Object.assign({}, NEWCAR_RATES_DEFAULT);
@@ -286,4 +332,4 @@ async function handle(req, res){
 }
 
 functions.http('aiconsult', handle);
-module.exports = { handle, extractInquiry, extractNewcar, newcarMonthly, newcarEstimateText, NEWCAR_RATES_DEFAULT, systemPrompt, deps, _hits };
+module.exports = { handle, extractInquiry, extractNewcar, searchCarPrice, _priceCache, newcarMonthly, newcarEstimateText, NEWCAR_RATES_DEFAULT, systemPrompt, deps, _hits };
