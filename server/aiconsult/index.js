@@ -176,37 +176,60 @@ function extractNewcar(text){
     return { reply, req: { car, price: okPrice ? price : 0, months, age, deposit } };
   }catch(e){ return { reply, req: null }; }
 }
-// 찻값 검색: Gemini의 구글 검색으로 국내 신차 판매가를 찾음 (같은 차는 하루 동안 기억)
+// 찻값 검색: Gemini의 구글 검색으로 국내 신차 판매가를 찾음 (찾은 차는 하루 동안 기억)
+// 검색이 되는 모델을 먼저 (lite 모델은 검색을 못 하는 경우가 있음)
+const SEARCH_MODELS = ['gemini-flash-latest', 'gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-flash-lite-latest'];
 const _priceCache = new Map();
+// "47,390,000" / 47390000 / "4,739만원" / "약 4,739만 원" → 원 단위 숫자
+function parsePriceKr(v){
+  if(typeof v === 'number') return Math.round(v);
+  const s = String(v == null ? '' : v).replace(/\s/g, '');
+  const man = s.match(/([0-9][0-9,]*(?:\.[0-9]+)?)만/);
+  if(man) return Math.round(Number(man[1].replace(/,/g, '')) * 10000);
+  const n = s.match(/[0-9][0-9,]*/);
+  return n ? Math.round(Number(n[0].replace(/,/g, ''))) : 0;
+}
+const okCarPrice = p => p >= 5000000 && p <= 300000000;
 async function searchCarPrice(key, car){
   const ck = car.replace(/\s+/g, ' ').toLowerCase();
   const hit = _priceCache.get(ck);
-  if(hit && deps.now() - hit.at < 86400000) return hit.v;
-  const prompt = '대한민국에서 판매 중인 "' + car + '" 신차의 현재 판매 가격(부가세 포함, 제조사 공식 가격, 선택 옵션 제외)을 검색해서 찾으세요. '
-    + '트림이 없으면 가장 많이 팔리는 트림 기준. 아래 JSON 한 줄로만 답하세요. 못 찾으면 price를 0으로.\n'
-    + '{"price": 원 단위 숫자, "name": "제조사 모델 트림", "year": "연식"}';
+  if(hit && deps.now() - hit.at < (hit.v ? 86400000 : 600000)) return hit.v;
+  const prompt = '구글 검색으로 대한민국에서 판매 중인 "' + car + '" 신차 가격을 찾아주세요. '
+    + '부가세 포함 제조사 공식 판매가(선택 옵션 제외)이고, 트림이 없으면 가장 많이 팔리는 트림 기준입니다. '
+    + '답은 아래 JSON 한 줄만. price는 원 단위 숫자(예: 47390000). 못 찾으면 price를 0으로.\n'
+    + '{"price": 47390000, "name": "제조사 모델 트림", "year": "연식"}';
   let last = '';
-  for(const model of GEMINI_MODELS){
+  for(const model of SEARCH_MODELS){
     try{
       const r = await deps.fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
         method: 'POST',
         headers: { 'x-goog-api-key': key, 'content-type': 'application/json' },
-        body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }], tools: [{ google_search: {} }], generationConfig: { temperature: 0 } })
+        body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }], tools: [{ google_search: {} }] })
       });
-      if(r.status < 200 || r.status >= 300){ last = 'status ' + r.status; continue; }
+      if(r.status < 200 || r.status >= 300){ last = model + ' status ' + r.status; continue; }
       const d = await r.json();
       const cand = d && d.candidates && d.candidates[0];
       const text = cand && cand.content ? (cand.content.parts || []).map(p => p.text || '').join('') : '';
+      let price = 0, name = car, year = '';
       const m = text.match(/\{[^{}]*"price"[^{}]*\}/);
-      if(!m){ last = 'no json'; continue; }
-      const j = JSON.parse(m[0]);
-      const price = Math.round(Number(String(j.price).replace(/[^0-9.]/g, '')));
-      const v = price >= 5000000 && price <= 300000000 ? { price, name: String(j.name || car).slice(0, 60), year: String(j.year || '').slice(0, 20) } : null;
-      _priceCache.set(ck, { at: deps.now(), v });
-      return v;
-    }catch(e){ last = String(e && e.message || e); }
+      if(m){
+        try{ const j = JSON.parse(m[0]); price = parsePriceKr(j.price); name = String(j.name || car); year = String(j.year || ''); }
+        catch(e){ price = parsePriceKr((m[0].match(/"price"\s*:\s*"?([^",}]+)/) || [])[1]); }
+      }
+      if(!okCarPrice(price)){   // JSON이 아니어도 글 속 "4,739만원" 같은 가격을 찾아봄
+        const t = text.match(/([0-9][0-9,]*(?:\.[0-9]+)?)\s*만\s*원/) || text.match(/([0-9]{1,3}(?:,[0-9]{3}){2,})\s*원/);
+        if(t) price = parsePriceKr(t[0]);
+      }
+      if(okCarPrice(price)){
+        const v = { price, name: name.slice(0, 60), year: year.slice(0, 20) };
+        _priceCache.set(ck, { at: deps.now(), v });
+        return v;
+      }
+      last = model + ' no price: ' + text.replace(/\s+/g, ' ').slice(0, 160);
+    }catch(e){ last = model + ' ' + String(e && e.message || e); }
   }
-  console.warn('car price search failed', last);
+  console.warn('car price search failed:', car, '|', last);   // Cloud Run 로그에서 확인용
+  _priceCache.set(ck, { at: deps.now(), v: null });
   return null;
 }
 function newcarMonthly(R, price, months, age, depositPct){
@@ -332,4 +355,4 @@ async function handle(req, res){
 }
 
 functions.http('aiconsult', handle);
-module.exports = { handle, extractInquiry, extractNewcar, searchCarPrice, _priceCache, newcarMonthly, newcarEstimateText, NEWCAR_RATES_DEFAULT, systemPrompt, deps, _hits };
+module.exports = { handle, extractInquiry, extractNewcar, searchCarPrice, parsePriceKr, _priceCache, newcarMonthly, newcarEstimateText, NEWCAR_RATES_DEFAULT, systemPrompt, deps, _hits };
