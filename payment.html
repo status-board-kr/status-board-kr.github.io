@@ -485,6 +485,10 @@
       <div class="num" id="statUnbilled">0</div>
       <div class="label">청구 미완료 (회수됨)</div>
     </div>
+    <div class="stat green" id="statSalesCard" style="cursor:pointer;grid-column:1 / -1;">
+      <div class="num" id="statSales">0만</div>
+      <div class="label" id="statSalesLabel">이번 달 일반 매출</div>
+    </div>
   </div>
 
   <div class="toolbar">
@@ -569,6 +573,28 @@
 </div>
 
 <!-- Return log modal -->
+<div class="overlay" id="salesOverlay">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>일반 매출</h3>
+      <button class="modal-x" id="salesXBtn" aria-label="닫기">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="hint" style="margin-bottom:12px;">현황판에서 일반 차량에 금액을 적으면 여기 매출로 남아요 (회수해도 기록은 그대로). 달은 대여 시작일 기준이에요.</div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:12px;">
+        <button class="btn ghost" id="salesPrevBtn" style="padding:6px 12px;">◀</button>
+        <b id="salesMonthLabel" style="font-size:15px;min-width:90px;text-align:center;"></b>
+        <button class="btn ghost" id="salesNextBtn" style="padding:6px 12px;">▶</button>
+      </div>
+      <div id="salesSummary" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;"></div>
+      <div id="salesList"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn primary" id="salesCloseBtn">닫기</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="returnLogOverlay">
   <div class="modal">
     <div class="modal-head">
@@ -1133,6 +1159,49 @@
   $("infoCloseBtn").addEventListener("click", () => $("infoOverlay").classList.remove("open"));
   $("infoXBtn").addEventListener("click", () => $("infoOverlay").classList.remove("open"));
 
+  // ── 일반 매출 (현황판에서 일반 차량에 금액을 적으면 generalSales에 남음) ──
+  let generalSales = {};
+  let salesMonth = new Date();
+  function salesYm(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}`; }
+  function salesOfMonth(ym){
+    return Object.entries(generalSales || {})
+      .filter(([, x]) => x && typeof x === "object" && String(x.date || "").slice(0, 7) === ym)
+      .sort((a, b) => String(b[1].date || "").localeCompare(String(a[1].date || "")));
+  }
+  function salesSum(list, pred){ return list.filter(([, x]) => !pred || pred(x)).reduce((t, [, x]) => t + (Number(x.amount) || 0), 0); }
+  function renderSalesStat(){
+    const list = salesOfMonth(salesYm(new Date()));
+    $("statSales").textContent = salesSum(list).toLocaleString() + "만";
+    $("statSalesLabel").textContent = `이번 달 일반 매출 · ${list.length}건`;
+  }
+  function renderSales(){
+    const ym = salesYm(salesMonth);
+    $("salesMonthLabel").textContent = `${salesMonth.getFullYear()}년 ${salesMonth.getMonth()+1}월`;
+    const list = salesOfMonth(ym);
+    const box = (label, val, color) => `<div class="stat" style="padding:10px;text-align:center;"><div class="num" style="font-size:17px;color:${color};">${val.toLocaleString()}만</div><div class="label">${label}</div></div>`;
+    $("salesSummary").innerHTML =
+      box(`합계 · ${list.length}건`, salesSum(list), "var(--text)") +
+      box("입금완료", salesSum(list, x => x.depositPaid), "var(--green)") +
+      box("미입금", salesSum(list, x => !x.depositPaid), "var(--red)");
+    $("salesList").innerHTML = list.length ? list.map(([, x]) => `
+      <div class="log-entry">
+        <div class="log-head">
+          <span class="log-name">${escapeHtml(x.plate || "-")}${x.model ? ` <span style="color:var(--text-dim);font-size:12px;font-weight:400;">${escapeHtml(x.model)}</span>` : ""}</span>
+          <span class="log-time">${escapeHtml(String(x.date || "").replace(/-/g, "."))}</span>
+        </div>
+        <div class="log-msg" style="display:flex;justify-content:space-between;gap:10px;">
+          <span>${escapeHtml(x.customerName || "고객명 없음")}${x.returnDate ? ` · 반납 ${escapeHtml(String(x.returnDate).replace(/-/g, "."))}` : ""}</span>
+          <span><b style="color:var(--text);">${(Number(x.amount) || 0).toLocaleString()}만</b> <span style="color:${x.depositPaid ? "var(--green)" : "var(--red)"};font-weight:700;">${x.depositPaid ? "💰 입금완료" : "⚠️ 미입금"}</span></span>
+        </div>
+      </div>`).join("") : '<div class="log-empty">이 달 일반 매출 기록이 없어요.</div>';
+  }
+  $("statSalesCard").addEventListener("click", () => { salesMonth = new Date(); renderSales(); $("salesOverlay").classList.add("open"); });
+  $("salesPrevBtn").addEventListener("click", () => { salesMonth = new Date(salesMonth.getFullYear(), salesMonth.getMonth() - 1, 1); renderSales(); });
+  $("salesNextBtn").addEventListener("click", () => { salesMonth = new Date(salesMonth.getFullYear(), salesMonth.getMonth() + 1, 1); renderSales(); });
+  $("salesCloseBtn").addEventListener("click", () => $("salesOverlay").classList.remove("open"));
+  $("salesXBtn").addEventListener("click", () => $("salesOverlay").classList.remove("open"));
+  $("salesOverlay").addEventListener("click", (e) => { if (e.target.id === "salesOverlay") $("salesOverlay").classList.remove("open"); });
+
   // return log modal (회수 기록 — auto-completed 반납 schedules from index.html)
   let returnLog = {};
   let retViewMode = "all"; // all | date | vehicle
@@ -1468,6 +1537,11 @@
     onValue(ref(db, P('paymentSettings')), (snap) => { applySettings(snap.val()); render(); });
     onValue(ref(db, P('paymentOverrides')), (snap) => { applyOverrides(snap.val()); render(); });
     onValue(ref(db, P('paymentSendLog')), (snap) => { applySendLog(snap.val()); if ($("logOverlay").classList.contains("open")) renderLog(); });
+    onValue(ref(db, P('generalSales')), (snap) => {
+      generalSales = snap.exists() ? (snap.val() || {}) : {};
+      renderSalesStat();
+      if ($("salesOverlay").classList.contains("open")) renderSales();
+    }, (err) => console.warn('일반 매출 불러오기 실패:', err && err.code));
     onValue(ref(db, P('schedules')), (snap) => { returnLog = snap.exists() ? snap.val() : {}; render(); if ($("returnLogOverlay").classList.contains("open")) renderReturnLog(); });
 
     try {
