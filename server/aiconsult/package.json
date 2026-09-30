@@ -1,0 +1,11 @@
+{
+  "name": "aiconsult",
+  "version": "1.0.0",
+  "description": "홈페이지 AI 상담 서버 (Cloud Run 함수)",
+  "main": "index.js",
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@google-cloud/functions-framework": "^3.4.0",
+    "firebase-admin": "^12.7.0"
+  }
+}

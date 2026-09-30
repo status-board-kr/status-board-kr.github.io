@@ -2,38 +2,161 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>AI 상담</title>
 <!--
-  홈페이지(pang-rent.github.io/main)의 "AI 상담" 창이 이 주소를 불러옵니다.
-  (…/chat.html?embed=1&c=업체ID)
-  AI 상담 기능이 준비될 때까지는 오류 화면 대신 전화 안내를 보여줍니다.
+  홈페이지(pang-rent.github.io/main)의 "AI 상담" 창이 이 주소를 불러옵니다.  (…/chat.html?embed=1&c=업체ID)
+  AI 답변은 서버(server/aiconsult)가 만듭니다. AI 키는 이 페이지에 없습니다.
+  서버 주소가 비어 있거나 서버가 응답하지 않으면 전화 안내로 바뀝니다.
 -->
+<script>
+  // ▼ Cloud Run에 aiconsult를 배포한 뒤 그 주소를 넣으세요 (비워두면 "준비 중 · 전화 문의" 안내)
+  const AI_CONSULT_URL = '';
+  const PHONE = '010-5145-8990';
+</script>
 <style>
-  :root{ --ink:#0f172a; --soft:#64748b; --line:#e2e8f0; --blue:#2563eb; --bg:#ffffff; --tint:#f5f7fb; }
+  :root{ --ink:#0f172a; --soft:#64748b; --line:#e2e8f0; --blue:#2563eb; --bg:#ffffff; --tint:#f1f5f9; --me:#2563eb; }
   *{ box-sizing:border-box; }
   html,body{ margin:0; height:100%; }
-  body{ background:var(--bg); color:var(--ink);
-        font-family:-apple-system,BlinkMacSystemFont,"Pretendard","Malgun Gothic","Apple SD Gothic Neo",sans-serif;
-        display:flex; align-items:center; justify-content:center; padding:24px 16px; }
-  .box{ max-width:360px; width:100%; text-align:center; }
-  .ic{ width:64px; height:64px; margin:0 auto 16px; border-radius:20px; background:var(--tint);
-       display:flex; align-items:center; justify-content:center; font-size:30px; }
-  h1{ font-size:18px; margin:0 0 8px; }
-  p{ font-size:14px; line-height:1.6; color:var(--soft); margin:0 0 20px; }
-  a.btn{ display:flex; align-items:center; justify-content:center; gap:8px; width:100%;
-         padding:15px; border-radius:12px; background:var(--blue); color:#fff;
-         font-size:16px; font-weight:700; text-decoration:none; }
-  .hours{ margin-top:12px; font-size:12px; color:var(--soft); }
+  body{ background:var(--bg); color:var(--ink); display:flex; flex-direction:column;
+        font-family:-apple-system,BlinkMacSystemFont,"Pretendard","Malgun Gothic","Apple SD Gothic Neo",sans-serif; }
+  #log{ flex:1; overflow-y:auto; padding:16px 14px 8px; display:flex; flex-direction:column; gap:8px; }
+  .msg{ max-width:82%; padding:10px 13px; border-radius:16px; font-size:14.5px; line-height:1.55; white-space:pre-wrap; word-break:break-word; }
+  .bot{ align-self:flex-start; background:var(--tint); border-bottom-left-radius:4px; }
+  .me{ align-self:flex-end; background:var(--me); color:#fff; border-bottom-right-radius:4px; }
+  .typing{ color:var(--soft); }
+  .typing span{ display:inline-block; animation:blink 1.2s infinite; }
+  .typing span:nth-child(2){ animation-delay:.2s } .typing span:nth-child(3){ animation-delay:.4s }
+  @keyframes blink{ 0%,80%,100%{opacity:.2} 40%{opacity:1} }
+  .chips{ display:flex; flex-wrap:wrap; gap:6px; padding:0 14px 8px; }
+  .chip{ border:1px solid var(--line); background:#fff; color:var(--ink); border-radius:999px; padding:7px 12px; font-size:13px; cursor:pointer; }
+  .done{ align-self:stretch; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:12px; padding:12px; font-size:13.5px; line-height:1.5; }
+  a.call{ display:inline-flex; align-items:center; gap:6px; margin-top:8px; padding:9px 14px; border-radius:10px; background:var(--blue); color:#fff; text-decoration:none; font-weight:700; font-size:14px; }
+  form{ display:flex; gap:8px; padding:10px 12px calc(10px + env(safe-area-inset-bottom)); border-top:1px solid var(--line); background:#fff; }
+  #inp{ flex:1; min-width:0; border:1px solid var(--line); border-radius:22px; padding:11px 15px; font-size:15px; outline:none; }
+  #inp:focus{ border-color:var(--blue); }
+  #send{ border:none; background:var(--blue); color:#fff; border-radius:22px; padding:0 18px; font-size:15px; font-weight:700; }
+  #send:disabled{ opacity:.5; }
+  .fine{ text-align:center; font-size:11px; color:var(--soft); padding:0 14px 6px; }
+  /* 준비 중(서버 없음) 화면 */
+  #soon{ display:none; flex:1; align-items:center; justify-content:center; padding:24px 16px; text-align:center; }
+  #soon .box{ max-width:340px; }
+  #soon .ic{ width:64px; height:64px; margin:0 auto 16px; border-radius:20px; background:var(--tint); display:flex; align-items:center; justify-content:center; font-size:30px; }
+  #soon h1{ font-size:18px; margin:0 0 8px; }
+  #soon p{ font-size:14px; line-height:1.6; color:var(--soft); margin:0 0 20px; }
+  #soon a.call{ display:flex; justify-content:center; width:100%; padding:15px; font-size:16px; }
 </style>
 </head>
 <body>
-  <div class="box">
-    <div class="ic" aria-hidden="true">💬</div>
-    <h1>AI 상담을 준비하고 있어요</h1>
-    <p>곧 열려요. 지금은 전화로 문의해주시면<br>담당자가 바로 안내해드릴게요.</p>
-    <a class="btn" href="tel:01051458990" target="_top">📞 010-5145-8990 전화하기</a>
-    <div class="hours">광주광역시 · 전남 전지역 장기·단기 렌터카, 보험대차</div>
+  <div id="soon">
+    <div class="box">
+      <div class="ic" aria-hidden="true">💬</div>
+      <h1 id="soonTitle">AI 상담을 준비하고 있어요</h1>
+      <p id="soonText">곧 열려요. 지금은 전화로 문의해주시면<br>담당자가 바로 안내해드릴게요.</p>
+      <a class="call" id="soonCall" target="_top">📞 전화하기</a>
+    </div>
   </div>
+  <div id="log" aria-live="polite"></div>
+  <div class="chips" id="chips"></div>
+  <div class="fine">알려주신 정보는 상담·예약 안내에만 쓰여요. 생년월일은 보험 나이 확인용이에요.</div>
+  <form id="f" autocomplete="off">
+    <input id="inp" placeholder="궁금한 걸 물어보세요" maxlength="600" enterkeyhint="send">
+    <button id="send" type="submit">보내기</button>
+  </form>
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const params = new URLSearchParams(location.search);
+  const companyId = params.get('c') || '';
+  const telHref = 'tel:' + PHONE.replace(/[^\d]/g, '');
+  const GREETING = '안녕하세요, 팡팡렌트카 AI 상담이에요 😊\n원하시는 차종이나 기간을 편하게 말씀해주세요. 상담 신청도 대화로 받아드려요.';
+  const CHIPS = ['단기 렌트 문의', '장기 렌트 견적', '보험대차(사고) 문의', '대략 가격이 궁금해요'];
+
+  function showSoon(title, text){
+    ['log', 'chips', 'f'].forEach(id => $(id).style.display = 'none');
+    document.querySelector('.fine').style.display = 'none';
+    if(title) $('soonTitle').textContent = title;
+    if(text) $('soonText').innerHTML = text;
+    $('soonCall').href = telHref;
+    $('soonCall').textContent = '📞 ' + PHONE + ' 전화하기';
+    $('soon').style.display = 'flex';
+  }
+  if(!AI_CONSULT_URL || !/^[A-Za-z0-9_-]{4,64}$/.test(companyId)){ showSoon(); return; }
+
+  // 이 브라우저 창에서만 대화를 기억 (창을 닫으면 사라짐)
+  const KEY = 'aiconsult_' + companyId;
+  let state = null;
+  try{ state = JSON.parse(sessionStorage.getItem(KEY) || 'null'); }catch(e){}
+  if(!state || !state.sessionId){
+    const rnd = (crypto.getRandomValues ? Array.from(crypto.getRandomValues(new Uint8Array(12)), b => b.toString(16).padStart(2, '0')).join('') : String(Math.random()).slice(2) + Date.now());
+    state = { sessionId: 's' + rnd, messages: [], submitted: false };
+  }
+  const save = () => { try{ sessionStorage.setItem(KEY, JSON.stringify(state)); }catch(e){} };
+
+  function bubble(role, text){
+    const d = document.createElement('div');
+    d.className = 'msg ' + (role === 'user' ? 'me' : 'bot');
+    d.textContent = text;
+    $('log').appendChild(d);
+    $('log').scrollTop = $('log').scrollHeight;
+    return d;
+  }
+  function doneCard(){
+    if(document.querySelector('.done')) return;
+    const d = document.createElement('div');
+    d.className = 'done';
+    d.innerHTML = '✅ 상담 신청이 접수됐어요. 담당자가 곧 연락드릴게요.<br>급하시면 바로 전화 주세요.<br><a class="call" target="_top" href="' + telHref + '">📞 ' + PHONE + '</a>';
+    $('log').appendChild(d);
+    $('log').scrollTop = $('log').scrollHeight;
+  }
+  function renderChips(){
+    $('chips').innerHTML = '';
+    if(state.messages.some(m => m.role === 'user')) return;
+    CHIPS.forEach(t => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = t;
+      b.onclick = () => send(t);
+      $('chips').appendChild(b);
+    });
+  }
+
+  bubble('assistant', GREETING);
+  state.messages.forEach(m => bubble(m.role, m.text));
+  if(state.submitted) doneCard();
+  renderChips();
+
+  let busy = false, fails = 0;
+  async function send(text){
+    text = String(text || '').trim();
+    if(!text || busy) return;
+    busy = true; $('send').disabled = true; $('inp').value = '';
+    state.messages.push({ role: 'user', text }); save();
+    bubble('user', text); renderChips();
+    const t = bubble('assistant', ''); t.classList.add('typing'); t.innerHTML = '<span>●</span> <span>●</span> <span>●</span>';
+    try{
+      const ctl = new AbortController(); const timer = setTimeout(() => ctl.abort(), 30000);
+      const r = await fetch(AI_CONSULT_URL, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, signal: ctl.signal,
+        body: JSON.stringify({ companyId, sessionId: state.sessionId, messages: state.messages.slice(-40) })
+      });
+      clearTimeout(timer);
+      const d = await r.json().catch(() => ({}));
+      if(!r.ok && !d.reply) throw new Error('status ' + r.status);
+      t.classList.remove('typing'); t.textContent = d.reply;
+      if(r.ok){ state.messages.push({ role: 'assistant', text: d.reply }); fails = 0; }
+      if(d.submitted){ state.submitted = true; doneCard(); }
+      save();
+    }catch(e){
+      t.remove();
+      state.messages.pop(); save();
+      fails++;
+      if(fails >= 2){ showSoon('지금 AI 상담 연결이 어려워요', '잠시 후 다시 시도해주시거나<br>전화로 문의해주세요.'); }
+      else { bubble('assistant', '연결이 잠깐 끊겼어요. 한 번만 다시 보내주세요.'); $('inp').value = text; }
+    }finally{
+      busy = false; $('send').disabled = false; $('inp').focus();
+    }
+  }
+  $('f').addEventListener('submit', (e) => { e.preventDefault(); send($('inp').value); });
+})();
+</script>
 </body>
 </html>

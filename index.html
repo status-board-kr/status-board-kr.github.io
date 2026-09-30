@@ -673,6 +673,7 @@
   <div class="header-actions">
     <button class="link-btn telegram" onclick="openChatModal()" style="position:relative;">💬 메신저<span class="chat-badge" id="chatBadge" style="display:none;top:-6px;right:-6px;">0</span></button>
     <button class="link-btn" style="color:#f472b6;border:1px solid rgba(244,114,182,.5);position:relative;" onclick="openLocModal()">📍 위치보기<span class="chat-badge" id="locBadge" style="display:none;top:-6px;right:-6px;">0</span></button>
+    <button class="link-btn" style="color:#34d399;border:1px solid rgba(52,211,153,.5);position:relative;" onclick="openInquiryModal()">📞 상담<span class="chat-badge" id="inqBadge" style="display:none;top:-6px;right:-6px;">0</span></button>
     <button class="link-btn kakao" style="color:#fde047;border:1px solid rgba(253,224,71,.45);" onclick="openKakaoTalk()">💬 카카오톡</button>
     <button class="link-btn" id="quickAppBtn" style="color:#fbbf24;border:1px solid rgba(251,191,36,.5);" onclick="openQuickApp()" oncontextmenu="if(window.COMPANY_ROLE==='owner'){event.preventDefault();setupQuickApp();}">⭐ 자주 쓰는 앱</button>
     <button class="link-btn" style="color:var(--purple);border:1px solid rgba(167,139,250,.5);" onclick="openSchedModal()">📅 일정</button>
@@ -994,6 +995,18 @@
     <div class="modal-actions" style="margin-top:14px;">
       <button class="btn-cancel" style="width:100%;padding:15px;font-size:15px;font-weight:700;border-radius:12px;" onclick="closeHistoryModal()">닫기</button>
     </div>
+  </div>
+</div>
+
+<div class="modal-bg" id="inqModalBg">
+  <div class="modal">
+    <h3>📞 상담 신청</h3>
+    <div class="sub">홈페이지 AI 상담으로 들어온 신청이에요. 연락했으면 '연락 완료'를 눌러주세요.</div>
+    <label style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--sub);margin:4px 0 10px;">
+      <input type="checkbox" id="inqPendingOnly" style="width:auto;" onchange="renderInquiries()"> 미연락만 보기
+    </label>
+    <div id="inqList"><div class="empty">불러오는 중...</div></div>
+    <button class="btn-cancel" style="width:100%;padding:15px;font-size:15px;font-weight:700;border-radius:12px;margin-top:12px;" onclick="closeInquiryModal()">닫기</button>
   </div>
 </div>
 
@@ -1698,7 +1711,7 @@ function escapeHtml(s){
 // 모달을 열 때마다 히스토리를 하나 쌓아두고, 뒤로가기가 오면 페이지를 벗어나는
 // 대신 열려있는 모달만 닫히게 합니다. 앱 내 닫기/취소/저장 버튼으로 닫을 때도
 // 쌓아둔 히스토리를 같이 되돌려서 스택이 계속 쌓이지 않게 맞춰줍니다.
-const MODAL_IDS = ['modalBg','schedModalBg','addModalBg','historyModalBg','staffModalBg','chatModalBg','locModalBg','appDialogBg'];
+const MODAL_IDS = ['modalBg','schedModalBg','addModalBg','historyModalBg','staffModalBg','chatModalBg','locModalBg','inqModalBg','appDialogBg'];
 function pushModalHistoryState(id){
   history.pushState({ modalId: id }, '');
 }
@@ -1715,12 +1728,13 @@ const MODAL_CLOSERS = {
   staffModalBg: () => (typeof closeStaffModal === 'function') && closeStaffModal(),
   chatModalBg: () => (typeof closeChatModal === 'function') && closeChatModal(),
   locModalBg: () => (typeof closeLocModal === 'function') && closeLocModal(),
+  inqModalBg: () => (typeof closeInquiryModal === 'function') && closeInquiryModal(),
   appDialogBg: () => (typeof closeAppDialog === 'function') && closeAppDialog(null)
 };
 function closeTopModal(){
   if(typeof isPhotoViewerOpen === 'function' && isPhotoViewerOpen()){ closePhotoViewer(); return true; }
   // 위에 열린 창부터 닫습니다 (확인창이 가장 위)
-  const order = ['appDialogBg','addModalBg','historyModalBg','modalBg','schedModalBg','staffModalBg','chatModalBg','locModalBg'];
+  const order = ['appDialogBg','addModalBg','historyModalBg','modalBg','schedModalBg','staffModalBg','chatModalBg','locModalBg','inqModalBg'];
   for(const id of order){
     const el = document.getElementById(id);
     if(el && el.classList.contains('open')){
@@ -2851,6 +2865,83 @@ function closeHistoryModal(){
 // ── 직원 관리 (업체 멤버 + 초대코드) ──────────────────────────────
 // 직원은 companies/{업체ID}/members 에 등록됩니다.
 // 관리자(owner)가 초대코드를 만들어서 알려주면, 직원이 그 코드로 가입해서 합류합니다.
+// ── 홈페이지 AI 상담 신청 목록 (server/aiconsult 가 companies/{id}/inquiries 에 저장) ──
+let _inquiries = {};
+function startInquirySync(){
+  const { ref, onValue, db } = window._fb;
+  onValue(ref(db, P('inquiries')), (snap)=>{
+    _inquiries = snap.exists() ? (snap.val() || {}) : {};
+    updateInquiryBadge();
+    if(document.getElementById('inqModalBg').classList.contains('open')) renderInquiries();
+  }, (err)=> console.warn('상담 신청 수신 실패:', err && err.code));
+}
+function inquiryList(){
+  return Object.entries(_inquiries || {}).filter(([,x]) => x && typeof x === 'object')
+    .sort((a,b) => String(b[1].createdAt || '').localeCompare(String(a[1].createdAt || '')));
+}
+function updateInquiryBadge(){
+  const b = document.getElementById('inqBadge');
+  if(!b) return;
+  const n = inquiryList().filter(([,x]) => !x.contacted).length;
+  b.textContent = n > 99 ? '99+' : String(n);
+  b.style.display = n ? 'flex' : 'none';
+}
+function renderInquiries(){
+  const el = document.getElementById('inqList');
+  if(!el) return;
+  const pendingOnly = document.getElementById('inqPendingOnly').checked;
+  const list = inquiryList().filter(([,x]) => !pendingOnly || !x.contacted);
+  if(!list.length){ el.innerHTML = `<div class="empty">${pendingOnly ? '연락 안 한 상담 신청이 없어요.' : '아직 상담 신청이 없어요.'}</div>`; return; }
+  el.innerHTML = list.map(([key, x]) => {
+    const tags = [x.kind, x.car, x.period].filter(Boolean).map(escapeHtml).join(' · ');
+    const done = x.contacted
+      ? `<span style="color:var(--green);font-size:12px;">✅ 연락 완료${x.contactedBy ? ' · ' + escapeHtml(x.contactedBy) : ''}${x.contactedAt ? ' · ' + escapeHtml(fmtChatDateTime(x.contactedAt)) : ''}</span>`
+      : `<span style="color:var(--red);font-size:12px;font-weight:700;">미연락</span>`;
+    return `
+    <div class="sched-list-row" style="flex-direction:column;align-items:stretch;gap:6px;${x.contacted ? 'opacity:.65;' : ''}">
+      <div style="display:flex;justify-content:space-between;gap:8px;">
+        <div class="t">${escapeHtml(x.name || '(이름 없음)')} ${x.phone ? linkPhones(escapeHtml(x.phone)) : ''}</div>
+        <div style="color:var(--sub);font-size:11px;white-space:nowrap;">${escapeHtml(fmtChatDateTime(x.createdAt || ''))}</div>
+      </div>
+      ${tags ? `<div class="m">${tags}</div>` : ''}
+      ${x.birth ? `<div class="m" style="font-size:12px;">생년월일 ${escapeHtml(x.birth)}</div>` : ''}
+      ${x.memo ? `<div class="m" style="font-size:12px;">요청: ${escapeHtml(x.memo)}</div>` : ''}
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+        ${done}
+        <div style="display:flex;gap:6px;">
+          ${x.transcript ? `<button class="del" style="color:var(--blue);" onclick="toggleInquiryTalk('${escapeHtml(key)}')">대화 보기</button>` : ''}
+          <button class="del" style="color:${x.contacted ? 'var(--sub)' : 'var(--green)'};font-weight:700;" onclick="setInquiryContacted('${escapeHtml(key)}', ${x.contacted ? 'false' : 'true'})">${x.contacted ? '되돌리기' : '연락 완료'}</button>
+        </div>
+      </div>
+      <div id="inqTalk_${escapeHtml(key)}" style="display:none;white-space:pre-wrap;font-size:12px;color:var(--sub);background:var(--panel2);border-radius:8px;padding:8px;max-height:220px;overflow-y:auto;">${escapeHtml(x.transcript || '')}</div>
+    </div>`;
+  }).join('');
+}
+function toggleInquiryTalk(key){
+  const el = document.getElementById('inqTalk_' + key);
+  if(el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+async function setInquiryContacted(key, on){
+  try{
+    const { ref, update, db } = window._fb;
+    const who = memberLabel(window.CURRENT_USER && window.CURRENT_USER.uid, window.CURRENT_USER && window.CURRENT_USER.email);
+    await update(ref(db, P('inquiries/' + key)), on
+      ? { contacted: true, contactedBy: who, contactedAt: new Date().toISOString() }
+      : { contacted: false, contactedBy: null, contactedAt: null });
+  }catch(e){
+    console.error(e);
+    showToast('저장 실패 - Firebase 규칙에 inquiries가 있는지 확인해주세요');
+  }
+}
+function openInquiryModal(){
+  document.getElementById('inqModalBg').classList.add('open');
+  pushModalHistoryState('inqModalBg');
+  renderInquiries();
+}
+function closeInquiryModal(){
+  document.getElementById('inqModalBg').classList.remove('open');
+  popModalHistoryIfNeeded('inqModalBg');
+}
 function closeStaffModal(){
   document.getElementById('staffModalBg').classList.remove('open');
   popModalHistoryIfNeeded('staffModalBg');
@@ -5452,6 +5543,7 @@ async function startApp(){
   initAppBackButton();   // 앱 뒤로가기 버튼 연결
   setTimeout(()=> openPhoneSetup(false), 2500);   // 앱 첫 실행이면 설정 안내
   startMembersSync();
+  startInquirySync();
   startQuickAppSync();
   startAiKeySync();
   setTimeout(pruneOldChat, 8000); // 앱 켜지고 조금 뒤에 조용히 정리
