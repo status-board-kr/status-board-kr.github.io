@@ -876,19 +876,18 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
         <details class="nc-rates" id="nc-rates">
           <summary>⚙️ 계산 기준 <span id="nc-rates-sum"></span></summary>
           <div class="nc-rates-body">
-            <div class="nc-rates-note">월 렌트료 = 차값 할부금(금리, 끝나고 팔 값 빼고) − 보증금 이자 + 보험료 + 세금·관리비 + <b>마진</b> (+21세 추가) · 천원 단위 반올림<br>→ 마진을 0으로 하면 딱 원가, 그 밑으로 받으면 손해예요.</div>
+            <div class="nc-rates-note">원가 = 내 할부금 + 내 선수금 ÷ 계약기간 + 보험료 + 지입료 + 기타<br>월 렌트료 = 원가 + <b>마진</b> − 고객 보증금 이자 − 고객 선납금 ÷ 계약기간 (+21세 추가) · 천원 단위 반올림<br>→ 마진을 0으로 하면 딱 원가, 그 밑으로 받으면 손해예요.</div>
             <div class="form-grid">
-              <div class="afield"><label>차 살 때 금리 (연 %)</label><input type="text" id="nr_rate" inputmode="decimal" oninput="ncRateInput(this)"/></div>
+              <div class="afield" style="grid-column:1/-1;"><label>내가 차 살 때 할부</label></div>
+              <div class="afield"><label>할부 금리 (연 %)</label><input type="text" id="nr_rate" inputmode="decimal" oninput="ncRateInput(this)"/></div>
+              <div class="afield"><label>할부 기간</label><select id="nr_months" onchange="ncRateInput(this)"><option value="12">12개월</option><option value="24">24개월</option><option value="36">36개월</option><option value="48">48개월</option><option value="60">60개월</option></select></div>
+              <div class="afield"><label>내 선수금 (차량가의 %)</label><input type="text" id="nr_down" inputmode="decimal" oninput="ncRateInput(this)"/></div>
+              <div class="afield" style="grid-column:1/-1;"><label style="margin-top:4px;">매달 드는 돈</label></div>
               <div class="afield"><label>보험료 (원/월)</label><input type="text" id="nr_ins" inputmode="numeric" oninput="fmtMon(this);ncRateInput(this)"/></div>
-              <div class="afield"><label>세금·관리비 (원/월)</label><input type="text" id="nr_tax" inputmode="numeric" oninput="fmtMon(this);ncRateInput(this)"/></div>
+              <div class="afield"><label>지입료 (원/월)</label><input type="text" id="nr_fee" inputmode="numeric" oninput="fmtMon(this);ncRateInput(this)"/></div>
+              <div class="afield"><label>기타 · 세금 등 (원/월)</label><input type="text" id="nr_etc" inputmode="numeric" oninput="fmtMon(this);ncRateInput(this)"/></div>
               <div class="afield"><label>마진 · 남길 돈 (원/월)</label><input type="text" id="nr_margin" inputmode="numeric" oninput="fmtMon(this);ncRateInput(this)"/></div>
               <div class="afield"><label>만 21세 추가 (원/월)</label><input type="text" id="nr_age21" inputmode="numeric" oninput="fmtMon(this);ncRateInput(this)"/></div>
-              <div class="afield" style="grid-column:1/-1;"><label style="margin-top:4px;">계약 끝나고 차를 팔 값 (차량가의 %)</label></div>
-              <div class="afield"><label>12개월 뒤</label><input type="text" id="nr_rv12" inputmode="decimal" oninput="ncRateInput(this)"/></div>
-              <div class="afield"><label>24개월 뒤</label><input type="text" id="nr_rv24" inputmode="decimal" oninput="ncRateInput(this)"/></div>
-              <div class="afield"><label>36개월 뒤</label><input type="text" id="nr_rv36" inputmode="decimal" oninput="ncRateInput(this)"/></div>
-              <div class="afield"><label>48개월 뒤</label><input type="text" id="nr_rv48" inputmode="decimal" oninput="ncRateInput(this)"/></div>
-              <div class="afield"><label>60개월 뒤</label><input type="text" id="nr_rv60" inputmode="decimal" oninput="ncRateInput(this)"/></div>
               <div class="afield"><label>2안 기본 보증금 (%)</label><input type="text" id="nr_d2" inputmode="decimal" oninput="ncRateInput(this)"/></div>
               <div class="afield"><label>3안 기본 보증금 (%)</label><input type="text" id="nr_d3" inputmode="decimal" oninput="ncRateInput(this)"/></div>
             </div>
@@ -2605,11 +2604,11 @@ function downloadPDF(docId) {
 // ══════ 현황판 추가: 신차 견적서 (보증금별 1~3안 비교, 월 렌트료 자동 계산, 총액은 넣지 않음) ══════
 var NC_OPTS = 3;
 var NC_PERIODS = [12, 24, 36, 48, 60];
-// 계산 기준 (예시 값 — 화면의 ⚙️ 계산 기준에서 실제 숫자로 바꾸고 저장)
-//  rate: 차 살 때 금리(연 %) · rvN: N개월 뒤 팔 값(차량가 %) · ins/tax/margin: 월 보험료·세금관리비·마진 · d2/d3: 2·3안 기본 보증금 %
-var NC_RATES_DEFAULT = { rate: 6, rv12: 75, rv24: 60, rv36: 50, rv48: 40, rv60: 30, ins: 100000, tax: 20000, margin: 50000, age21: 30000, d2: 10, d3: 30 };
-var NC_WON_KEYS = ["ins", "tax", "margin", "age21"];
-var NC_PCT_KEYS = ["rate", "rv12", "rv24", "rv36", "rv48", "rv60", "d2", "d3"];
+// 계산 기준 (금리·보험료는 예시 값 — 화면의 ⚙️ 계산 기준에서 실제 숫자로 바꾸고 저장)
+//  rate/months/down: 내가 차 살 때 할부 금리(연 %)·기간·선수금 % · ins/fee/etc/margin: 월 보험료·지입료·기타·마진 · d2/d3: 2·3안 기본 보증금 %
+var NC_RATES_DEFAULT = { rate: 6, months: 60, down: 0, ins: 100000, fee: 50000, etc: 0, margin: 50000, age21: 30000, d2: 10, d3: 30 };
+var NC_WON_KEYS = ["ins", "fee", "etc", "margin", "age21"];
+var NC_PCT_KEYS = ["rate", "months", "down", "d2", "d3"];
 var ncRates = Object.assign({}, NC_RATES_DEFAULT);
 var _ncRatesSavedJson = "";
 
@@ -2655,18 +2654,23 @@ function ncActive(k) {
   var p = "n_p" + k + "_";
   return ncVal(p + "deposit") !== "" || ncVal(p + "prepay") !== "";
 }
-// 원가 계산: 차값 할부금(금리 r, n개월, 끝나고 팔 값 RV는 빼고, 선납금은 원금에서 뺌) − 보증금 이자 + 보험료 + 세금·관리비
-//   할부금 = (차량가 − 선납금 − RV ÷ (1+r)^n) × r ÷ (1 − (1+r)^−n)
-function ncCost(k) {
+// 원가 = 내 할부금(차량가 − 내 선수금, 할부 금리·기간, 원리금 균등) + 내 선수금 ÷ 계약기간 + 보험료 + 지입료 + 기타
+function ncInstallment(car) {
+  var r = (ncRates.rate || 0) / 100 / 12, H = ncRates.months || 60, P = car * (1 - (ncRates.down || 0) / 100);
+  return r ? P * r / (1 - Math.pow(1 + r, -H)) : P / H;
+}
+function ncBaseCost() {
   var car = ncNum("n_carprice"), n = Number(ncVal("n_period"));
   if (!car || !n) return null;
-  var p = "n_p" + k + "_", r = (ncRates.rate || 0) / 100 / 12;
+  return ncInstallment(car) + car * (ncRates.down || 0) / 100 / n + (ncRates.ins || 0) + (ncRates.fee || 0) + (ncRates.etc || 0);
+}
+// 이 안의 원가 (고객 보증금 이자·선납금은 빼고, 21세면 추가)
+function ncCost(k) {
+  var base = ncBaseCost();
+  if (base == null) return null;
+  var car = ncNum("n_carprice"), n = Number(ncVal("n_period")), p = "n_p" + k + "_", r = (ncRates.rate || 0) / 100 / 12;
   var dep = car * ncNum(p + "deposit") / 100, pre = car * ncNum(p + "prepay") / 100;
-  var rv = car * (ncRates["rv" + n] || 0) / 100;
-  var f = r ? r / (1 - Math.pow(1 + r, -n)) : 1 / n;
-  var fin = (car - pre - rv / Math.pow(1 + r, n)) * f;
-  var cost = fin - dep * r + (ncRates.ins || 0) + (ncRates.tax || 0) + (ncVal("n_age") === "21" ? (ncRates.age21 || 0) : 0);
-  return Math.max(0, cost);
+  return Math.max(0, base - dep * r - pre / n + (ncVal("n_age") === "21" ? (ncRates.age21 || 0) : 0));
 }
 function ncAutoPrice(k) {
   var cost = ncCost(k);
@@ -2741,7 +2745,7 @@ function ncFillRates() {
 }
 function ncRateInput(el) {
   var key = el.id.slice(3);
-  if (NC_PCT_KEYS.indexOf(key) >= 0) el.value = el.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1");
+  if (NC_PCT_KEYS.indexOf(key) >= 0 && el.tagName !== "SELECT") el.value = el.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1");
   NC_PCT_KEYS.concat(NC_WON_KEYS).forEach(function (key) { ncRates[key] = ncNum("nr_" + key); });
   calcNewcar();
 }
@@ -2750,7 +2754,7 @@ function ncRatesSummary() {
   if (!s) return;
   var m = Number(ncVal("n_period"));
   var changed = _ncRatesSavedJson ? JSON.stringify(ncRates) !== _ncRatesSavedJson : JSON.stringify(ncRates) !== JSON.stringify(NC_RATES_DEFAULT);
-  s.textContent = "· 금리 " + ncRates.rate + "% · 마진 월 " + Number(ncRates.margin || 0).toLocaleString() + "원" + (m ? " · " + m + "개월 뒤 " + (ncRates["rv" + m] || 0) + "%" : "")
+  s.textContent = "· 할부 " + ncRates.months + "개월 " + ncRates.rate + "%" + (ncRates.down ? " · 선수금 " + ncRates.down + "%" : "") + " · 마진 월 " + Number(ncRates.margin || 0).toLocaleString() + "원"
     + (changed ? " · 저장 안 됨" : "") + (!_ncRatesSavedJson && !changed ? " · 예시 값" : "");
 }
 async function saveNewcarRates() {
