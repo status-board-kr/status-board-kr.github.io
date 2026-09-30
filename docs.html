@@ -339,7 +339,13 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
 .edit-banner b { color:var(--text); }
 .edit-banner button { margin-left:auto; flex-shrink:0; height:30px; padding:0 10px; border-radius:8px; border:1px solid var(--border); background:var(--dark); color:var(--soft); font-size:12px; cursor:pointer; }
 .to-contract-btn { width:100%; margin-top:8px; height:46px; border:none; border-radius:var(--r); background:linear-gradient(135deg, var(--sun), #f59e0b); color:#1a1300; font-size:14px; font-weight:800; cursor:pointer; }
-#docsToast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px); opacity:0; pointer-events:none; z-index:9000; background:#0b1220; color:#fff; border:1px solid var(--border); padding:12px 18px; border-radius:12px; font-size:14px; box-shadow:0 10px 30px rgba(0,0,0,.4); transition:all .25s; max-width:calc(100% - 32px); text-align:center; }
+#docsToast { position:fixed; left:50%; bottom:86px; transform:translateX(-50%) translateY(12px); opacity:0; pointer-events:none; z-index:9000; background:rgba(11,18,32,.94); color:#fff; border:1px solid var(--border); padding:9px 14px; border-radius:20px; font-size:13px; box-shadow:0 6px 20px rgba(0,0,0,.35); transition:all .25s; max-width:calc(100% - 40px); text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.top-bar-right { display:flex; align-items:center; gap:8px; }
+.home-btn { color:var(--sky); font-size:12px; font-weight:700; text-decoration:none; padding:6px 12px; border:1px solid rgba(56,189,248,.45); border-radius:8px; white-space:nowrap; }
+/* 생년월일/사업자번호 옆 개인·법인 선택을 한 줄로 */
+.afield > label:has(input[type=radio]) { display:flex !important; flex-wrap:wrap; align-items:center; gap:4px 10px; }
+.afield > label:has(input[type=radio]) > span { display:inline-flex; gap:10px; margin-left:auto !important; }
+.afield > label:has(input[type=radio]) > span > label { display:inline-flex !important; align-items:center; gap:4px; margin:0 !important; font-size:12.5px !important; color:var(--text); }
 #docsToast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 
 /* ── 휴대폰·태블릿 ── */
@@ -347,8 +353,10 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
   /* 화면 높이에 가둬서 입력칸과 미리보기가 겹치던 것 → 위에서 아래로 자연스럽게 스크롤 */
   #adminScreen { height:auto; min-height:100vh; overflow:visible; }
   .top-bar { position:sticky; top:0; z-index:20; }
-  .tabs { position:sticky; top:46px; z-index:19; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
-  .tabs::-webkit-scrollbar { display:none; }
+  /* 탭 6개를 2줄로 다 보이게 (옆으로 밀지 않아도 됨) */
+  .tabs { position:sticky; top:46px; z-index:19; display:grid !important; grid-template-columns:repeat(3, 1fr); height:auto !important; padding:4px 6px !important; gap:4px; overflow:visible; }
+  .tab-btn { height:40px; padding:0 4px !important; font-size:12.5px !important; border-radius:8px; border-bottom:none !important; background:rgba(255,255,255,.03); }
+  .tab-btn.active { background:rgba(14,165,233,.16); color:var(--sky); box-shadow:inset 0 -2px 0 var(--blue); }
   .tab-content.active { display:block !important; height:auto !important; overflow:visible !important; }
   .input-panel { height:auto !important; overflow:visible !important; padding:14px 12px 8px; }
   .preview-panel { height:auto !important; overflow:visible !important; padding:14px 12px 28px; }
@@ -358,7 +366,6 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
   .afield textarea { min-height:84px; }
   .afield label { font-size:12px; }
   /* 개인/법인 같은 선택 버튼을 한 줄로 */
-  .afield label:has(> input[type=radio]) { display:inline-flex !important; align-items:center; gap:4px; margin-right:12px; font-size:13px !important; }
   /* 생성·초기화 버튼은 화면 아래에 붙어 있게 */
   .action-btns { position:sticky; bottom:0; z-index:5; margin:8px -12px 0; padding:10px 12px calc(10px + env(safe-area-inset-bottom)); background:linear-gradient(to top, var(--dark) 70%, rgba(30,41,59,0)); }
   .abtn { min-height:50px; font-size:15px; }
@@ -373,8 +380,8 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
 @media (max-width: 600px) {
   .top-bar { height:46px; }
   .top-bar h1 { font-size:15px; }
-  .tabs { height:46px; }
-  .tab-btn { padding:0 12px; font-size:13px; }
+  .home-btn { padding:6px 9px; }
+  .top-bar .tbadge { display:none; }
   .login-box { padding:28px 20px; }
   .login-box input { font-size:16px !important; }
 }
@@ -414,7 +421,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
       <span class="tbadge">🚗 ADMIN</span>
       <h1>팡팡렌트카 관리자</h1>
     </div>
-    <button class="logout-btn" onclick="doLogout()">로그아웃</button>
+    <div class="top-bar-right"><a class="home-btn" href="index.html">← 현황판</a><button class="logout-btn" onclick="doLogout()">로그아웃</button></div>
   </div>
 
   <div class="tabs">
@@ -2420,7 +2427,7 @@ function docsToast(msg) {
   var t = document.getElementById("docsToast");
   if (!t) { t = document.createElement("div"); t.id = "docsToast"; document.body.appendChild(t); }
   t.textContent = msg; t.classList.add("show");
-  clearTimeout(t._h); t._h = setTimeout(function () { t.classList.remove("show"); }, 2600);
+  clearTimeout(t._h); t._h = setTimeout(function () { t.classList.remove("show"); }, 2200);
 }
 
 // ── 주민번호 뒷자리 가리기: 문서(미리보기·JPG·인쇄)에만 적용, 입력칸과 저장값은 그대로 ──
@@ -2539,7 +2546,7 @@ async function saveCurrentDoc(tab) {
     var isNew = !_curDocId[tab];
     _curDocId[tab] = id;
     updateEditBanner(tab);
-    docsToast(isNew ? "💾 저장했어요 · 📂 저장된 문서에서 다시 볼 수 있어요" : "💾 수정한 내용으로 저장했어요");
+    docsToast(isNew ? "💾 저장됐어요 · 📂 저장된 문서" : "💾 수정 내용 저장됨");
   } catch (e) {
     console.error(e);
     docsToast("⚠️ 저장하지 못했어요 (Firebase 규칙에 companyDocs가 있는지 확인)");
@@ -2555,9 +2562,9 @@ showDoc = function (docId, emptyId, html, filename) {
   if (tab && !_silentGen) {
     saveCurrentDoc(tab);
     if (window.innerWidth <= 900) {
-      // 위에 붙은 머리줄(약 92px)에 가리지 않게 미리보기 제목부터 보이도록
+      // 위에 붙은 머리줄·탭(약 140px)에 가리지 않게 미리보기 제목부터 보이도록
       var top = document.querySelector("#tab-" + tab + " .preview-top") || document.getElementById(docId);
-      if (top) setTimeout(function () { window.scrollTo({ top: top.getBoundingClientRect().top + window.scrollY - 100, behavior: "smooth" }); }, 80);
+      if (top) setTimeout(function () { window.scrollTo({ top: top.getBoundingClientRect().top + window.scrollY - 150, behavior: "smooth" }); }, 80);
     }
   }
 };
@@ -2630,7 +2637,7 @@ function quoteToContract(fromTab, rec) {
   switchTab("contract");
   window.scrollTo(0, 0);
   var panel = document.querySelector("#tab-contract .input-panel"); if (panel) panel.scrollTop = 0;
-  docsToast("📝 견적서 내용 " + moved + "칸을 계약서로 옮겼어요 · 빈 칸(주소·운전자 등) 채우고 계약서 생성을 누르세요");
+  docsToast("📝 견적 " + moved + "칸 옮김 · 빈 칸 채우고 계약서 생성");
 }
 
 // ── 저장된 문서 목록 ──
