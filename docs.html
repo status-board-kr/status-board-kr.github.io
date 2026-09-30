@@ -1,0 +1,2767 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>팡팡렌트카 문서 발행</title>
+<meta name="robots" content="noindex,nofollow"/>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet"/>
+<script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+:root {
+  --navy:   #0f172a;
+  --dark:   #1e293b;
+  --panel:  #253047;
+  --border: #334155;
+  --sky:    #38bdf8;
+  --blue:   #0ea5e9;
+  --ocean:  #0369a1;
+  --sun:    #fbbf24;
+  --coral:  #fb7185;
+  --mint:   #34d399;
+  --text:   #f1f5f9;
+  --soft:   #94a3b8;
+  --r:      10px;
+  --touch:  44px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: var(--text); -webkit-font-smoothing: antialiased; overflow: hidden; }
+
+/* ── 로그인 ── */
+#loginScreen {
+  position: fixed; inset: 0; z-index: 999;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+  padding: 24px;
+}
+.login-box {
+  width: 100%; max-width: 400px;
+  background: var(--dark); border: 1px solid var(--border);
+  border-radius: 20px; padding: 40px 36px;
+  box-shadow: 0 24px 60px rgba(0,0,0,.5);
+  animation: fadeUp .5s ease both;
+}
+.login-logo { text-align: center; margin-bottom: 28px; }
+.login-logo .lbadge {
+  display: inline-block; background: var(--blue); color: #fff;
+  font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 11px; letter-spacing: 1px;
+  padding: 4px 12px; border-radius: 99px; margin-bottom: 10px;
+}
+.login-logo h1 { font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 22px; line-height: 1.3; }
+.login-logo p  { font-size: 12px; color: var(--soft); margin-top: 4px; }
+.lfield { margin-bottom: 14px; }
+.lfield label { display: block; font-size: 12px; font-weight: 700; color: var(--soft); margin-bottom: 6px; }
+.lfield input {
+  width: 100%; height: 48px; padding: 0 16px;
+  background: var(--panel); border: 1.5px solid var(--border);
+  border-radius: var(--r); font-size: 16px; color: var(--text);
+  outline: none; transition: border-color .2s; font-family: 'Noto Sans KR', sans-serif;
+}
+.lfield input:focus { border-color: var(--blue); }
+.lerr { font-size: 12px; color: var(--coral); margin-top: 6px; display: none; }
+.login-btn {
+  width: 100%; height: 50px; margin-top: 8px;
+  background: linear-gradient(135deg, var(--blue), var(--ocean));
+  border: none; border-radius: var(--r);
+  color: #fff; font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 16px;
+  cursor: pointer; transition: opacity .15s, transform .15s;
+}
+.login-btn:hover  { opacity: .92; }
+.login-btn:active { transform: scale(.97); }
+
+/* ── 관리자 레이아웃 ── */
+#adminScreen { display: none; flex-direction: column; height: 100vh; overflow: hidden; }
+
+.top-bar {
+  background: var(--dark); border-bottom: 1px solid var(--border);
+  padding: 0 28px; height: 50px;
+  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+}
+.top-bar-left { display: flex; align-items: center; gap: 10px; }
+.top-bar h1  { font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 16px; }
+.tbadge { background: var(--blue); color: #fff; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 99px; }
+.logout-btn {
+  background: transparent; border: 1px solid var(--border);
+  color: var(--soft); font-size: 12px; font-weight: 700;
+  padding: 6px 14px; border-radius: 8px; cursor: pointer; transition: all .2s;
+}
+.logout-btn:hover { border-color: var(--coral); color: var(--coral); }
+
+/* ── 탭 ── */
+.tabs {
+  background: var(--dark); border-bottom: 1px solid var(--border);
+  padding: 0 28px; display: flex; flex-shrink: 0; height: 47px; align-items: stretch; overflow-x: auto;
+}
+.tab-btn {
+  padding: 0 16px; font-size: 13px; font-weight: 700;
+  color: var(--soft); border: none; background: transparent;
+  cursor: pointer; border-bottom: 3px solid transparent; transition: all .2s; white-space: nowrap;
+}
+.tab-btn.active { color: var(--blue); border-bottom-color: var(--blue); }
+
+/* ── 탭 콘텐츠 ── */
+.tab-content { display: none; }
+.tab-content.active {
+  display: grid; grid-template-columns: 380px 1fr;
+  height: calc(100vh - 97px); overflow: hidden;
+}
+
+/* ── 입력 패널 ── */
+.input-panel {
+  background: var(--dark); border-right: 1px solid var(--border);
+  padding: 20px 16px; overflow-y: auto; height: 100%;
+}
+.preview-panel { padding: 20px; overflow-y: auto; background: var(--navy); height: 100%; }
+
+/* ── 입력 카드 ── */
+.acard {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 12px; padding: 16px; margin-bottom: 12px;
+}
+.acard-title {
+  font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 13px;
+  color: var(--sky); margin-bottom: 12px;
+  display: flex; align-items: center; gap: 6px;
+}
+.acard-title::before {
+  content: ''; display: inline-block; width: 3px; height: 14px;
+  background: var(--blue); border-radius: 99px;
+}
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.afield { margin-bottom: 10px; }
+.afield:last-child { margin-bottom: 0; }
+.afield label { display: block; font-size: 11px; font-weight: 700; color: var(--soft); margin-bottom: 4px; }
+.afield input, .afield select, .afield textarea {
+  width: 100%; height: var(--touch); padding: 0 12px;
+  background: var(--navy); border: 1.5px solid var(--border);
+  border-radius: 8px; font-size: 13px; color: var(--text);
+  outline: none; transition: border-color .2s;
+  font-family: 'Noto Sans KR', sans-serif;
+  appearance: none; -webkit-appearance: none;
+}
+.afield input[type=radio] { width:auto; height:auto; padding:0; background:none; border:none; border-radius:0; appearance:auto; -webkit-appearance:auto; }
+.afield textarea { height: 70px; padding: 10px 12px; resize: vertical; }
+.afield input:focus, .afield select:focus, .afield textarea:focus { border-color: var(--blue); }
+.afield input::placeholder, .afield textarea::placeholder { color: #334155; font-size: 12px; }
+.afield select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center; padding-right: 30px;
+}
+
+/* 주소 검색 */
+.addr-group { display: flex; gap: 6px; }
+.addr-btn {
+  background: var(--blue); color: #fff; border: none; border-radius: 8px;
+  padding: 0 12px; cursor: pointer; font-size: 11px; font-weight: 700;
+  white-space: nowrap; height: 44px; transition: opacity .2s;
+}
+.addr-btn:hover { opacity: .85; }
+
+/* ── 자동계산 박스 ── */
+.auto-calc-box {
+  background: var(--navy); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px; margin-bottom: 12px;
+}
+.auto-calc-label { font-size: 11px; font-weight: 700; color: var(--sky); margin-bottom: 10px; }
+
+/* ── 액션 버튼 ── */
+.action-btns { display: flex; gap: 8px; margin-top: 4px; }
+.abtn {
+  flex: 1; height: 56px; border: none; border-radius: var(--r);
+  font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 15px;
+  cursor: pointer; transition: opacity .18s, transform .18s;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.abtn-quote    { background: linear-gradient(135deg, var(--blue), var(--ocean)); color: #fff; box-shadow: 0 4px 14px rgba(14,165,233,.35); }
+.abtn-contract { background: linear-gradient(135deg, var(--sun), #f59e0b); color: #fff; box-shadow: 0 4px 14px rgba(251,191,36,.35); }
+.abtn-clear    { background: var(--navy); color: var(--soft); border: 1px solid var(--border); }
+.abtn:hover  { opacity: .88; }
+.abtn:active { transform: scale(.96); }
+
+/* ── 미리보기 패널 헤더 ── */
+.preview-top {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px; flex-wrap: wrap; gap: 8px;
+}
+.preview-top h3 { font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 15px; color: var(--sky); }
+.preview-top-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.print-btn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 10px 18px; border: none; border-radius: var(--r);
+  background: linear-gradient(135deg, var(--mint), #059669);
+  color: #fff; font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 13px;
+  cursor: pointer; transition: opacity .18s; box-shadow: 0 4px 14px rgba(52,211,153,.3);
+}
+.print-btn.pdf { background: linear-gradient(135deg, #818cf8, #6366f1); box-shadow: 0 4px 14px rgba(99,102,241,.3); }
+.print-btn:hover { opacity: .9; }
+
+/* ── 빈 상태 ── */
+.empty-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: 400px; color: var(--soft); text-align: center;
+}
+.empty-state .eico { font-size: 52px; margin-bottom: 12px; opacity: .4; }
+.empty-state p { font-size: 14px; line-height: 1.7; }
+
+/* ── 문서 스타일 (인쇄용) ── */
+.doc-wrap {
+  background: #fff; color: #1a1a1a;
+  border-radius: 12px; overflow: hidden;
+  box-shadow: 0 8px 40px rgba(0,0,0,.4);
+  font-family: 'Noto Sans KR', sans-serif;
+  max-width: 800px; margin: 0 auto;
+}
+.doc-inner { padding: 44px 50px; }
+
+/* ── 애니메이션 ── */
+@keyframes fadeUp { from { opacity: 0; transform: translateY(16px) } to { opacity: 1; transform: translateY(0) } }
+
+/* ── 모바일 문서 테이블 ── */
+
+
+/* ── 인쇄 (Ctrl+P 직접 인쇄) ── */
+@media print {
+  @page { size: A4 portrait; margin: 10mm 12mm; }
+
+  /* 페이지 번호 — 하단 중앙 */
+  @page { @bottom-center {
+    content: counter(page) " / " counter(pages);
+    font-size: 10px; color: #94a3b8;
+    font-family: 'Noto Sans KR', sans-serif;
+  } margin-bottom: 16mm; }
+
+  /* 색상 강제 출력 */
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+
+  /* UI 요소 숨김 */
+  body > *:not(#adminScreen) { display: none !important; }
+  .top-bar, .tabs, .input-panel, .preview-top, .preview-top-btns, .empty-state, .action-btns { display: none !important; }
+
+  /* 레이아웃 초기화 */
+  body { overflow: visible !important; background: #fff !important; }
+  #adminScreen { display: block !important; overflow: visible !important; height: auto !important; }
+  .tab-content.active { display: block !important; height: auto !important; overflow: visible !important; grid-template-columns: 1fr !important; }
+  .preview-panel { height: auto !important; overflow: visible !important; padding: 0 !important; background: #fff !important; }
+
+  /* 문서 스타일 */
+  .doc-wrap { box-shadow: none !important; border-radius: 0 !important; max-width: 100% !important; margin: 0 !important; }
+  .doc-inner { padding: 0 !important; }
+
+  /* 테이블은 행 단위로만 잘림 방지 — 섹션 블록은 페이지 나눔 자유롭게 허용 */
+  table { page-break-inside: auto !important; }
+  tr { page-break-inside: avoid !important; break-inside: avoid !important; }
+  td, th { page-break-inside: avoid !important; }
+
+  /* 빨간 강조 강제 */
+  *[style*="color:#dc2626"] { color: #dc2626 !important; }
+  *[style*="color:#991b1b"] { color: #991b1b !important; }
+  *[style*="color:#e11d48"] { color: #e11d48 !important; }
+  *[style*="background:#fff5f5"] { background: #fff5f5 !important; }
+  *[style*="background:#fca5a5"] { border-color: #fca5a5 !important; }
+
+  /* 파란 강조 강제 */
+  *[style*="color:#0369a1"] { color: #0369a1 !important; }
+  *[style*="background:#e0f2fe"] { background: #e0f2fe !important; }
+  *[style*="background:#eff6ff"] { background: #eff6ff !important; }
+  *[style*="background:#f8fafc"] { background: #f8fafc !important; }
+  *[style*="background:linear-gradient(135deg,#eff6ff"] { background: #e0f2fe !important; }
+}
+
+/* ── 반응형 ── */
+@media (max-width: 900px) {
+  body { overflow-y: auto; }
+  .tab-content.active {
+    grid-template-columns: 1fr;
+    height: auto;
+    overflow-y: auto;
+  }
+  .input-panel, .preview-panel { height: auto; }
+  .input-panel { border-right: none; border-bottom: 1px solid var(--border); }
+  .preview-panel { padding: 16px; }
+  /* 미리보기 패널을 입력 아래로 자연스럽게 */
+  .preview-panel { background: #f8fafc; }
+}
+@media (max-width: 600px) {
+  .form-grid { grid-template-columns: 1fr; }
+  .top-bar { padding: 0 12px; height: 46px; }
+  .top-bar h1 { font-size: 14px; }
+  .tabs { padding: 0 4px; height: 42px; }
+  .tab-btn { padding: 0 8px; font-size: 11px; }
+  .login-box { padding: 28px 16px; }
+  .preview-top { flex-direction: column; align-items: flex-start; gap: 6px; }
+  /* 문서 폰트 모바일 최적화 */
+  .doc-wrap { border-radius: 8px; }
+  .doc-inner { padding: 20px 16px; }
+  /* 액션 버튼 */
+  .action-btns { flex-direction: column; }
+  .abtn { height: 60px; font-size: 16px; }
+  /* 미리보기 버튼 */
+  .print-btn { padding: 8px 12px; font-size: 12px; }
+  /* acard 패딩 */
+  .acard { padding: 12px; }
+  /* 탭 스크롤 힌트 */
+  .tabs { -webkit-overflow-scrolling: touch; }
+}
+@media (max-width: 400px) {
+  .tab-btn { padding: 0 6px; font-size: 10px; }
+  .top-bar h1 { font-size: 13px; }
+}
+/* ══════ 현황판 추가: 저장된 문서 · 휴대폰 화면 ══════ */
+.saved-count { display:inline-block; min-width:18px; padding:0 5px; margin-left:4px; border-radius:9px; background:var(--blue); color:#fff; font-size:10px; line-height:18px; text-align:center; }
+.saved-count:empty { display:none; }
+.tab-content.saved-tab.active { display:block; overflow-y:auto; }
+.saved-wrap { max-width:860px; margin:0 auto; padding:20px 16px 40px; }
+.saved-head { position:sticky; top:0; z-index:2; background:var(--navy); padding-bottom:10px; }
+.saved-head input { width:100%; height:var(--touch); padding:0 14px; border-radius:var(--r); border:1px solid var(--border); background:var(--dark); color:var(--text); font-size:15px; outline:none; }
+.saved-head input:focus { border-color:var(--blue); }
+.saved-filters { display:flex; gap:6px; margin-top:10px; overflow-x:auto; scrollbar-width:none; }
+.saved-filters::-webkit-scrollbar { display:none; }
+.saved-filters button { flex-shrink:0; height:34px; padding:0 14px; border-radius:17px; border:1px solid var(--border); background:var(--dark); color:var(--soft); font-size:13px; font-weight:700; cursor:pointer; }
+.saved-filters button.on { background:var(--blue); border-color:var(--blue); color:#fff; }
+.saved-item { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:10px; }
+.saved-top { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+.saved-type { display:inline-block; font-size:11px; font-weight:700; padding:2px 8px; border-radius:6px; background:rgba(56,189,248,.14); color:var(--sky); margin-bottom:6px; }
+.saved-type.t-contract { background:rgba(251,191,36,.15); color:var(--sun); }
+.saved-type.t-receipt { background:rgba(52,211,153,.15); color:var(--mint); }
+.saved-name { font-size:16px; font-weight:700; }
+.saved-meta { font-size:12.5px; color:var(--soft); margin-top:4px; line-height:1.6; }
+.saved-amt { font-size:15px; font-weight:800; color:var(--text); white-space:nowrap; }
+.saved-date { font-size:11px; color:var(--soft); text-align:right; margin-top:4px; white-space:nowrap; }
+.saved-btns { display:flex; gap:6px; margin-top:12px; flex-wrap:wrap; }
+.saved-btns button { flex:1; min-width:90px; height:40px; border-radius:9px; border:1px solid var(--border); background:var(--dark); color:var(--text); font-size:13px; font-weight:700; cursor:pointer; }
+.saved-btns .to-contract { background:linear-gradient(135deg, var(--sun), #f59e0b); border:none; color:#1a1300; }
+.saved-btns .del { flex:0 0 auto; min-width:0; padding:0 14px; color:var(--coral); }
+.saved-empty { text-align:center; color:var(--soft); padding:60px 10px; font-size:14px; line-height:1.7; }
+.edit-banner { display:none; align-items:center; gap:8px; margin-bottom:12px; padding:10px 12px; border-radius:10px; border:1px solid rgba(56,189,248,.45); background:rgba(56,189,248,.1); font-size:12.5px; color:var(--sky); }
+.edit-banner b { color:var(--text); }
+.edit-banner button { margin-left:auto; flex-shrink:0; height:30px; padding:0 10px; border-radius:8px; border:1px solid var(--border); background:var(--dark); color:var(--soft); font-size:12px; cursor:pointer; }
+.to-contract-btn { width:100%; margin-top:8px; height:46px; border:none; border-radius:var(--r); background:linear-gradient(135deg, var(--sun), #f59e0b); color:#1a1300; font-size:14px; font-weight:800; cursor:pointer; }
+#docsToast { position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px); opacity:0; pointer-events:none; z-index:9000; background:#0b1220; color:#fff; border:1px solid var(--border); padding:12px 18px; border-radius:12px; font-size:14px; box-shadow:0 10px 30px rgba(0,0,0,.4); transition:all .25s; max-width:calc(100% - 32px); text-align:center; }
+#docsToast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+/* ── 휴대폰·태블릿 ── */
+@media (max-width: 900px) {
+  /* 화면 높이에 가둬서 입력칸과 미리보기가 겹치던 것 → 위에서 아래로 자연스럽게 스크롤 */
+  #adminScreen { height:auto; min-height:100vh; overflow:visible; }
+  .top-bar { position:sticky; top:0; z-index:20; }
+  .tabs { position:sticky; top:46px; z-index:19; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+  .tabs::-webkit-scrollbar { display:none; }
+  .tab-content.active { display:block !important; height:auto !important; overflow:visible !important; }
+  .input-panel { height:auto !important; overflow:visible !important; padding:14px 12px 8px; }
+  .preview-panel { height:auto !important; overflow:visible !important; padding:14px 12px 28px; }
+  .acard { padding:14px 12px; border-radius:12px; }
+  /* 휴대폰에서 글자 입력할 때 화면이 확대되지 않게 16px */
+  .afield input, .afield select, .afield textarea { font-size:16px !important; min-height:46px; }
+  .afield textarea { min-height:84px; }
+  .afield label { font-size:12px; }
+  /* 개인/법인 같은 선택 버튼을 한 줄로 */
+  .afield label:has(> input[type=radio]) { display:inline-flex !important; align-items:center; gap:4px; margin-right:12px; font-size:13px !important; }
+  /* 생성·초기화 버튼은 화면 아래에 붙어 있게 */
+  .action-btns { position:sticky; bottom:0; z-index:5; margin:8px -12px 0; padding:10px 12px calc(10px + env(safe-area-inset-bottom)); background:linear-gradient(to top, var(--dark) 70%, rgba(30,41,59,0)); }
+  .abtn { min-height:50px; font-size:15px; }
+  .preview-top { gap:8px; }
+  .preview-top-btns { width:100%; }
+  .print-btn { flex:1; min-height:44px; justify-content:center; }
+  .empty-state { min-height:180px !important; }
+  /* 문서는 A4 모양 그대로 화면 폭에 맞게 줄여서 보여줌 (JS fitDocs) */
+  .doc-fit { overflow:hidden; }
+  .doc-fit > .doc-wrap { transform-origin:top left; margin:0; }
+}
+@media (max-width: 600px) {
+  .top-bar { height:46px; }
+  .top-bar h1 { font-size:15px; }
+  .tabs { height:46px; }
+  .tab-btn { padding:0 12px; font-size:13px; }
+  .login-box { padding:28px 20px; }
+  .login-box input { font-size:16px !important; }
+}
+
+</style>
+</head>
+<body>
+<img id="logoImg" src="data:image/png;base64,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" style="display:none;"/>
+<img id="stampImg" src="data:image/png;base64,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" style="display:none;"/>
+
+<!-- ──────────────── 로그인 ──────────────── -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">
+      <div class="lbadge">🔒 ADMIN</div>
+      <h1>팡팡렌트카<br/>관리자 시스템</h1>
+      <p>견적서 · 계약서 발행 · 저장 (관리자 전용)</p>
+    </div>
+    <div class="lfield">
+      <label>현황판 관리자 이메일</label>
+      <input type="email" id="emailInput" autocomplete="username" placeholder="현황판에 로그인하는 이메일" onkeydown="if(event.key==='Enter') document.getElementById('pwInput').focus()"/>
+    </div>
+    <div class="lfield">
+      <label>비밀번호</label>
+      <input type="password" id="pwInput" autocomplete="current-password" placeholder="현황판 비밀번호" onkeydown="if(event.key==='Enter') doLogin()"/>
+    </div>
+    <div class="lerr" id="loginErr">⚠️ 이메일 또는 비밀번호가 올바르지 않습니다.</div>
+    <button class="login-btn" id="loginBtn" onclick="doLogin()">🔓 로그인</button>
+    <p style="font-size:11px;color:var(--soft);text-align:center;margin-top:14px;line-height:1.6;">현황판 <b>관리자</b> 계정만 들어올 수 있어요.<br>현황판에 이미 로그인돼 있으면 자동으로 열려요.</p>
+  </div>
+</div>
+
+<!-- ──────────────── 관리자 화면 ──────────────── -->
+<div id="adminScreen">
+  <div class="top-bar">
+    <div class="top-bar-left">
+      <span class="tbadge">🚗 ADMIN</span>
+      <h1>팡팡렌트카 관리자</h1>
+    </div>
+    <button class="logout-btn" onclick="doLogout()">로그아웃</button>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('simple')">📄 일반 견적서</button>
+    <button class="tab-btn" onclick="switchTab('statement')">🗒️ 거래명세서</button>
+    <button class="tab-btn" onclick="switchTab('quote')">📋 장기 견적서</button>
+    <button class="tab-btn" onclick="switchTab('contract')">📝 계약서 발행</button>
+    <button class="tab-btn" onclick="switchTab('receipt')">🧾 영수증 발행</button>
+    <button class="tab-btn" onclick="switchTab('saved')">📂 저장된 문서 <span id="savedCount" class="saved-count"></span></button>
+  </div>
+
+  <!-- ── 일반 견적서 탭 ── -->
+  <div class="tab-content active" id="tab-simple">
+    <div class="input-panel">
+      <div class="acard">
+        <div class="acard-title">고객 정보</div>
+        <div class="form-grid">
+          <div class="afield"><label>고객명</label><input type="text" id="s_name" placeholder="홍길동"/></div>
+          <div class="afield"><label>연락처</label><input type="tel" id="s_phone" placeholder="010-0000-0000" oninput="fmtTel(this)"/></div>
+          <div class="afield">
+            <label>생년월일 / 사업자번호
+              <span style="margin-left:6px;">
+                <label style="font-weight:normal;font-size:11px;cursor:pointer;"><input type="radio" name="s_birth_type" value="birth" checked onchange="toggleBirthType('s')"> 개인</label>
+                <label style="font-weight:normal;font-size:11px;cursor:pointer;margin-left:4px;"><input type="radio" name="s_birth_type" value="biz" onchange="toggleBirthType('s')"> 법인</label>
+              </span>
+            </label>
+            <input type="text" id="s_birth" placeholder="19900101" maxlength="8" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'')"/>
+            <input type="text" id="s_biznum" placeholder="000-00-00000" maxlength="12" style="display:none;" oninput="fmtBizNum(this)"/>
+          </div>
+          <div class="afield"><label>견적일자</label><input type="date" id="s_date"/></div>
+          <div class="afield" style="grid-column:1/-1;"><label>주소</label><input type="text" id="s_addr" placeholder="주소를 입력하세요"/></div>
+        </div>
+      </div>
+
+      <div class="acard">
+        <div class="acard-title">차량 정보</div>
+        <div class="form-grid">
+          <div class="afield"><label>차량모델</label><input type="text" id="s_model" placeholder="아반떼 (G)"/></div>
+          <div class="afield"><label>차량번호</label><input type="text" id="s_carnum" placeholder="12가 3456"/></div>
+          <div class="afield"><label>연식</label><input type="text" id="s_year" placeholder="2024년식"/></div>
+          <div class="afield"><label>색상</label><input type="text" id="s_color" placeholder="아틀라스 화이트"/></div>
+          <div class="afield"><label>주행거리 (km)</label><input type="text" id="s_mileage" placeholder="69,498" inputmode="numeric"/></div>
+          <div class="afield"><label>연료</label><select id="s_fuel"><option value="">선택</option><option>가솔린</option><option>디젤</option><option>LPG</option><option>하이브리드</option><option>전기</option><option>수소</option></select></div>
+        </div>
+      </div>
+
+      <div class="acard">
+        <div class="acard-title">견적 내용</div>
+        <div class="form-grid">
+          <div class="afield">
+            <label>대여 유형</label>
+            <select id="s_type">
+              <option value="단기대여">단기대여</option>
+              <option value="장기대여">장기대여</option>
+              <option value="사고대차">사고대차</option>
+            </select>
+          </div>
+          <div class="afield">
+            <label>기간 단위</label>
+            <select id="s_unit" onchange="calcSimpleDays()">
+              <option value="hour">24시간 단위</option>
+              <option value="day">일 단위</option>
+            </select>
+          </div>
+          <div class="afield"><label>대여 시작일</label><input type="date" id="s_start" onchange="calcSimpleDays()"/></div>
+          <div class="afield"><label>대여 종료일</label><input type="date" id="s_end" onchange="calcSimpleDays()"/></div>
+        </div>
+        <div class="afield">
+          <label>대여 기간 (자동계산)</label>
+          <input type="text" id="s_period" readonly placeholder="시작일·종료일 선택 시 자동계산" style="color:var(--sky);font-weight:700;"/>
+        </div>
+        <div class="form-grid" style="margin-top:6px;">
+          <div class="afield">
+            <label>렌트료 (일/24시간)</label>
+            <input type="text" id="s_price" placeholder="500,000" oninput="fmtSimplePrice()"/>
+          </div>
+          <div class="afield">
+            <label>할인율 (%)</label>
+            <input type="number" id="s_discount" placeholder="예: 10" min="0" max="100" oninput="calcSimpleTotal()"/>
+          </div>
+          <div class="afield">
+            <label>할인 후 총 렌트료</label>
+            <input type="text" id="s_total" readonly placeholder="자동계산" style="color:var(--sky);font-weight:700;"/>
+          </div>
+        </div>
+        <div class="afield" style="margin-top:6px;">
+          <label>산식 (자동생성)</label>
+          <input type="text" id="s_formula" readonly placeholder="일렌트료 × 할인율 × 일수 = 총액" style="color:var(--mint);font-size:12px;"/>
+        </div>
+        <div class="form-grid">
+          <div class="afield"><label>기타비용</label><input type="text" id="s_etc" placeholder="없음"/></div>
+        </div>
+        <div class="afield" style="margin-top:6px;">
+          <label>특이사항 <span style="color:var(--soft);font-size:10px;">(선택)</span></label>
+          <textarea id="s_special" placeholder="특이사항을 입력하세요 (없으면 비워두세요)"></textarea>
+        </div>
+      </div>
+
+      <div class="action-btns">
+        <button class="abtn abtn-quote" onclick="genSimple()">📄 견적서 생성</button>
+        <button class="abtn abtn-clear" onclick="clearTab('simple')">🗑️ 초기화</button>
+      </div>
+    </div>
+
+    <div class="preview-panel">
+      <div class="preview-top">
+        <h3>📄 일반 견적서 미리보기</h3>
+        <div class="preview-top-btns">
+          <button class="print-btn pdf" onclick="downloadPDF('simpleDoc')">🖨️ 인쇄/PDF</button>
+          <button class="print-btn" onclick="downloadJPG('simpleDoc','일반견적서',this)">🖼️ JPG</button>
+        </div>
+      </div>
+      <div id="simpleEmpty" class="empty-state">
+        <div class="eico">📄</div>
+        <p>왼쪽에 정보를 입력하고<br/><strong>견적서 생성</strong> 버튼을 누르세요</p>
+      </div>
+      <div id="simpleDoc" style="display:none;">
+        <div class="doc-wrap"><div class="doc-inner" id="simpleContent"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 거래명세서 탭 ── -->
+  <div class="tab-content" id="tab-statement">
+    <div class="input-panel">
+      <div class="acard">
+        <div class="acard-title">공급받는자 정보</div>
+        <div class="form-grid">
+          <div class="afield"><label>상호(고객명)</label><input type="text" id="st_name" placeholder="홍길동 / (주)OO회사"/></div>
+          <div class="afield"><label>연락처</label><input type="tel" id="st_phone" placeholder="010-0000-0000" oninput="fmtTel(this)"/></div>
+          <div class="afield">
+            <label>생년월일 / 사업자번호
+              <span style="margin-left:6px;">
+                <label style="font-weight:normal;font-size:11px;cursor:pointer;"><input type="radio" name="st_birth_type" value="birth" checked onchange="toggleBirthType('st')"> 개인</label>
+                <label style="font-weight:normal;font-size:11px;cursor:pointer;margin-left:4px;"><input type="radio" name="st_birth_type" value="biz" onchange="toggleBirthType('st')"> 법인</label>
+              </span>
+            </label>
+            <input type="text" id="st_birth" placeholder="19900101" maxlength="8" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'')"/>
+            <input type="text" id="st_biznum" placeholder="000-00-00000" maxlength="12" style="display:none;" oninput="fmtBizNum(this)"/>
+          </div>
+          <div class="afield"><label>발행일자</label><input type="date" id="st_date"/></div>
+          <div class="afield" style="grid-column:1/-1;"><label>주소</label><input type="text" id="st_addr" placeholder="주소를 입력하세요"/></div>
+        </div>
+      </div>
+
+      <div class="acard">
+        <div class="acard-title">차량 정보 <span style="color:var(--soft);font-size:10px;">(선택)</span></div>
+        <div class="form-grid">
+          <div class="afield"><label>차량모델</label><input type="text" id="st_model" placeholder="아반떼 (G)"/></div>
+          <div class="afield"><label>차량번호</label><input type="text" id="st_carnum" placeholder="12가 3456"/></div>
+          <div class="afield"><label>연식</label><input type="text" id="st_year" placeholder="2024년식"/></div>
+          <div class="afield"><label>색상</label><input type="text" id="st_color" placeholder="아틀라스 화이트"/></div>
+          <div class="afield"><label>주행거리 (km)</label><input type="text" id="st_mileage" placeholder="69,498" inputmode="numeric"/></div>
+          <div class="afield"><label>연료</label><select id="st_fuel"><option value="">선택</option><option>가솔린</option><option>디젤</option><option>LPG</option><option>하이브리드</option><option>전기</option><option>수소</option></select></div>
+        </div>
+      </div>
+
+      <div class="acard">
+        <div class="acard-title">거래 내용</div>
+        <div id="st-item-list">
+          <!-- 품목 행은 JS로 추가 -->
+        </div>
+        <button type="button" class="abtn" style="margin-top:6px;width:100%;background:var(--navy);border:1.5px dashed var(--border);color:var(--soft);font-size:12px;height:38px;" onclick="addStItem()">＋ 품목 추가</button>
+        <div style="margin-top:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div class="afield">
+            <label>세금 구분</label>
+            <select id="st_tax_type" onchange="calcStTotal()">
+              <option value="none">비과세</option>
+              <option value="include">VAT 포함</option>
+              <option value="add">VAT 별도 (10% 추가)</option>
+            </select>
+          </div>
+          <div class="afield">
+            <label>합계금액 (자동계산)</label>
+            <input type="text" id="st_total" readonly style="color:var(--sky);font-weight:700;"/>
+          </div>
+        </div>
+        <div class="afield" style="margin-top:6px;">
+          <label>비고 <span style="color:var(--soft);font-size:10px;">(선택)</span></label>
+          <textarea id="st_note" placeholder="비고 사항을 입력하세요"></textarea>
+        </div>
+      </div>
+
+      <div class="action-btns">
+        <button class="abtn abtn-quote" onclick="genStatement()">🗒️ 거래명세서 생성</button>
+        <button class="abtn abtn-clear" onclick="clearStatement()">🗑️ 초기화</button>
+      </div>
+    </div>
+
+    <div class="preview-panel">
+      <div class="preview-top">
+        <h3>🗒️ 거래명세서 미리보기</h3>
+        <div class="preview-top-btns">
+          <button class="print-btn pdf" onclick="downloadPDF('statementDoc')">🖨️ 인쇄/PDF</button>
+          <button class="print-btn" onclick="downloadJPG('statementDoc','거래명세서',this)">🖼️ JPG</button>
+        </div>
+      </div>
+      <div id="statementEmpty" class="empty-state">
+        <div class="eico">🗒️</div>
+        <p>왼쪽에 정보를 입력하고<br/><strong>거래명세서 생성</strong> 버튼을 누르세요</p>
+      </div>
+      <div id="statementDoc" style="display:none;">
+        <div class="doc-wrap"><div class="doc-inner" id="statementContent"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 장기 견적서 탭 ── -->
+  <div class="tab-content" id="tab-quote">
+    <div class="input-panel">
+      <div class="acard">
+        <div class="acard-title">고객 정보</div>
+        <div class="form-grid">
+          <div class="afield"><label>고객명 *</label><input type="text" id="q_name" placeholder="홍길동"/></div>
+          <div class="afield"><label>연락처 *</label><input type="tel" id="q_phone" placeholder="010-0000-0000" oninput="fmtTel(this)"/></div>
+          <div class="afield">
+            <label>생년월일 / 사업자번호
+              <span style="margin-left:6px;">
+                <label style="font-weight:normal;font-size:11px;cursor:pointer;"><input type="radio" name="q_birth_type" value="birth" checked onchange="toggleBirthType('q')"> 개인</label>
+                <label style="font-weight:normal;font-size:11px;cursor:pointer;margin-left:4px;"><input type="radio" name="q_birth_type" value="biz" onchange="toggleBirthType('q')"> 법인</label>
+              </span>
+            </label>
+            <input type="text" id="q_birth" placeholder="19900101" maxlength="8" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'')"/>
+            <input type="text" id="q_biznum" placeholder="000-00-00000" maxlength="12" style="display:none;" oninput="fmtBizNum(this)"/>
+          </div>
+          <div class="afield"><label>견적일자</label><input type="date" id="q_date"/></div>
+          <div class="afield" style="grid-column:1/-1;"><label>주소</label><input type="text" id="q_addr" placeholder="주소를 입력하세요"/></div>
+        </div>
+      </div>
+
+      <div class="acard">
+        <div class="acard-title">차량 정보</div>
+        <div class="form-grid">
+          <div class="afield"><label>차량모델 *</label><input type="text" id="q_model" placeholder="아반떼 (G)"/></div>
+          <div class="afield"><label>차량번호</label><input type="text" id="q_carnum" placeholder="12가 3456"/></div>
+          <div class="afield"><label>연식</label><input type="text" id="q_year" placeholder="2024년식"/></div>
+          <div class="afield"><label>색상</label><input type="text" id="q_color" placeholder="아틀라스 화이트"/></div>
+          <div class="afield"><label>주행거리 (km)</label><input type="text" id="q_mileage" placeholder="69,498" inputmode="numeric"/></div>
+          <div class="afield"><label>연료</label><select id="q_fuel"><option value="">선택</option><option>가솔린</option><option>디젤</option><option>LPG</option><option>하이브리드</option><option>전기</option><option>수소</option></select></div>
+        </div>
+      </div>
+
+      <div class="acard">
+        <div class="acard-title">계약 조건</div>
+        <div class="auto-calc-box">
+          <div class="auto-calc-label">⚡ 요금 자동계산</div>
+          <div class="form-grid">
+            <div class="afield">
+              <label>차종 등급</label>
+              <select id="q_grade" onchange="autoCalcPrice('q')">
+                <option value="">선택</option>
+                <option value="경형">경형 (모닝·레이·캐스퍼) — 500,000원~</option>
+                <option value="소형">소형 (아반떼·K3·베뉴) — 550,000원~</option>
+                <option value="중형">중형 (소나타·K5·SM6) — 600,000원~</option>
+                <option value="SUV">SUV (투싼·스포티지·셀토스) — 600,000원~</option>
+              </select>
+            </div>
+            <div class="afield">
+              <label>운전자 나이</label>
+              <select id="q_age" onchange="autoCalcPrice('q')">
+                <option value="21">만 21세 이상 (기본)</option>
+                <option value="26">만 26세 이상 (-50,000원)</option>
+              </select>
+            </div>
+            <div class="afield">
+              <label>운전자 특약</label>
+              <select id="q_driver_special">
+                <option value="">없음 (기본)</option>
+                <option value="지정1인">지정 1인 운전자 추가</option>
+                <option value="지정2인">지정 2인 운전자 추가</option>
+                <option value="임직원한정">임직원 한정 특약</option>
+              </select>
+            </div>
+            <div class="afield">
+              <label>약정 주행거리</label>
+              <select id="q_mileage_limit" onchange="autoCalcPrice('q')">
+                <option value="0">월 2,000km (기본)</option>
+                <option value="1">월 3,000km (+50,000원)</option>
+                <option value="2">월 4,000km (+100,000원)</option>
+                <option value="3">월 5,000km (+150,000원)</option>
+              </select>
+            </div>
+            <div class="afield">
+              <label>자기차량손해(자차)</label>
+              <select id="q_own" onchange="autoCalcPrice('q')">
+                <option value="0">미포함</option>
+                <option value="1">포함 (+50,000원)</option>
+              </select>
+            </div>
+            <div class="afield">
+              <label>정비 서비스</label>
+              <select id="q_maint" onchange="autoCalcPrice('q')">
+                <option value="0">미포함</option>
+                <option value="30000">포함 (+30,000원)</option>
+                <option value="50000">포함 (+50,000원)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="afield">
+            <label>계약기간 *</label>
+            <select id="q_period" onchange="calcTotal('q');calcQuoteDates()">
+              <option value="">선택</option>
+              <option value="1">1개월</option><option value="2">2개월</option>
+              <option value="3">3개월</option><option value="6">6개월</option>
+              <option value="12">12개월</option><option value="24">24개월</option>
+              <option value="36">36개월</option>
+            </select>
+          </div>
+          <div class="afield">
+            <label>계약 시작일</label>
+            <input type="date" id="q_start" onchange="calcQuoteDates()"/>
+          </div>
+          <div class="afield">
+            <label>계약 종료일 (자동계산)</label>
+            <input type="date" id="q_end" readonly style="color:var(--sky);font-weight:700;"/>
+          </div>
+          <div class="afield">
+            <label>월렌트료 *</label>
+            <input type="text" id="q_price" placeholder="자동계산 또는 직접입력" oninput="fmtPrice(this,'q')"/>
+          </div>
+          <div class="afield">
+            <label>할인율 (%)</label>
+            <input type="number" id="q_discount" placeholder="예: 10" min="0" max="100" oninput="calcTotal('q')"/>
+          </div>
+          <div class="afield">
+            <label>대물 배상</label>
+            <select id="q_insurance">
+              <option value="3천만원">대물 3천만원</option>
+              <option value="5천만원">대물 5천만원</option>
+              <option value="1억원">대물 1억원</option>
+            </select>
+          </div>
+          <div class="afield"><label>보증금</label><input type="text" id="q_deposit" placeholder="없음"/></div>
+          <div class="afield"><label>탁송비</label><input type="text" id="q_delivery" placeholder="없음"/></div>
+          <div class="afield"><label>기타비용</label><input type="text" id="q_etc" placeholder="없음"/></div>
+        </div>
+        <div class="afield" style="margin-top:6px;">
+          <label>계약기간 총액 (자동계산)</label>
+          <input type="text" id="q_total" readonly placeholder="기간 + 금액 입력 시 자동계산" style="color:var(--sky);font-weight:700;"/>
+        </div>
+        <div class="afield" style="margin-top:6px;">
+          <label>특약사항</label>
+          <textarea id="q_special" placeholder="특약사항을 입력하세요"></textarea>
+        </div>
+      </div>
+
+      <div class="action-btns">
+        <button class="abtn abtn-quote" onclick="genQuote()">📋 견적서 생성</button>
+        <button class="abtn abtn-clear" onclick="clearTab('quote')">🗑️ 초기화</button>
+      </div>
+    </div>
+
+    <div class="preview-panel">
+      <div class="preview-top">
+        <h3>📋 장기 견적서 미리보기</h3>
+        <div class="preview-top-btns">
+          <button class="print-btn pdf" onclick="downloadPDF('quoteDoc')">🖨️ 인쇄/PDF</button>
+          <button class="print-btn" onclick="downloadJPG('quoteDoc','견적서',this)">🖼️ JPG</button>
+        </div>
+      </div>
+      <div id="quoteEmpty" class="empty-state">
+        <div class="eico">📋</div>
+        <p>왼쪽에 정보를 입력하고<br/><strong>견적서 생성</strong> 버튼을 누르세요</p>
+      </div>
+      <div id="quoteDoc" style="display:none;">
+        <div class="doc-wrap"><div class="doc-inner" id="quoteContent"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 계약서 탭 ── -->
+  <div class="tab-content" id="tab-contract">
+    <div class="input-panel">
+      <div class="acard">
+        <div class="acard-title">고객 정보</div>
+        <div class="form-grid">
+          <div class="afield"><label>고객명 *</label><input type="text" id="c_name" placeholder="홍길동"/></div>
+          <div class="afield"><label>연락처 *</label><input type="tel" id="c_phone" placeholder="010-0000-0000" oninput="fmtTel(this)"/></div>
+          <div class="afield">
+            <label>주민번호 / 사업자번호
+              <span style="margin-left:6px;">
+                <label style="font-weight:normal;font-size:11px;cursor:pointer;"><input type="radio" name="c_id_type" value="rrn" checked onchange="toggleContractIdType()"> 개인</label>
+                <label style="font-weight:normal;font-size:11px;cursor:pointer;margin-left:4px;"><input type="radio" name="c_id_type" value="biz" onchange="toggleContractIdType()"> 법인</label>
+              </span>
+            </label>
+            <input type="text" id="c_birth" placeholder="000000-0000000" maxlength="14" inputmode="numeric" oninput="fmtRRN(this)"/>
+            <input type="text" id="c_biznum" placeholder="000-00-00000" maxlength="12" style="display:none;" oninput="fmtBizNum(this)"/>
+          </div>
+          <div class="afield" style="grid-column:1/-1;">
+            <label>주소</label>
+            <div class="addr-group">
+              <input type="text" id="c_addr" placeholder="기본주소 (검색 또는 직접 입력)"/>
+              <button type="button" class="addr-btn" onclick="execPostcode()">검색</button>
+            </div>
+          </div>
+          <div class="afield" style="grid-column:1/-1;">
+            <label>나머지 주소</label>
+            <input type="text" id="c_addr2" placeholder="동/호수, 상세주소 입력"/>
+          </div>
+        </div>
+      </div>
+
+      <div class="acard">
+        <div class="acard-title">운전자 정보 <span style="color:var(--soft);font-size:11px;font-weight:400;">(추가 운전자 있을 경우)</span></div>
+        <div id="driver-list"></div>
+        <button type="button" class="abtn" style="margin-top:6px;width:100%;background:var(--navy);border:1.5px dashed var(--border);color:var(--soft);font-size:12px;height:38px;" onclick="addDriver()">＋ 운전자 추가</button>
+      </div>
+
+      <div class="acard">
+        <div class="acard-title">차량 정보</div>
+        <div class="form-grid">
+          <div class="afield"><label>차량모델 *</label><input type="text" id="c_model" placeholder="아반떼 (G)"/></div>
+          <div class="afield"><label>차량번호</label><input type="text" id="c_carnum" placeholder="12가 3456"/></div>
+          <div class="afield"><label>연식</label><input type="text" id="c_year" placeholder="2024년식"/></div>
+          <div class="afield"><label>색상</label><input type="text" id="c_color" placeholder="아틀라스 화이트"/></div>
+          <div class="afield"><label>주행거리 (km)</label><input type="text" id="c_mileage" placeholder="69,498" inputmode="numeric"/></div>
+          <div class="afield"><label>연료</label><select id="c_fuel"><option value="">선택</option><option>가솔린</option><option>디젤</option><option>LPG</option><option>하이브리드</option><option>전기</option><option>수소</option></select></div>
+        </div>
+      </div>
+
+      <div class="acard">
+        <div class="acard-title">계약 조건</div>
+        <div class="auto-calc-box">
+          <div class="auto-calc-label">⚡ 요금 자동계산</div>
+          <div class="form-grid">
+            <div class="afield">
+              <label>차종 등급</label>
+              <select id="c_grade" onchange="autoCalcPrice('c')">
+                <option value="">선택</option>
+                <option value="경형">경형 (모닝·레이·캐스퍼) — 500,000원~</option>
+                <option value="소형">소형 (아반떼·K3·베뉴) — 550,000원~</option>
+                <option value="중형">중형 (소나타·K5·SM6) — 600,000원~</option>
+                <option value="SUV">SUV (투싼·스포티지·셀토스) — 600,000원~</option>
+              </select>
+            </div>
+            <div class="afield">
+              <label>운전자 나이</label>
+              <select id="c_age" onchange="autoCalcPrice('c')">
+                <option value="21">만 21세 이상 (기본)</option>
+                <option value="26">만 26세 이상 (-50,000원)</option>
+              </select>
+            </div>
+            <div class="afield">
+              <label>운전자 특약</label>
+              <select id="c_driver_special">
+                <option value="">없음 (기본)</option>
+                <option value="지정1인">지정 1인 운전자 추가</option>
+                <option value="지정2인">지정 2인 운전자 추가</option>
+                <option value="임직원한정">임직원 한정 특약</option>
+              </select>
+            </div>
+            <div class="afield">
+              <label>약정 주행거리</label>
+              <select id="c_mileage_limit" onchange="autoCalcPrice('c')">
+                <option value="0">월 2,000km (기본)</option>
+                <option value="1">월 3,000km (+50,000원)</option>
+                <option value="2">월 4,000km (+100,000원)</option>
+                <option value="3">월 5,000km (+150,000원)</option>
+              </select>
+            </div>
+            <div class="afield">
+              <label>자차</label>
+              <select id="c_own" onchange="autoCalcPrice('c')">
+                <option value="0">미포함</option>
+                <option value="1">포함 (+50,000원)</option>
+              </select>
+            </div>
+            <div class="afield">
+              <label>정비</label>
+              <select id="c_maint" onchange="autoCalcPrice('c')">
+                <option value="0">미포함</option>
+                <option value="30000">포함 (+30,000원)</option>
+                <option value="50000">포함 (+50,000원)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="afield"><label>계약시작일 *</label><input type="date" id="c_start" onchange="autoEndDate()"/></div>
+          <div class="afield"><label>계약종료일 *</label><input type="date" id="c_end"/></div>
+          <div class="afield">
+            <label>계약기간</label>
+            <select id="c_period" onchange="autoEndDate(); calcTotal('c')">
+              <option value="">선택</option>
+              <option value="1">1개월</option><option value="2">2개월</option>
+              <option value="3">3개월</option><option value="6">6개월</option>
+              <option value="12">12개월</option><option value="24">24개월</option>
+              <option value="36">36개월</option>
+            </select>
+          </div>
+          <div class="afield"><label>납입일</label><input type="text" id="c_payday" placeholder="매월 25일"/></div>
+          <div class="afield"><label>월렌트료 *</label><input type="text" id="c_price" oninput="fmtPrice(this,'c')"/></div>
+          <div class="afield" style="grid-column:1/-1;"><label>입금계좌 <span style="color:var(--soft);font-size:10px;">(월렌트료 옆에 표시)</span></label><input type="text" id="c_bankinfo" value="농협 301-0215-4589-81 (유)팡팡렌트카" placeholder="농협 301-0215-4589-81 (유)팡팡렌트카"/></div>
+          <div class="afield"><label>할인율 (%)</label><input type="number" id="c_discount" placeholder="예: 10" min="0" max="100" oninput="calcTotal('c')"/></div>
+          <div class="afield">
+            <label>대물 배상</label>
+            <select id="c_insurance">
+              <option value="3천만원">3천만원</option>
+              <option value="5천만원">5천만원</option>
+              <option value="1억원">1억원</option>
+            </select>
+          </div>
+          <div class="afield"><label>보증금</label><input type="text" id="c_deposit" placeholder="없음"/></div>
+          <div class="afield"><label>탁송비</label><input type="text" id="c_delivery" placeholder="없음"/></div>
+          <div class="afield"><label>기타비용</label><input type="text" id="c_etc" placeholder="없음"/></div>
+        </div>
+        <div class="afield">
+          <label>총액</label>
+          <input type="text" id="c_total" readonly style="color:var(--sky);font-weight:700;"/>
+        </div>
+        <div class="afield">
+          <label>특약사항</label>
+          <textarea id="c_special"></textarea>
+        </div>
+      </div>
+
+      <div class="action-btns">
+        <button class="abtn abtn-contract" onclick="genContract()">📝 계약서 생성</button>
+        <button class="abtn abtn-clear" onclick="clearTab('contract')">🗑️ 초기화</button>
+      </div>
+    </div>
+
+    <div class="preview-panel">
+      <div class="preview-top">
+        <h3>📝 계약서 미리보기</h3>
+        <div class="preview-top-btns">
+          <button class="print-btn pdf" onclick="downloadPDF('contractDoc')">🖨️ 인쇄/PDF</button>
+          <button class="print-btn" onclick="downloadJPG('contractDoc','계약서',this)">🖼️ JPG</button>
+        </div>
+      </div>
+      <div id="contractEmpty" class="empty-state">
+        <div class="eico">📝</div>
+        <p>계약서 생성 버튼을 누르세요</p>
+      </div>
+      <div id="contractDoc" style="display:none;">
+        <div class="doc-wrap"><div class="doc-inner" id="contractContent"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 영수증 발행 탭 ── -->
+  <div class="tab-content" id="tab-receipt">
+    <div class="input-panel">
+      <div class="acard">
+        <div class="acard-title">고객 정보</div>
+        <div class="form-grid">
+          <div class="afield"><label>고객명</label><input type="text" id="r_name" placeholder="홍길동"/></div>
+          <div class="afield"><label>연락처</label><input type="tel" id="r_phone" placeholder="010-0000-0000" oninput="fmtTel(this)"/></div>
+          <div class="afield">
+            <label>생년월일 / 사업자번호 <span style="color:var(--soft);font-size:10px;">(선택)</span>
+              <span style="margin-left:6px;">
+                <label style="font-weight:normal;font-size:11px;cursor:pointer;"><input type="radio" name="r_birth_type" value="birth" checked onchange="toggleBirthType('r')"> 개인</label>
+                <label style="font-weight:normal;font-size:11px;cursor:pointer;margin-left:4px;"><input type="radio" name="r_birth_type" value="biz" onchange="toggleBirthType('r')"> 법인</label>
+              </span>
+            </label>
+            <input type="text" id="r_birth" placeholder="19900101" maxlength="8" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'')"/>
+            <input type="text" id="r_biznum" placeholder="000-00-00000" maxlength="12" style="display:none;" oninput="fmtBizNum(this)"/>
+          </div>
+          <div class="afield"><label>발행일자</label><input type="date" id="r_date"/></div>
+          <div class="afield" style="grid-column:1/-1;"><label>주소 <span style="color:var(--soft);font-size:10px;">(선택)</span></label><input type="text" id="r_addr" placeholder="주소를 입력하세요"/></div>
+        </div>
+      </div>
+      <div class="acard">
+        <div class="acard-title">고객 차량 정보 <span style="color:var(--soft);font-size:10px;">(고객정보란에 표시)</span></div>
+        <div class="form-grid">
+          <div class="afield"><label>차량모델</label><input type="text" id="r_cust_model" placeholder="아반떼 (G)"/></div>
+          <div class="afield"><label>차량번호</label><input type="text" id="r_cust_carnum" placeholder="12가 3456"/></div>
+        </div>
+      </div>
+      <div class="acard">
+        <div class="acard-title">대여 차량 <span style="color:var(--soft);font-size:10px;">(대여차량란에 표시)</span></div>
+        <div class="form-grid">
+          <div class="afield"><label>차량모델</label><input type="text" id="r_model" placeholder="아반떼 (G)"/></div>
+          <div class="afield"><label>차량번호</label><input type="text" id="r_carnum" placeholder="12가 3456"/></div>
+        </div>
+      </div>
+      <div class="acard">
+        <div class="acard-title">결제 내용</div>
+        <div class="form-grid">
+          <div class="afield">
+            <label>대여 유형</label>
+            <select id="r_type">
+              <option value="단기대여">단기대여</option>
+              <option value="장기대여">장기대여</option>
+              <option value="사고대차">사고대차</option>
+            </select>
+          </div>
+          <div class="afield">
+            <label>기간 단위</label>
+            <select id="r_unit" onchange="calcReceiptDays()">
+              <option value="hour">24시간 단위</option>
+              <option value="day">일 단위</option>
+            </select>
+          </div>
+          <div class="afield"><label>대여 시작일</label><input type="date" id="r_start" onchange="calcReceiptDays()"/></div>
+          <div class="afield"><label>대여 종료일</label><input type="date" id="r_end" onchange="calcReceiptDays()"/></div>
+          <div class="afield">
+            <label>대여 기간 (자동계산)</label>
+            <input type="text" id="r_period" readonly placeholder="자동계산" style="color:var(--sky);font-weight:700;"/>
+          </div>
+          <div class="afield">
+            <label>결제 금액</label>
+            <input type="text" id="r_price" placeholder="450,000" oninput="fmtReceiptPrice()"/>
+          </div>
+          <div class="afield">
+            <label>결제 수단</label>
+            <select id="r_pay">
+              <option value="현금">현금</option>
+              <option value="카드">카드</option>
+              <option value="계좌이체">계좌이체</option>
+            </select>
+          </div>
+        </div>
+        <div class="afield" style="margin-top:6px;">
+          <label>특이사항 <span style="color:var(--soft);font-size:10px;">(선택)</span></label>
+          <textarea id="r_note" placeholder="특이사항을 입력하세요"></textarea>
+        </div>
+      </div>
+      <div class="action-btns">
+        <button class="abtn abtn-quote" onclick="genReceipt()">🧾 영수증 생성</button>
+        <button class="abtn abtn-clear" onclick="clearReceipt()">🗑️ 초기화</button>
+      </div>
+    </div>
+    <div class="preview-panel">
+      <div class="preview-top">
+        <h3>🧾 영수증 미리보기</h3>
+        <div class="preview-top-btns">
+          <button class="print-btn pdf" onclick="downloadPDF('receiptDoc')">🖨️ 인쇄/PDF</button>
+          <button class="print-btn" onclick="downloadJPG('receiptDoc','영수증',this)">🖼️ JPG</button>
+        </div>
+      </div>
+      <div id="receiptEmpty" class="empty-state">
+        <div class="eico">🧾</div>
+        <p>왼쪽에 정보를 입력하고<br/><strong>영수증 생성</strong> 버튼을 누르세요</p>
+      </div>
+      <div id="receiptDoc" style="display:none;">
+        <div class="doc-wrap"><div class="doc-inner" id="receiptContent"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ──────────────── 저장된 문서 ──────────────── -->
+  <div class="tab-content saved-tab" id="tab-saved">
+    <div class="saved-wrap">
+      <div class="saved-head">
+        <input type="search" id="savedSearch" placeholder="고객명·차량·연락처로 찾기" oninput="renderSaved()"/>
+        <div class="saved-filters" id="savedFilters"></div>
+      </div>
+      <div id="savedList"><div class="saved-empty">불러오는 중...</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+
+//  설정
+
+var PRICE_TABLE = {
+  "경형": { "21": 500000, "26": 450000 },
+  "소형": { "21": 550000, "26": 500000 },
+  "중형": { "21": 600000, "26": 550000 },
+  "SUV":  { "21": 600000, "26": 550000 }
+};
+
+var LOGO = document.getElementById("logoImg").src;
+var STAMP = document.getElementById("stampImg").src;
+
+//  인증
+// 로그인은 현황판(Firebase) 관리자 계정으로 — 아래 module 스크립트가 window.DOCS_AUTH를 만들어줍니다
+function showLoginError(msg) {
+  var e = document.getElementById("loginErr");
+  e.textContent = "⚠️ " + msg; e.style.display = "block";
+}
+async function doLogin() {
+  var email = document.getElementById("emailInput").value.trim();
+  var pw = document.getElementById("pwInput").value;
+  if (!email || !pw) { showLoginError("이메일과 비밀번호를 입력해주세요."); return; }
+  if (!window.DOCS_AUTH) { showLoginError("잠시 후 다시 시도해주세요."); return; }
+  var btn = document.getElementById("loginBtn"); btn.disabled = true; btn.textContent = "확인 중...";
+  try { await window.DOCS_AUTH.signIn(email, pw); }
+  catch (e) { showLoginError("이메일 또는 비밀번호가 올바르지 않습니다."); document.getElementById("pwInput").value = ""; }
+  finally { btn.disabled = false; btn.textContent = "🔓 로그인"; }
+}
+function enterAdmin() {
+  document.getElementById("loginScreen").style.display = "none";
+  document.getElementById("adminScreen").style.display = "flex";
+  var today = new Date().toISOString().split("T")[0];
+  ["s_date","q_date","q_start","c_start","r_date"].forEach(function(id) {
+    var el = document.getElementById(id); if (el && !el.value) el.value = today;
+  });
+}
+function doLogout() {
+  if (window.DOCS_AUTH) window.DOCS_AUTH.signOut();
+  document.getElementById("loginScreen").style.display = "flex";
+  document.getElementById("adminScreen").style.display = "none";
+}
+
+//  탭 전환
+function switchTab(tab) {
+  document.querySelectorAll(".tab-btn").forEach(function(b) { b.classList.remove("active"); });
+  document.querySelectorAll(".tab-content").forEach(function(c) { c.classList.remove("active"); });
+  var matched = Array.from(document.querySelectorAll(".tab-btn")).find(function(b) {
+    return (b.getAttribute("onclick") || "").includes("'" + tab + "'");
+  });
+  if (matched) matched.classList.add("active");
+  document.getElementById("tab-" + tab).classList.add("active");
+}
+
+//  폼 포맷 유틸
+function fmtTel(el) {
+  var v = el.value.replace(/[^0-9]/g, "").slice(0, 12);
+  // 서울 02: 02-xxxx-xxxx (10자리) 또는 02-xxx-xxxx (9자리)
+  if (v.startsWith("02")) {
+    if (v.length > 6) el.value = v.slice(0,2) + "-" + v.slice(2, v.length <= 10 ? 5 : 6) + "-" + v.slice(v.length <= 10 ? 5 : 6);
+    else if (v.length > 2) el.value = v.slice(0,2) + "-" + v.slice(2);
+    else el.value = v;
+  }
+  // 휴대폰 010/011 등 및 지역번호 3자리 (031~, 051~, 062~ 등): xxx-xxxx-xxxx 또는 xxx-xxx-xxxx
+  else {
+    if (v.length > 7) el.value = v.slice(0,3) + "-" + v.slice(3, v.length <= 11 ? 7 : 7) + "-" + v.slice(v.length <= 11 ? 7 : 7);
+    else if (v.length > 3) el.value = v.slice(0,3) + "-" + v.slice(3);
+    else el.value = v;
+  }
+}
+function fmtMon(el) {
+  var r = el.value.replace(/[^0-9]/g, "");
+  el.value = r ? Number(r).toLocaleString() : "";
+}
+function fmtBizNum(el) {
+  var v = el.value.replace(/\D/g, "");
+  if (v.length > 5) v = v.slice(0,3) + "-" + v.slice(3,5) + "-" + v.slice(5,10);
+  else if (v.length > 3) v = v.slice(0,3) + "-" + v.slice(3);
+  el.value = v;
+}
+function toggleContractIdType() {
+  var isBiz = document.querySelector("input[name='c_id_type']:checked").value === "biz";
+  document.getElementById("c_birth").style.display = isBiz ? "none" : "";
+  document.getElementById("c_biznum").style.display = isBiz ? "" : "none";
+  if (isBiz) document.getElementById("c_birth").value = "";
+  else document.getElementById("c_biznum").value = "";
+}
+var _driverCount = 0;
+function addDriver() {
+  var list = document.getElementById("driver-list");
+  if (list.children.length >= 3) { alert("운전자는 최대 3명까지 추가할 수 있습니다."); return; }
+  _driverCount++;
+  var n = _driverCount;
+  var row = document.createElement("div");
+  row.id = "driver-row-" + n;
+  row.style.cssText = "border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;background:var(--card);";
+  row.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
+    + '<span style="font-size:12px;font-weight:700;color:var(--sky);">운전자 ' + list.children.length + 1 + '</span>'
+    + '<button type="button" onclick="removeDriver(' + n + ')" style="background:none;border:none;color:var(--soft);font-size:16px;cursor:pointer;padding:0;">✕</button>'
+    + '</div>'
+    + '<div class="form-grid">'
+    + '<div class="afield"><label>이름</label><input type="text" id="drv_name_' + n + '" placeholder="홍길동"/></div>'
+    + '<div class="afield"><label>연락처</label><input type="tel" id="drv_phone_' + n + '" placeholder="010-0000-0000" oninput="fmtTel(this)"/></div>'
+    + '<div class="afield"><label>면허번호</label><input type="text" id="drv_license_' + n + '" placeholder="12-34-567890-00"/></div>'
+    + '<div class="afield"><label>주민번호</label><input type="text" id="drv_birth_' + n + '" placeholder="000000-0000000" maxlength="14" inputmode="numeric" oninput="fmtRRN(this)"/></div>'
+    + '</div>';
+  list.appendChild(row);
+  updateDriverLabels();
+}
+function removeDriver(n) {
+  var row = document.getElementById("driver-row-" + n);
+  if (row) row.remove();
+  updateDriverLabels();
+}
+function updateDriverLabels() {
+  var rows = document.getElementById("driver-list").children;
+  for (var i = 0; i < rows.length; i++) {
+    rows[i].querySelector("span").textContent = "운전자 " + (i + 1);
+  }
+}
+function getDrivers() {
+  var rows = document.getElementById("driver-list").children;
+  var result = [];
+  for (var i = 0; i < rows.length; i++) {
+    var inputs = rows[i].querySelectorAll("input");
+    // inputs: name, phone, license, birth (순서 고정)
+    var name = inputs[0] ? inputs[0].value.trim() : "";
+    var phone = inputs[1] ? inputs[1].value.trim() : "";
+    var license = inputs[2] ? inputs[2].value.trim() : "";
+    var birth = inputs[3] ? inputs[3].value.trim() : "";
+    if (name || phone || license || birth) result.push({ name:name, phone:phone, license:license, birth:birth });
+  }
+  return result;
+}
+function toggleBirthType(prefix) {
+  var isBiz = document.querySelector("input[name='" + prefix + "_birth_type']:checked").value === "biz";
+  document.getElementById(prefix + "_birth").style.display = isBiz ? "none" : "";
+  document.getElementById(prefix + "_biznum").style.display = isBiz ? "" : "none";
+  if (isBiz) document.getElementById(prefix + "_birth").value = "";
+  else document.getElementById(prefix + "_biznum").value = "";
+}
+function getBirthOrBiz(prefix) {
+  var isBiz = document.querySelector("input[name='" + prefix + "_birth_type']:checked").value === "biz";
+  if (isBiz) return { label: "사업자번호", value: document.getElementById(prefix + "_biznum").value.trim() };
+  return { label: "생년월일", value: document.getElementById(prefix + "_birth").value.trim() };
+}
+function fmtRRN(el) {
+  var v = el.value.replace(/\D/g, "");
+  el.value = v.length > 6 ? v.slice(0,6) + "-" + v.slice(6,13) : v;
+}
+function execPostcode() {
+  if (typeof daum === "undefined" || typeof daum.Postcode === "undefined") {
+    alert("주소 검색 서비스를 불러오는 중입니다.\n잠시 후 다시 시도해주세요."); return;
+  }
+  new daum.Postcode({
+    oncomplete: function(data) {
+      document.getElementById("c_addr").value = data.roadAddress || data.jibunAddress;
+      document.getElementById("c_addr2").focus();
+    }
+  }).open();
+}
+
+//  요금 계산
+function autoCalcPrice(p) {
+  var g    = document.getElementById(p+"_grade").value;
+  var a    = document.getElementById(p+"_age").value;
+  var km   = Number(document.getElementById(p+"_mileage_limit").value) * 50000;
+  var own  = Number(document.getElementById(p+"_own").value) * 50000;
+  var maint= Number(document.getElementById(p+"_maint").value);
+  if (!g) { document.getElementById(p+"_price").value = ""; return; }
+  document.getElementById(p+"_price").value = (PRICE_TABLE[g][a] + km + own + maint).toLocaleString();
+  calcTotal(p);
+}
+function fmtPrice(el, p) { fmtMon(el); calcTotal(p); }
+function calcTotal(p) {
+  var r  = (document.getElementById(p+"_price").value || "").replace(/[^0-9]/g, "");
+  var mo = document.getElementById(p+"_period").value;
+  var discEl = document.getElementById(p+"_discount");
+  var disc = discEl ? Number(discEl.value || 0) : 0;
+  var tot = document.getElementById(p+"_total");
+  if (r && mo) {
+    var subtotal = Number(r) * Number(mo);
+    var final = Math.round(subtotal * (1 - disc / 100));
+    if (tot) tot.value = final.toLocaleString() + "원";
+  } else {
+    if (tot) tot.value = "";
+  }
+}
+function autoEndDate() {
+  var s  = document.getElementById("c_start").value;
+  var mo = document.getElementById("c_period").value;
+  if (!s || !mo) return;
+  var d = new Date(s);
+  d.setMonth(d.getMonth() + Number(mo));
+  d.setDate(d.getDate() - 1);
+  document.getElementById("c_end").value   = d.toISOString().split("T")[0];
+  document.getElementById("c_payday").value = "매월 " + new Date(s).getDate() + "일";
+}
+
+// 일반 견적 전용
+function fmtSimplePrice() {
+  var el = document.getElementById("s_price");
+  var raw = el.value.replace(/[^0-9]/g, "");
+  el.value = raw ? Number(raw).toLocaleString() : "";
+  calcSimpleTotal();
+}
+function calcSimpleDays() {
+  var s = document.getElementById("s_start").value;
+  var e = document.getElementById("s_end").value;
+  if (!s || !e) return;
+  var unit = (document.getElementById("s_unit") || {}).value || "day";
+  var pEl = document.getElementById("s_period");
+  if (unit === "day") {
+    // 일 단위: 11일~12일 = 2일 (날짜 수 + 1)
+    var diff = Math.round((new Date(e) - new Date(s)) / 86400000) + 1;
+    if (diff < 1) { alert("종료일을 확인해주세요."); return; }
+    if (pEl) pEl.value = diff + "일 (" + fd(s) + " ~ " + fd(e) + ")";
+  } else {
+    // 24시간 단위: 11일~12일 = 1일(24시간)
+    var diff = Math.round((new Date(e) - new Date(s)) / 86400000);
+    if (diff < 0) { alert("종료일을 확인해주세요."); return; }
+    if (pEl) pEl.value = diff + "일 (" + fd(s) + " ~ " + fd(e) + ")";
+  }
+  calcSimpleTotal();
+}
+function calcSimpleTotal() {
+  var price = Number((document.getElementById("s_price").value || "").replace(/[^0-9]/g, ""));
+  var s     = document.getElementById("s_start").value;
+  var e     = document.getElementById("s_end").value;
+  var disc  = Number((document.getElementById("s_discount") || {}).value || 0);
+  var unit  = (document.getElementById("s_unit") || {}).value || "day";
+  if (!price || !s || !e) return;
+  var diff;
+  if (unit === "day") {
+    // 일 단위: 날짜 포함 계산 (+1)
+    diff = Math.round((new Date(e) - new Date(s)) / 86400000) + 1;
+  } else {
+    // 24시간 단위: 실제 경과일
+    diff = Math.round((new Date(e) - new Date(s)) / 86400000);
+  }
+  var subtotal = price * diff;
+  var total    = subtotal - Math.round(subtotal * disc / 100);
+  var rate     = disc > 0 ? " x " + (100-disc) + "%" : "";
+  var fEl = document.getElementById("s_formula");
+  var tEl = document.getElementById("s_total");
+  if (fEl) fEl.value = price.toLocaleString() + "원" + rate + " x " + diff + "일";
+  if (tEl) tEl.value = total.toLocaleString() + "원";
+}
+
+//  초기화 (통합)
+function clearTab(tab) {
+  var prefix = tab === "simple" ? "s" : tab === "quote" ? "q" : "c";
+  document.querySelectorAll("[id^='" + prefix + "_']").forEach(function(el) {
+    if (el.tagName === "SELECT")   el.selectedIndex = 0;
+    else if (el.tagName === "TEXTAREA") el.value = "";
+    else if (el.tagName === "INPUT")    el.value = "";
+  });
+  if (tab === "contract") {
+    // 운전자 목록 초기화
+    document.getElementById("driver-list").innerHTML = "";
+    _driverCount = 0;
+    // id 타입 개인으로 초기화
+    var rb = document.querySelector("input[name='c_id_type'][value='rrn']");
+    if (rb) { rb.checked = true; toggleContractIdType(); }
+  }
+  var ids = tab === "simple"
+    ? { doc: "simpleDoc",   empty: "simpleEmpty" }
+    : tab === "quote"
+    ? { doc: "quoteDoc",    empty: "quoteEmpty" }
+    : { doc: "contractDoc", empty: "contractEmpty" };
+  document.getElementById(ids.doc).style.display   = "none";
+  document.getElementById(ids.empty).style.display = "flex";
+}
+
+//  문서 HTML 헬퍼
+function fd(d) {
+  if (!d) return "-";
+  var p = d.split("-");
+  return p[0] + "년 " + p[1] + "월 " + p[2] + "일";
+}
+function gn(pfx) {
+  var n = new Date();
+  return pfx + n.getFullYear().toString().slice(2)
+    + String(n.getMonth()+1).padStart(2,"0")
+    + String(n.getDate()).padStart(2,"0")
+    + "-" + String(n.getHours()).padStart(2,"0")
+    + String(n.getMinutes()).padStart(2,"0");
+}
+function nl(s) { return (s||"").split("\n").join("<br>"); }
+function numToKor(n) {
+  if (!n || n === 0) return "영";
+  var units  = ["", "일", "이", "삼", "사", "오", "육", "칠", "팔", "구"];
+  var places = ["", "십", "백", "천"];
+  var bigs   = ["", "만", "억", "조"];
+  var result = ""; var bigIdx = 0;
+  while (n > 0) {
+    var chunk = n % 10000;
+    if (chunk > 0) {
+      var chunkStr = ""; var c = chunk;
+      for (var p = 0; c > 0; p++) {
+        var d = c % 10;
+        if (d > 0) chunkStr = (d === 1 && p > 0 ? "" : units[d]) + places[p] + chunkStr;
+        c = Math.floor(c / 10);
+      }
+      result = chunkStr + bigs[bigIdx] + result;
+    }
+    bigIdx++; n = Math.floor(n / 10000);
+  }
+  return result;
+}
+function stampHtml() {
+  return '<span style="position:relative;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;">'
+    + '<span style="position:absolute;font-size:12px;font-weight:600;color:#94a3b8;z-index:1;">(인)</span>'
+    + '<img src="' + STAMP + '" style="width:44px;height:44px;opacity:0.85;position:absolute;"/>'
+    + '</span>';
+}
+function TH() { return 'width:130px;padding:7px 12px;font-size:12.5px;font-weight:700;color:#475569;text-align:left;background:#f8fafc;vertical-align:top;border-bottom:1px solid #f1f5f9;'; }
+function TD() { return 'padding:7px 12px;font-size:13.5px;color:#1a1a1a;vertical-align:top;line-height:1.6;border-bottom:1px solid #f1f5f9;'; }
+function secTitle(t) {
+  return '<div style="font-size:11px;font-weight:700;color:#0369a1;letter-spacing:1px;padding:5px 10px;background:#e0f2fe;border-radius:6px;margin-bottom:10px;display:inline-block;">' + t + '</div>';
+}
+function hdrHtml(type, num, date) {
+  return '<div style="display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:12px;border-bottom:3px solid #0369a1;margin-bottom:14px;">'
+    + '<div><div style="font-family:Nunito,sans-serif;font-weight:900;font-size:22px;color:#0369a1;">팡팡렌트카</div>'
+    + '<div style="font-size:11px;color:#64748b;margin-top:2px;">PangPang Rent-a-car</div>'
+    + '<div style="font-size:11px;color:#475569;margin-top:4px;line-height:1.7;">Tel : 062-973-6635 / 010-4835-6635<br>'
+    + '광주광역시 광산구 첨단중앙로124번길17 2층<br>사업자번호 : 803-81-00790</div></div>'
+    + '<div style="text-align:right;"><div style="font-family:Nunito,sans-serif;font-weight:900;font-size:44px;color:#0f172a;letter-spacing:3px;">' + type + '</div>'
+    + '<div style="font-size:11px;color:#64748b;margin-top:3px;">No. ' + num + '</div>'
+    + '<div style="font-size:11px;color:#64748b;margin-top:3px;">일자 : ' + fd(date) + '</div></div></div>';
+}
+function footHtml() {
+  return '<div style="margin-top:8px;padding-top:6px;border-top:1px solid #e2e8f0;font-size:10px;color:#94a3b8;text-align:center;line-height:1.7;word-break:keep-all;">'
+    + '팡팡렌트카 &nbsp;|&nbsp; 사업자번호 : 803-81-00790<br>'
+    + '통신판매업 신고번호 : 제 2017-광주광산-00652호<br>'
+    + 'Tel : 062-973-6635 &nbsp;|&nbsp; 010-4835-6635</div>';
+}
+function supHtmlInner() {
+  return '<div style="border:1px solid #cbd5e1;border-radius:8px;padding:12px 24px;text-align:center;min-width:190px;flex-shrink:0;">'
+    + '<div style="font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:10px;letter-spacing:0.5px;">공 급 자</div>'
+    + '<div style="border-top:1px solid #e2e8f0;padding-top:10px;">'
+    + '<div style="font-size:12px;font-weight:700;color:#1e293b;margin-bottom:6px;">(유) 팡팡렌트카</div>'
+    + '<div style="display:flex;align-items:center;justify-content:center;gap:6px;">'
+    + '<span style="font-size:12px;color:#475569;font-weight:600;">대표이사 &nbsp;정한영</span>'
+    + stampHtml() + '</div></div></div>';
+}
+function supHtml() {
+  return '<div style="margin-top:10px;padding-top:10px;border-top:1px dashed #cbd5e1;display:flex;justify-content:flex-end;">'
+    + supHtmlInner() + '</div>';
+}
+function totBox(label, val) {
+  return '<div style="background:linear-gradient(135deg,#eff6ff,#e0f2fe);border:1.5px solid #bae6fd;border-radius:10px;padding:12px 18px;margin:10px 0;display:flex;align-items:center;justify-content:space-between;gap:12px;">'
+    + '<div><div style="font-size:13px;font-weight:700;color:#0369a1;">' + label + '</div>'
+    + '<div style="font-size:11px;color:#64748b;margin-top:2px;">(월렌트료 기준 / 보증금·탁송비 별도)</div></div>'
+    + '<div style="font-family:Nunito,sans-serif;font-weight:900;font-size:26px;color:#0369a1;white-space:nowrap;">' + val + '</div></div>';
+}
+function insRow(ins, own) {
+  return '대인 : 무한 / 대물 : ' + ins + '<br>자기신체사고 : 1,500만원 / 자기차량손해 : ' + own + '<br>긴급출동 : 기본 40km';
+}
+function kmRow(km) {
+  return '<strong>' + km + '</strong><br><span style="color:#e11d48;font-size:11px;">※ 초과시 1km당 200원</span>';
+}
+function getKmText(p) {
+  var el = document.getElementById(p+"_mileage_limit");
+  return el.options[el.selectedIndex].text.split(" (")[0];
+}
+function getAgeText(p) {
+  var el = document.getElementById(p+"_age");
+  // 괄호 안 금액 제거 — 출력용으로만 사용
+  return el.options[el.selectedIndex].text.split(" (")[0];
+}
+
+// 특약 / 개인정보 공통 HTML
+function termsHtml(km) {
+  return "<div style='page-break-before:always;break-before:page;margin-bottom:10px;'>" + secTitle("임대차 계약 특약 사항")
+    + "<div style='font-size:10px;color:#1e293b;line-height:1.62;column-count:2;column-gap:14px;border:1.5px solid #cbd5e1;border-radius:8px;padding:10px 12px;'>"
+    + "<strong>제1조 (임대료 납부 및 미납 시 계약 해지)</strong><br>"
+    + "1. 임차인은 임대료를 정해진 기일에 선불로 입금해야 하며, 지체 시 미납 금액에 대해 연 20%의 지연손해금을 가산한다.<br>"
+    + "2. 임대료 입금이 3일 이상 지연되거나, 미납 상태에서 24시간 이상 연락이 두절될 경우 임대인은 별도의 독촉 없이 즉시 계약을 해지할 수 있다.<br>"
+    + "3. 계약 해지 후 차량 반납이 지체될 경우 임대인은 임의로 차량을 회수할 수 있으며, 이에 따른 모든 비용(견인, 인건비 등)은 임차인이 부담한다.<br><br>"
+    + "<strong>제2조 (임대료 미납 시 보험 적용 제한)</strong><br>"
+    + "임차인이 임대료를 기한 내에 입금하지 않은 상태에서 발생한 사고에 대하여, 임대인은 보험 처리 의무를 지지 않는다.<br><br>"
+    + "<strong>제3조 (중도 해지 위약금)</strong><br>"
+    + "임차인의 사정으로 본 계약을 중도 해지할 경우, 잔여 기간 임대료 총액의 20%를 중도해지 위약금으로 지급해야 한다.<br><br>"
+    + "<strong>제4조 (차량 원상복구 의무)</strong><br>"
+    + "1. 임차인은 차량 반납 시 대여 당시의 상태로 원상복구하여 반납해야 한다.<br>"
+    + "2. 통상적인 마모를 제외한 파손·오염·불법 개조 시 복구 비용은 임차인이 부담한다.<br><br>"
+    + "<strong>제5조 (월간 주행거리 제한)</strong><br>"
+    + "본 계약의 월간 약정 주행거리는 <strong>" + km + "</strong>로 제한하며, 초과 주행 시 1km당 200원의 요금을 별도로 납부한다.<br><br>"
+    + "<strong>제6조 (차량 관리 및 금연 의무)</strong><br>"
+    + "차량 내 전면 금연(전자담배 포함)하며, 위반 시 실내 클리닝 비용 및 휴차보상료를 청구한다. GPS 등 차량 관리 장치를 임의로 조작하거나 탈거할 수 없다.<br><br>"
+    + "<strong>제7조 (사고 시 면책금 및 통보 의무)</strong><br>"
+    + "사고 발생 시 임차인은 담보별 면책금을 각각 납부하여야 하며, 휴차보상료(표준 대여 요금의 80%)를 별도로 부담한다. 사고 발생 시 지체 없이 담당자에게 통보해야 하며, 사고 은폐·통보 지연으로 인한 손해는 임차인이 전액 배상한다.<br>"
+    + "<span style='color:#991b1b;font-weight:700;font-size:10px;'>※ 담보별 면책금(1건당) : 자차·대물·대인·자손 각 500,000원</span><br><br>"
+    + "<strong>제8조 (임차인 과실 파손)</strong><br>"
+    + "혼유 사고, 요소수 미보충, 타이어 파손, 침수 지역 주행 등 임차인의 관리 소홀로 발생한 파손은 보험 적용 여부와 관계없이 임차인이 실비 전액을 부담한다.<br><br>"
+    + "<strong>제9조 (보험 면책 및 계약 해지 사유)</strong><br>"
+    + "다음 각 호에 해당하는 경우 보험 혜택을 받을 수 없으며, 즉시 계약 해지 사유가 된다.<br>"
+    + "1. 지정 운전자 외 제3자 운전, 음주운전, 무면허 운전, 약물 복용 후 운전<br>"
+    + "2. 도로교통법상 <strong>12대 중과실</strong> 해당 사고(신호위반, 중앙선침범, 속도위반, 앞지르기 위반, 철길건널목 위반, 횡단보도 위반, 무면허, 음주, 보도 침범, 승객 추락 방지 위반, 어린이보호구역 위반, 화물 고정 위반)는 보험처리 불가, 모든 민·형사상 책임 및 비용을 임차인이 전액 부담한다.<br><br>"
+    + "<strong>제10조 (도달 간주 및 관할 법원)</strong><br>"
+    + "연락처 변경 미고지 시 기존 주소로 발송된 통지서는 3일 후 도달한 것으로 간주한다. 본 계약 관련 분쟁의 관할 법원은 <strong>광주지방법원</strong>으로 한다."
+    + "</div></div>";
+}
+
+function rentalTermsHtml() {
+  return "<div style='page-break-before:always;break-before:page;'>"
+    + "<div style='text-align:center;margin-bottom:10px;padding-bottom:7px;border-bottom:2px solid #0369a1;'>"
+    + "<span style='font-size:13px;font-weight:900;color:#0f172a;letter-spacing:1px;'>대여용자동차 임대차 표준약관</span>"
+    + "</div>"
+    + "<div style='font-size:10.4px;color:#1e293b;line-height:1.75;column-count:2;column-gap:14px;column-rule:1px solid #e2e8f0;'>"
+    + "<strong style='color:#0369a1;font-size:9.5px;'>제1장 총칙</strong><br>"
+    + "<strong>제1조(목적)</strong> 이 약관은 대여용자동차 임대인(이하 \"회사\"라 합니다)과 임차인(이하 \"고객\"이라 합니다) 사이의 대여용자동차 임대차계약상의 권리·의무에 관한 사항을 규정함을 목적으로 합니다.<br>"
+    + "<strong style='color:#0369a1;font-size:9.5px;'>제2장 대여계약</strong><br>"
+    + "<strong>제2조(예약의 체결)</strong> ①렌터카를 임차하려는 자는 차종, 대여요금, 지연손해금, 임차예정일시, 임차장소, 임차기간, 반환장소, 운전자 등을 확인하여 예약을 할 수 있으며, 회사는 대여예정요금의 10% 범위 내에서 예약금을 청구할 수 있습니다. ②고객이 예약내용을 변경하고자 할 때에는 사전에 회사와 합의하여야 합니다.<br>"
+    + "<strong>제3조(예약의 취소)</strong> ①임차예정 시간을 1시간 이상 경과하여도 대여계약이 체결되지 아니한 경우에는 예약은 취소된 것으로 하며, 예약금은 반환하지 아니합니다. ②고객이 임차예정일시로부터 24시간 이전에 예약을 취소하는 경우에는 예약금 전액을 반환합니다. ③고객이 임차예정일시 직전 24시간 내에 예약을 취소하는 경우에는 예약금을 반환하지 아니합니다. ④회사의 사정으로 예약을 취소하거나 대여계약을 체결하지 못할 경우에는 예약금의 배액을 지급합니다. ⑤천재지변 등 불가항력으로 계약을 체결할 수 없는 경우 예약금을 반환합니다.<br>"
+    + "<strong>제4조(대여계약의 체결)</strong> ①대여계약의 체결은 임대차계약서에 의하며, 차종, 대여요금, 임차기간 등을 명시하여야 합니다. ②운전면허증 미소지, 신원확인 불가, 음주·약물 상태, 예약 운전자 불일치, 과거 고의사고 또는 체납 사실 등의 경우 계약 체결을 거절할 수 있습니다.<br>"
+    + "<strong>제5조(렌터카의 대체)</strong> ①회사는 예약 차종을 대여할 수 없을 경우 유사한 다른 차종으로 대체할 수 있습니다. ②대체 렌터카의 대여요금이 예약차종보다 비싼 경우 예약 요금을, 싼 경우 대체 요금을 각 적용합니다. ③고객은 대체 임차를 거절할 수 있으며, 이 경우 예약금 전액을 반환합니다.<br>"
+    + "<strong>제6조(요금의 수령방법)</strong> ①고객은 원칙적으로 대여요금을 선납하여야 합니다. ②고객의 요구로 인한 추가비용은 고객이 부담합니다. ③임차기간을 초과 사용한 경우 추가 대여요금을 지급하여야 합니다.<br>"
+    + "<strong>제7조(회사의 대여계약 해지)</strong> 계약의 중요한 사항 위반, 허위 개인정보, 대여요금 2기 이상 연체, 면허 취소·정지, 교통사고 야기, 음주·약물 운전, 지정 운전자 외 제3자 운전, 제15조의 금지행위 등의 경우 계약을 해지할 수 있습니다. 해지 시 잔여기간 대여요금의 10%를 공제한 후 반환합니다.<br>"
+    + "<strong>제8조(고객의 대여계약 해지)</strong> ①렌터카 인도이전의 하자로 사용 불능 시 계약을 해지할 수 있으며, 회사는 수령한 대여요금 전액을 반환합니다. ③고객은 임차기간 중이라도 회사와 합의하여 계약을 해지할 수 있습니다. ④고객의 사정에 의한 해지 시 잔여기간 대여요금의 10% 상당액을 지급하여야 합니다. 6개월 이상 장기계약의 경우 별도 약정 가능합니다.<br>"
+    + "<strong>제9조(불가항력 사유로 인한 해지)</strong> 천재지변, 전쟁, 폭동 등 불가항력으로 렌터카를 사용할 수 없는 경우 대여계약은 종료되며, 회사는 잔여 대여요금을 반환합니다. 고객은 즉시 회사에 통보하여야 합니다.<br>"
+    + "<strong>제10조(임차조건의 변경)</strong> 고객이 임차조건을 변경하고자 하는 경우 사전에 회사의 승낙을 받아야 합니다. 임차기간 연장 시 변경 후의 임차기간에 해당하는 대여요금을 지불하여야 합니다.<br>"
+    + "<strong style='color:#0369a1;font-size:9.5px;'>제3장 보험 및 점검</strong><br>"
+    + "<strong>제11조(보험가입)</strong> ①회사는 자동차손해배상보장법에 따라 책임보험과 자동차종합보험(대인배상, 대물배상, 자기신체사고)에 가입된 렌터카를 대여합니다. 고객은 자동차보험약관상 승낙피보험자가 됩니다. ②고객은 자기차량손해보험 또는 차량손해면책제도 중 하나를 선택하여 가입할 수 있습니다.<br>"
+    + "<strong>제12조(점검표 작성)</strong> 회사는 고객과 함께 외관, 연료량, 타이어, 와이퍼, 라이트, 사이드미러, 안전벨트 등을 점검한 후 렌터카를 인도합니다.<br>"
+    + "<strong style='color:#0369a1;font-size:9.5px;'>제4장 책임</strong><br>"
+    + "<strong>제13조(고객의 점검의무)</strong> 고객은 임차기간 중 사용 전에 타이어, 차체 외관, 엔진상태 등을 점검하여야 하며, 이상 발견 시 즉시 회사에 통보하여야 합니다.<br>"
+    + "<strong>제14조(고객의 관리책임)</strong> 고객은 렌터카를 인도받은 시점부터 반환하는 시점까지 선량한 관리자의 주의의무를 다하여 사용하고 보관하여야 합니다.<br>"
+    + "<strong>제15조(금지행위)</strong> ①유상운송·재대여 ②매각·전대·담보제공 등 소유권 침해 ③번호판 위조·변조 또는 개조 ④무허가 운전연습·경기 ⑤법령 위반 사용 ⑥지정 운전자 외 운전·무면허 운전 ⑦음주·약물 운전 ⑧유사석유 사용 ⑨차량 손상 우려 행위 금지.<br>"
+    + "<strong>제16조(배상책임)</strong> 고객은 제15조의 금지행위 기타 고객의 귀책사유로 회사 또는 제3자에게 손해를 끼쳤을 경우 그 손해를 배상할 책임을 집니다. 정상적인 마모를 제외하고 차량이 훼손된 경우 완전한 상태로 수리하여야 합니다. 과태료·범칙금·주차료 등은 반환 후에도 고객이 부담합니다.<br>"
+    + "<strong style='color:#0369a1;font-size:9.5px;'>제5장 자동차 사고의 조치</strong><br>"
+    + "<strong>제17조(사고처리)</strong> 고객은 사고 발생 시 부상자 후송 및 경찰서 신고 등 도로교통법상의 조치를 취함과 동시에 ①사고상황 즉시 회사에 통보 ②보험회사가 요청하는 서류 또는 증거 제출 ③제3자와 합의 또는 협의 시 사전에 회사와 협의 ④지정 공장에서 수리 의뢰하여야 합니다. 미준수로 발생한 추가비용은 고객이 부담합니다.<br>"
+    + "<strong>제18조(보험처리)</strong> ①고의, 무면허, 유상운송, 범죄, 음주·약물 운전, 경기·연습 사용, 지정 운전자 외 운전 사고는 보상받지 못합니다. ②귀책사유 사고 시 <strong>대인·대물·자손 각 50만원</strong>의 자기부담금을 별도로 지급하여야 합니다. ③자기차량손해 미가입 시 사고 당시 차량기준가액 등을 기준으로 배상하여야 합니다.<br>"
+    + "<strong>제19조(휴차손해)</strong> 고객의 귀책사유로 렌터카를 수리할 경우 수리기간의 영업손해를 배상하여야 합니다. 회사가 객관적인 산정자료를 제시하지 않는 경우 수리기간에 해당하는 일일대여요금의 50%를 부담합니다.<br>"
+    + "<strong>제20조(고객의 렌터카 이상·고장 발견 시 조치)</strong> 고객은 이상 또는 고장을 발견한 때에는 즉시 회사에 연락하고 처리방향에 대하여 협의하여야 합니다. 고객의 귀책으로 이상·고장이 발생한 경우 수리비는 고객이 부담합니다. 인도이전 하자로 사용 불능 시 대체 렌터카를 제공받을 수 있습니다.<br>"
+    + "<strong style='color:#0369a1;font-size:9.5px;'>제6장 반환</strong><br>"
+    + "<strong>제21조(렌터카의 반환시기)</strong> 고객은 약정한 대여기간 종료시점 또는 대여계약 중도해지 시에 렌터카를 회사에 반환하여야 합니다.<br>"
+    + "<strong>제22조(렌터카의 확인)</strong> 고객은 렌터카 반환 시 통상적 사용으로 인한 마모 등을 제외하고는 인수시 확인한 상태 그대로 반환하여야 합니다. 반환 시 고객 입회하에 상태를 확인하며 잔여 연료량을 정산합니다.<br>"
+    + "<strong>제23조(렌터카의 반환장소)</strong> 고객은 약정한 반환장소에서 렌터카를 반환하여야 합니다. 고객의 사정으로 반환장소가 변경되어 추가비용이 발생한 경우 고객이 부담합니다.<br>"
+    + "<strong>제24조(렌터카 미반환에 대한 조치)</strong> 대여기간 종료 후 24시간을 경과하여도 반환하지 아니하거나 반환 청구에 응하지 않을 때에는 법적 조치를 취할 수 있습니다. 7일 경과 시 도난신고 등 필요한 조치를 취할 수 있습니다. 미반환으로 발생한 손해 및 회수비용은 고객이 부담합니다.<br>"
+    + "<strong style='color:#0369a1;font-size:9.5px;'>제7장 보칙</strong><br>"
+    + "<strong>제25조(지연손해금)</strong> 회사와 고객은 이 약관에 따른 금전채무의 이행을 지체한 경우 상사법정이율에 따른 지연손해금을 지급하여야 합니다.<br>"
+    + "<strong>제26조(계약의 세칙)</strong> 회사는 이 약관이 정한 범위 내에서 세부사항을 규정하는 세칙을 정할 수 있습니다.<br>"
+    + "<strong>제27조(신용조회)</strong> 회사는 고객의 동의를 받아 대여계약 체결 전 신용정보기관을 통하여 고객의 신용상태를 조회·확인할 수 있습니다.<br>"
+    + "<strong>제28조(관할법원)</strong> 이 약관의 해석과 이에 근거한 대여계약에 관련된 법적 분쟁이 발생할 경우 민사소송법상의 관할법원에 제기합니다. 단, 별도 약정 시 그에 따릅니다. <strong>본 계약의 관할법원은 광주지방법원으로 합니다.</strong>"
+    + "</div>"
+    + "<div style='column-span:all;margin-top:14px;padding-top:8px;border-top:1px solid #e2e8f0;font-size:9.5px;color:#94a3b8;text-align:center;line-height:1.8;'>"
+    + "팡팡렌트카 &nbsp;|&nbsp; 사업자번호 : 803-81-00790 &nbsp;|&nbsp; 통신판매업 신고번호 : 제 2017-광주광산-00652호 &nbsp;|&nbsp; Tel : 062-973-6635 / 010-4835-6635"
+    + "</div>"
+    + "</div>";
+}
+function privacyHtml() {
+  return "<div style='margin-bottom:12px;'>" + secTitle("개인정보 수집·이용 및 제3자 제공 동의")
+    + "<div style='background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:13px 15px;font-size:12px;color:#475569;line-height:1.85;'>"
+    + "<strong>1. 개인정보 수집 및 이용 동의</strong><br>"
+    + "• 수집항목: 성명, 주민등록번호, 주소, 연락처, 운전면허정보, 위치정보(GPS)<br>"
+    + "• 이용목적: 계약 이행, 운전자격 확인, 사고 처리, 차량 미반납 시 위치 확인<br>"
+    + "• 보유기간: <strong>계약 종료 후 5년 보관</strong><br><br>"
+    + "<strong>2. 고유식별정보 및 제3자 제공</strong><br>"
+    + "• 고유식별정보 처리: 과태료 체납 및 계약 불이행 시 관련 법령에 의거하여 처리할 수 있습니다.<br>"
+    + "• 제3자 제공: 경찰청(범칙금), 보험사(사고처리), 긴급출동 서비스 등<br><br>"
+    + "<div style='text-align:center;font-weight:700;color:#1e293b;border-top:1px solid #cbd5e1;padding-top:12px;'>"
+    + "본인은 위 내용을 충분히 설명 듣고 동의함에 서명합니다.<br><br>□ 동의함 &nbsp;&nbsp;&nbsp;&nbsp; □ 동의하지 않음"
+    + "</div></div></div>";
+}
+
+function signHtml(name) {
+  return "<div style='margin-top:14px;padding-top:14px;border-top:1px dashed #cbd5e1;page-break-inside:avoid;break-inside:avoid;'>"
+    + "<div style='display:grid;grid-template-columns:1fr 1fr;gap:14px;'>"
+    + "<div style='border:1px solid #e2e8f0;border-radius:8px;padding:28px 16px;text-align:center;font-size:13px;'>"
+    + "임대인 (갑)<br><br><strong style='font-size:14px;'>(유) 팡팡렌트카</strong><br><br>대표이사 정한영 &nbsp; (인)</div>"
+    + "<div style='border:1px solid #e2e8f0;border-radius:8px;padding:28px 16px;text-align:center;font-size:13px;'>"
+    + "임차인 (을) 서명<br><br><strong style='font-size:14px;'>" + name + "</strong> &nbsp; (인)<br><br>"
+    + "<span style='font-size:12px;color:#94a3b8;'>____년 ____월 ____일</span></div>"
+    + "</div></div>";
+}
+
+function carInfoHtml(model, carnum, year, color, mileage, fuel) {
+  function cell(label, val) {
+    if (!val) return "";
+    return "<div style='border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;'>"
+      + "<div style='font-size:10px;font-weight:700;color:#94a3b8;margin-bottom:4px;'>" + label + "</div>"
+      + "<div style='font-size:13px;font-weight:700;color:#0f172a;'>" + val + "</div>"
+      + "</div>";
+  }
+  return "<div style='margin-bottom:20px;'>" + secTitle("차량 정보")
+    + "<div style='display:grid;grid-template-columns:1fr 1fr;gap:8px;'>"
+    + cell("차량모델", model)
+    + cell("차량번호", carnum)
+    + cell("연식", year)
+    + cell("색상", color)
+    + cell("주행거리", mileage ? mileage + " km" : "")
+    + cell("연료", fuel)
+    + "</div></div>";
+}
+
+function showDoc(docId, emptyId, html, filename) {
+  var el = document.getElementById(docId.replace("Doc","Content"));
+  if (el) el.innerHTML = html;
+  document.getElementById(emptyId).style.display = "none";
+  var docEl = document.getElementById(docId);
+  docEl.style.display = "block";
+  if (filename) docEl.setAttribute("data-filename", filename);
+}
+
+// 견적서 전용 차량정보 — 컴팩트 2열 테이블
+function carInfoTableHtml(model, carnum, year, color, mileage, fuel) {
+  var th = 'padding:5px 10px;font-size:11.5px;font-weight:700;color:#475569;background:#f8fafc;border-bottom:1px solid #f1f5f9;';
+  var td = 'padding:5px 10px;font-size:12.5px;color:#1a1a1a;border-bottom:1px solid #f1f5f9;';
+  var rows = "";
+  if (model || carnum) rows += "<tr><th style='" + th + "'>차량모델</th><td style='" + td + "'><strong style='color:#0369a1;'>" + (model||"-") + "</strong></td>"
+    + "<th style='" + th + "'>차량번호</th><td style='" + td + "'>" + (carnum||"-") + "</td></tr>";
+  if (year || color) rows += "<tr><th style='" + th + "'>연식</th><td style='" + td + "'>" + (year||"-") + "</td>"
+    + "<th style='" + th + "'>색상</th><td style='" + td + "'>" + (color||"-") + "</td></tr>";
+  if (mileage || fuel) rows += "<tr><th style='" + th + "'>주행거리</th><td style='" + td + "'>" + (mileage ? mileage + " km" : "-") + "</td>"
+    + "<th style='" + th + "'>연료</th><td style='" + td + "'>" + (fuel||"-") + "</td></tr>";
+  return rows ? "<div style='margin-bottom:10px;'>" + secTitle("차량 정보")
+    + "<table style='width:100%;border-collapse:collapse;table-layout:fixed;'>"
+    + "<colgroup><col style='width:15%;'/><col style='width:35%;'/><col style='width:15%;'/><col style='width:35%;'/></colgroup>"
+    + rows + "</table></div>" : "";
+}
+
+//  거래명세서
+var _stItemCount = 0;
+function addStItem() {
+  var list = document.getElementById("st-item-list");
+  _stItemCount++;
+  var n = _stItemCount;
+  var row = document.createElement("div");
+  row.id = "st-item-" + n;
+  row.style.cssText = "border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;background:var(--card);";
+  row.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">'
+    + '<span style="font-size:12px;font-weight:700;color:var(--sky);">품목 ' + (list.children.length + 1) + '</span>'
+    + '<button type="button" onclick="removeStItem(' + n + ')" style="background:none;border:none;color:var(--soft);font-size:16px;cursor:pointer;padding:0;">✕</button>'
+    + '</div>'
+    + '<div class="form-grid">'
+    + '<div class="afield" style="grid-column:1/-1;"><label>품목명</label><input type="text" id="st_iname_' + n + '" placeholder="차량 렌트료 (사고대차)"/></div>'
+    + '<div class="afield"><label>수량</label><input type="number" id="st_qty_' + n + '" placeholder="1" min="1" value="1" oninput="calcStItemAmt(' + n + ')"/></div>'
+    + '<div class="afield"><label>단가 (원)</label><input type="text" id="st_unit_' + n + '" placeholder="500,000" oninput="fmtStUnit(' + n + ')"/></div>'
+    + '<div class="afield"><label>금액 (자동)</label><input type="text" id="st_amt_' + n + '" readonly style="color:var(--sky);font-weight:700;"/></div>'
+    + '</div>';
+  list.appendChild(row);
+  updateStItemLabels();
+}
+function removeStItem(n) {
+  var row = document.getElementById("st-item-" + n);
+  if (row) { row.remove(); calcStTotal(); updateStItemLabels(); }
+}
+function updateStItemLabels() {
+  var rows = document.getElementById("st-item-list").children;
+  for (var i = 0; i < rows.length; i++) {
+    rows[i].querySelector("span").textContent = "품목 " + (i + 1);
+  }
+}
+function fmtStUnit(n) {
+  var el = document.getElementById("st_unit_" + n);
+  if (!el) return;
+  var v = el.value.replace(/[^0-9]/g, "");
+  el.value = v ? Number(v).toLocaleString() : "";
+  calcStItemAmt(n);
+}
+function calcStItemAmt(n) {
+  var qty = Number((document.getElementById("st_qty_" + n) || {}).value || 0);
+  var unitEl = document.getElementById("st_unit_" + n);
+  var unit = unitEl ? Number(unitEl.value.replace(/[^0-9]/g, "")) : 0;
+  var amt = qty * unit;
+  var amtEl = document.getElementById("st_amt_" + n);
+  if (amtEl) amtEl.value = amt ? amt.toLocaleString() + "원" : "";
+  calcStTotal();
+}
+function calcStTotal() {
+  var rows = document.getElementById("st-item-list").children;
+  var sum = 0;
+  for (var i = 0; i < rows.length; i++) {
+    var id = rows[i].id.replace("st-item-", "");
+    var amtEl = document.getElementById("st_amt_" + id);
+    if (amtEl) sum += Number(amtEl.value.replace(/[^0-9]/g, ""));
+  }
+  var taxType = (document.getElementById("st_tax_type") || {}).value || "none";
+  var total = taxType === "add" ? Math.round(sum * 1.1) : sum;
+  var el = document.getElementById("st_total");
+  if (el) el.value = total ? total.toLocaleString() + "원" : "";
+}
+function getStItems() {
+  var rows = document.getElementById("st-item-list").children;
+  var result = [];
+  for (var i = 0; i < rows.length; i++) {
+    var id = rows[i].id.replace("st-item-", "");
+    var name = (document.getElementById("st_iname_" + id) || {}).value || "";
+    var qty  = (document.getElementById("st_qty_"   + id) || {}).value || "1";
+    var unit = (document.getElementById("st_unit_"  + id) || {}).value || "";
+    var amt  = (document.getElementById("st_amt_"   + id) || {}).value || "";
+    result.push({ name: name.trim(), qty: qty, unit: unit, amt: amt });
+  }
+  return result;
+}
+function clearStatement() {
+  document.querySelectorAll("[id^='st_']").forEach(function(el) {
+    if (el.tagName === "SELECT") el.selectedIndex = 0;
+    else if (el.tagName === "TEXTAREA") el.value = "";
+    else if (el.tagName === "INPUT") el.value = "";
+  });
+  document.getElementById("st-item-list").innerHTML = "";
+  _stItemCount = 0;
+  var rb = document.querySelector("input[name='st_birth_type'][value='birth']");
+  if (rb) { rb.checked = true; toggleBirthType("st"); }
+  document.getElementById("statementDoc").style.display = "none";
+  document.getElementById("statementEmpty").style.display = "flex";
+}
+function genStatement() {
+  var g = function(id) { return (document.getElementById(id) || {}).value || ""; };
+  var name   = g("st_name").trim();
+  var phone  = g("st_phone").trim();
+  var _stB   = getBirthOrBiz("st"); var birthLabel = _stB.label; var birth = _stB.value;
+  var date   = g("st_date");
+  var addr   = g("st_addr").trim();
+  var model  = g("st_model").trim();
+  var carnum = g("st_carnum").trim();
+  var year   = g("st_year").trim();
+  var color  = g("st_color").trim();
+  var mileage= g("st_mileage").trim();
+  var fuel   = g("st_fuel").trim();
+  var total  = g("st_total").trim();
+  var note   = g("st_note").trim();
+  var taxType = g("st_tax_type") || "none";
+  var items  = getStItems();
+
+  if (!name) { alert("상호(고객명)은 필수입니다."); return; }
+  if (items.length === 0) { alert("품목을 1개 이상 입력해주세요."); return; }
+
+  var sTH = 'padding:8px 10px;font-size:13px;font-weight:700;color:#475569;background:#f8fafc;border:1px solid #e2e8f0;text-align:center;vertical-align:middle;';
+  var sTD = 'padding:8px 10px;font-size:13px;color:#1a1a1a;border:1px solid #e2e8f0;text-align:center;vertical-align:middle;';
+  var sTDL = 'padding:8px 10px;font-size:13px;color:#1a1a1a;border:1px solid #e2e8f0;text-align:left;vertical-align:middle;';
+  var iH = 'padding:9px 12px;font-size:14px;font-weight:700;color:#475569;background:#f8fafc;border-bottom:1px solid #f1f5f9;vertical-align:middle;';
+  var iD = 'padding:9px 12px;font-size:14px;color:#1a1a1a;border-bottom:1px solid #f1f5f9;vertical-align:middle;';
+
+  // 공급자 & 공급받는자 2단 헤더
+  var biHdr = "<div style='display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:14px;border-bottom:3px solid #0369a1;margin-bottom:18px;'>"
+    + "<div><div style='font-family:Nunito,sans-serif;font-weight:900;font-size:22px;color:#0369a1;'>팡팡렌트카</div>"
+    + "<div style='font-size:11px;color:#64748b;margin-top:2px;'>PangPang Rent-a-car</div>"
+    + "<div style='font-size:11px;color:#475569;margin-top:4px;line-height:1.8;'>Tel : 062-973-6635 / 010-4835-6635<br>"
+    + "광주광역시 광산구 첨단중앙로124번길17 2층<br>사업자번호 : 803-81-00790</div></div>"
+    + "<div style='text-align:right;'><div style='font-family:Nunito,sans-serif;font-weight:900;font-size:30px;color:#0f172a;letter-spacing:3px;'>거 래 명 세 서</div>"
+    + "<div style='font-size:11px;color:#64748b;margin-top:4px;'>No. " + gn("ST") + "</div>"
+    + "<div style='font-size:11px;color:#64748b;margin-top:3px;'>발행일 : " + fd(date || new Date().toISOString().slice(0,10)) + "</div></div></div>";
+
+  // 공급받는자 정보 테이블
+  var custR = "";
+  custR += "<tr><th style='" + iH + "'>상호(고객명)</th><td style='" + iD + "'><strong style='color:#0369a1;'>" + (name||"-") + "</strong></td>"
+    + "<th style='" + iH + "'>연락처</th><td style='" + iD + "'>" + (phone||"-") + "</td></tr>";
+  if (birth || addr) {
+    custR += "<tr><th style='" + iH + "'>" + birthLabel + "</th><td style='" + iD + "'>" + (birth||"-") + "</td>"
+      + "<th style='" + iH + "'>주소</th><td style='" + iD + "'>" + (addr||"-") + "</td></tr>";
+  }
+
+  // 품목 테이블
+  var sumAmt = 0;
+  items.forEach(function(it) { sumAmt += Number(it.amt.replace(/[^0-9]/g,"")); });
+  var taxAmt = taxType === "add" ? Math.round(sumAmt * 0.1) : (taxType === "include" ? Math.round(sumAmt / 11) : 0);
+  var supplyAmt = taxType === "add" ? sumAmt : (taxType === "include" ? sumAmt - taxAmt : sumAmt);
+  var grandTotal = taxType === "add" ? sumAmt + taxAmt : sumAmt;
+
+  var itemRows = "";
+  items.forEach(function(it, i) {
+    var unitNum = Number(it.unit.replace(/[^0-9]/g,""));
+    itemRows += "<tr>"
+      + "<td style='" + sTD + "'>" + (i+1) + "</td>"
+      + "<td style='" + sTDL + "'>" + (it.name||"-") + "</td>"
+      + "<td style='" + sTD + "'>" + it.qty + "</td>"
+      + "<td style='" + sTD + "'>" + (unitNum ? unitNum.toLocaleString() : "-") + "</td>"
+      + "<td style='" + sTD + "'><strong>" + (it.amt||"-") + "</strong></td>"
+      + "</tr>";
+  });
+
+  var taxLabel = taxType === "none" ? "비과세" : taxType === "include" ? "VAT 포함" : "VAT 별도 (10%)";
+  var totalNum = Number(total.replace(/[^0-9]/g,""));
+  var korAmt = numToKor(totalNum);
+
+  var itemTable = "<div style='margin-bottom:14px;'>" + secTitle("거래 내용")
+    + "<table style='width:100%;border-collapse:collapse;table-layout:fixed;'>"
+    + "<colgroup><col style='width:6%;'/><col style='width:38%;'/><col style='width:10%;'/><col style='width:20%;'/><col style='width:26%;'/></colgroup>"
+    + "<thead><tr>"
+    + "<th style='" + sTH + "'>No.</th>"
+    + "<th style='" + sTH + "'>품목</th>"
+    + "<th style='" + sTH + "'>수량</th>"
+    + "<th style='" + sTH + "'>단가</th>"
+    + "<th style='" + sTH + "'>금액</th>"
+    + "</tr></thead><tbody>" + itemRows + "</tbody>"
+    + "<tfoot>"
+    + "<tr><td colspan='4' style='" + sTH + "text-align:right;'>공급가액</td><td style='" + sTD + "font-weight:700;color:#0369a1;'>" + supplyAmt.toLocaleString() + "원</td></tr>"
+    + (taxType !== "none" ? "<tr><td colspan='4' style='" + sTH + "text-align:right;'>세액 (" + taxLabel + ")</td><td style='" + sTD + "color:#64748b;'>" + taxAmt.toLocaleString() + "원</td></tr>" : "")
+    + "<tr><td colspan='4' style='" + sTH + "text-align:right;font-size:14px;'>합계금액</td><td style='" + sTD + "font-weight:900;font-size:15px;color:#0369a1;'>" + grandTotal.toLocaleString() + "원</td></tr>"
+    + "</tfoot></table></div>";
+
+  var summaryHtml = "<div style='margin:14px 0 10px;padding:18px 24px;background:#f8fafc;border:2px solid #e2e8f0;border-radius:10px;text-align:center;'>"
+    + "<div style='font-size:13px;font-weight:700;color:#475569;margin-bottom:6px;'>상기와 같이 거래명세서를 발행합니다.</div>"
+    + "<div><span style='font-size:20px;font-weight:900;color:#0369a1;'>₩" + grandTotal.toLocaleString() + "</span>"
+    + "<span style='font-size:13px;color:#475569;font-weight:600;'> &nbsp;&nbsp;일금 <strong style='font-size:16px;color:#0369a1;'>" + korAmt + "</strong>원정</span>"
+    + " &nbsp;<span style='font-size:11px;color:#64748b;'>(" + taxLabel + ")</span></div></div>";
+
+  var html = biHdr
+    + "<div style='margin-bottom:14px;'>" + secTitle("공급받는자 정보")
+    + "<table style='width:100%;border-collapse:collapse;table-layout:fixed;'>"
+    + "<colgroup><col style='width:15%;'/><col style='width:35%;'/><col style='width:15%;'/><col style='width:35%;'/></colgroup>"
+    + custR + "</table></div>"
+    + carInfoTableHtml(model, carnum, year, color, mileage, fuel)
+    + itemTable
+    + summaryHtml
+    + (note ? "<div style='margin-bottom:12px;'>" + secTitle("비고") + "<div style='background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px 14px;font-size:13px;color:#475569;line-height:1.9;'>" + nl(note) + "</div></div>" : "")
+    + "<div style='display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:10px;padding-top:10px;border-top:1px dashed #cbd5e1;'>"
+    + "<div style='font-size:11.5px;color:#64748b;line-height:2.0;'>"
+    + "※ 은행 : 농협 &nbsp;|&nbsp; 예금주 : (유)팡팡렌트카 &nbsp;|&nbsp; 입금계좌 : 301-0215-4589-81"
+    + "</div>"
+    + supHtmlInner()
+    + "</div>"
+    + footHtml();
+
+  var dateStr = (date || new Date().toISOString().slice(0,10)).replace(/-/g,"");
+  var fname = [name||"고객", carnum||model||"", dateStr].filter(Boolean).join("_") + "_거래명세서";
+  showDoc("statementDoc", "statementEmpty", html, fname);
+}
+
+//  일반 견적서 생성
+function genSimple() {
+  var g = function(id) { return (document.getElementById(id) || {}).value || ""; };
+  var name    = g("s_name").trim();
+  var phone   = g("s_phone").trim();
+  var _sBirth = getBirthOrBiz("s"); var birthLabel = _sBirth.label; var birth = _sBirth.value;
+  var date    = g("s_date");
+  var model   = g("s_model").trim();
+  var year    = g("s_year").trim();
+  var color   = g("s_color").trim();
+  var mileage = g("s_mileage").trim();
+  var fuel    = g("s_fuel").trim();
+  var carnum  = g("s_carnum").trim();
+  var type    = g("s_type") || "단기대여";
+  var unit    = (document.getElementById("s_unit") || {}).value || "day";
+  var priceLabel = unit === "hour" ? "시간 렌트료" : "일 렌트료";
+  var docTitle = type === "사고대차" ? "사고대차 견적서" : type === "장기대여" ? "장기렌트 견적서" : "일반렌트 견적서";
+  var period  = g("s_period").trim();
+  var price   = g("s_price").trim();
+  var disc    = Number(g("s_discount") || 0);
+  var formula = g("s_formula").trim();
+  var total   = g("s_total").trim();
+  var etc     = g("s_etc").trim() || "없음";
+  var note    = g("s_special").trim();
+
+  var sTH = 'padding:8px 12px;font-size:16.5px;font-weight:700;color:#475569;background:#f8fafc;border-bottom:1px solid #f1f5f9;vertical-align:middle;';
+  var sTD = 'padding:8px 12px;font-size:16.5px;color:#1a1a1a;border-bottom:1px solid #f1f5f9;vertical-align:middle;';
+
+  var qR = "<tr><th style='" + sTH + "'>대여유형</th><td style='" + sTD + "' colspan='3'><strong>" + type + "</strong></td></tr>";
+  if (period) qR += "<tr><th style='" + sTH + "'>대여기간</th><td style='" + sTD + "' colspan='3'><strong>" + period + "</strong></td></tr>";
+  if (price && disc > 0) {
+    qR += "<tr><th style='" + sTH + "'>" + priceLabel + "</th><td style='" + sTD + "'><strong style='color:#0369a1;font-size:15px;'>" + price + "원</strong></td>"
+        + "<th style='" + sTH + "'>할인율</th><td style='" + sTD + "'><strong style='color:#e11d48;'>" + disc + "% 할인</strong></td></tr>";
+  } else if (price) {
+    qR += "<tr><th style='" + sTH + "'>" + priceLabel + "</th><td style='" + sTD + "' colspan='3'><strong style='color:#0369a1;font-size:15px;'>" + price + "원</strong></td></tr>";
+  }
+  if (formula && total) {
+    qR += "<tr><th style='" + sTH + "'>산식</th><td style='" + sTD + "color:#475569;'>" + formula + "</td>"
+        + "<th style='" + sTH + "'>합계 렌트료</th><td style='" + sTD + "'><strong style='color:#0369a1;font-size:15px;'>" + total + "</strong></td></tr>";
+  } else if (total) {
+    qR += "<tr><th style='" + sTH + "'>합계 렌트료</th><td style='" + sTD + "' colspan='3'><strong style='color:#0369a1;font-size:15px;'>" + total + "</strong></td></tr>";
+  }
+  qR += "<tr><th style='" + sTH + "'>기타비용</th><td style='" + sTD + "' colspan='3'>" + etc + "</td></tr>";
+
+  var totalNum = Number((total||"0").replace(/[^0-9]/g,""));
+  var korAmt = numToKor(totalNum);
+    var summaryHtml = total ? "<div style='margin:16px 0 10px;padding:20px 24px;background:#f8fafc;border:2px solid #e2e8f0;border-radius:10px;text-align:center;'>"
+    + "<div style='font-size:14px;font-weight:700;color:#475569;margin-bottom:8px;'>상기와 같이 견적합니다.</div>"
+    + "<div style='margin-bottom:6px;'>"
+    + "<span style='font-size:20px;font-weight:900;color:#0369a1;'>₩" + total + "</span>"
+    + "<span style='font-size:14px;color:#475569;font-weight:600;'> &nbsp;&nbsp;일금 <strong style=\'font-size:17px;color:#0369a1;\'>" + korAmt + "</strong>원정</span>"
+    + "</div></div>" : "";
+
+  var addr    = g("s_addr").trim();
+
+  var custR = "";
+  if (name || phone) custR += "<tr><th style='" + sTH + "'>고객명</th><td style='" + sTD + "'><strong style='color:#0369a1;'>" + (name||"-") + "</strong></td>"
+    + "<th style='" + sTH + "'>연락처</th><td style='" + sTD + "'>" + (phone||"-") + "</td></tr>";
+  if (birth || addr) custR += "<tr><th style='" + sTH + "'>" + birthLabel + "</th><td style='" + sTD + "'>" + (birth||"-") + "</td>"
+    + "<th style='" + sTH + "'>주소</th><td style='" + sTD + "'>" + (addr||"-") + "</td></tr>";
+
+  var html =
+    hdrHtml(docTitle, gn("SQ"), date)
+    + (custR ? "<div style='margin-bottom:12px;'>" + secTitle("고객 정보")
+      + "<table style='width:100%;border-collapse:collapse;table-layout:fixed;'>"
+      + "<colgroup><col style='width:15%;'/><col style='width:35%;'/><col style='width:15%;'/><col style='width:35%;'/></colgroup>"
+      + custR + "</table></div>" : "")
+    + carInfoTableHtml(model, carnum, year, color, mileage, fuel)
+    + "<div style='margin-bottom:12px;'>" + secTitle("견적 내용")
+    + "<table style='width:100%;border-collapse:collapse;table-layout:fixed;'>"
+    + "<colgroup><col style='width:15%;'/><col style='width:35%;'/><col style='width:15%;'/><col style='width:35%;'/></colgroup>"
+    + qR + "</table></div>"
+    + summaryHtml
+    + (note ? "<div style='margin-bottom:12px;'>" + secTitle("특이사항") + "<div style='background:#fff5f5;border:1px solid #fca5a5;border-radius:8px;padding:10px 14px;font-size:13px;color:#dc2626;font-weight:700;line-height:1.9;'>" + nl(note) + "</div></div>" : "")
+    + "<div style='display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:10px;padding-top:10px;border-top:1px dashed #cbd5e1;'>"
+    + "<div style='font-size:11.5px;color:#64748b;line-height:2.0;'>"
+    + "※ 위 금액은 부가세(VAT) 불포함 가격입니다.<br>"
+    + "※ 상기 금액은 견적 금액으로 실제 금액과 다를 수 있습니다.<br>"
+    + "※ 은행 : 농협 &nbsp;|&nbsp; 예금주 : (유)팡팡렌트카 &nbsp;|&nbsp; 입금계좌 : 301-0215-4589-81<br>"
+    + "<span style='color:#e11d48;font-weight:700;'>※ 본 견적서는 영수증으로 사용할 수 없습니다.</span>"
+    + "</div>"
+    + supHtmlInner()
+    + "</div>"
+    + footHtml();
+
+  var dateStr = (date || new Date().toISOString().slice(0,10)).replace(/-/g,"");
+  var fname = [name||"고객", carnum||model||"차량", dateStr].filter(Boolean).join("_") + "_일반견적서";
+  showDoc("simpleDoc", "simpleEmpty", html, fname);
+}
+
+//  장기 견적서 생성
+function genQuote() {
+  var g = function(id) { return (document.getElementById(id) || {}).value || ""; };
+  var name     = g("q_name").trim();
+  var phone    = g("q_phone").trim();
+  var _qBirth = getBirthOrBiz("q"); var birthLabel = _qBirth.label; var birth = _qBirth.value;
+  var addr     = g("q_addr").trim();
+  var date     = g("q_date");
+  var model    = g("q_model").trim();
+  var year     = g("q_year").trim();
+  var color    = g("q_color").trim();
+  var mileage  = g("q_mileage").trim();
+  var fuel     = g("q_fuel").trim();
+  var carnum   = g("q_carnum").trim();
+  var pEl      = document.getElementById("q_period");
+  var periodMonths = pEl.options[pEl.selectedIndex].text;
+  var qStart   = g("q_start");
+  var qEnd     = g("q_end");
+  var period   = (periodMonths && periodMonths !== "선택")
+    ? (qStart && qEnd
+        ? periodMonths + " (" + fd(qStart) + " ~ " + fd(qEnd) + ")"
+        : periodMonths)
+    : "";
+  var price    = g("q_price").trim();
+  var ins      = g("q_insurance") || "3천만원";
+  var km       = getKmText("q");
+  var own      = g("q_own") === "1" ? "포함" : "미포함";
+  var mv       = g("q_maint");
+  var maint    = mv === "0" ? "미포함" : "포함";
+  var age      = getAgeText("q");
+  var driverSpecial = g("q_driver_special").trim();
+  var deposit  = g("q_deposit").trim() || "없음";
+  var delivery = g("q_delivery").trim() || "없음";
+  var etc      = g("q_etc").trim() || "없음";
+  var total    = g("q_total").trim();
+  var note     = g("q_special").trim();
+  var disc     = Number(g("q_discount") || 0);
+  var discountedPrice = disc > 0 ? Math.round(Number((price||"0").replace(/[^0-9]/g,"")) * (1 - disc/100)) : 0;
+
+  if (!name || !phone || !model || !price) {
+    alert("고객명, 연락처, 차량모델, 월렌트료는 필수입니다."); return;
+  }
+
+  var qTH = 'width:110px;padding:7px 12px;font-size:12.5px;font-weight:700;color:#475569;text-align:left;background:#f8fafc;vertical-align:top;border-bottom:1px solid #f1f5f9;';
+  var qTD = 'padding:7px 12px;font-size:12.5px;color:#1a1a1a;vertical-align:top;line-height:1.5;border-bottom:1px solid #f1f5f9;';
+
+  var qR = "";
+  if (period && period !== "선택") qR += "<tr><th style='" + qTH + "'>계약기간</th><td style='" + qTD + "' colspan='3'><strong>" + period + "</strong></td></tr>";
+  qR += "<tr><th style='" + qTH + "'>월렌트료</th><td style='" + qTD + "' colspan='3'><strong style='color:#0369a1;font-size:14px;'>" + price + "원</strong></td></tr>";
+  if (disc > 0) {
+    qR += "<tr><th style='" + qTH + "'>할인 적용가</th><td style='" + qTD + "' colspan='3'>"
+      + "<span style='font-size:11px;color:#64748b;'>" + disc + "% 할인 →</span> "
+      + "<strong style='color:#e11d48;font-size:14px;'>" + discountedPrice.toLocaleString() + "원</strong>"
+      + " <span style='font-size:11px;color:#64748b;'>/ 월</span></td></tr>";
+  }
+  qR += "<tr><th style='" + qTH + "'>운전자 조건</th><td style='" + qTD + "'>" + age + (driverSpecial ? " / <strong style='color:#0369a1;'>" + driverSpecial + "</strong>" : "") + "</td>"
+      + "<th style='" + qTH + "'>약정주행거리</th><td style='" + qTD + "'><strong>" + km + "</strong><br><span style='font-size:10px;color:#e11d48;'>※ 초과시 1km당 200원</span></td></tr>";
+  qR += "<tr><th style='" + qTH + "'>보험조건</th><td style='" + qTD + "' colspan='3'>대인 : 무한 / 대물 : " + ins + " / 자기신체사고 : 1,500만원 / 자차 : " + own + " / 긴급출동 : 40km</td></tr>";
+  qR += "<tr><th style='" + qTH + "'>정비서비스</th><td style='" + qTD + "'>" + maint + "</td>"
+      + "<th style='" + qTH + "'>보증금</th><td style='" + qTD + "'>" + deposit + "</td></tr>";
+  qR += "<tr><th style='" + qTH + "'>탁송비</th><td style='" + qTD + "'>" + delivery + "</td>"
+      + "<th style='" + qTH + "'>기타비용</th><td style='" + qTD + "'>" + etc + "</td></tr>";
+
+  var html =
+    hdrHtml("장기 견적서", gn("QT"), date)
+    + "<div style='margin-bottom:10px;'>" + secTitle("고객 정보") + "<table style='width:100%;border-collapse:collapse;table-layout:fixed;'>"
+    + "<colgroup><col style='width:15%;'/><col style='width:35%;'/><col style='width:15%;'/><col style='width:35%;'/></colgroup>"
+    + "<tr><th style='" + TH() + "'>고객명</th><td style='" + TD() + "'><strong style='color:#0369a1;'>" + name + "</strong></td>"
+    + "<th style='" + TH() + "'>연락처</th><td style='" + TD() + "'>" + phone + "</td></tr>"
+    + "<tr><th style='" + TH() + "'>" + birthLabel + "</th><td style='" + TD() + "'>" + (birth||"-") + "</td>"
+    + "<th style='" + TH() + "'>주소</th><td style='" + TD() + "'>" + (addr||"-") + "</td></tr>"
+    + "</table></div>"
+    + carInfoTableHtml(model, carnum, year, color, mileage, fuel)
+    + "<div style='margin-bottom:10px;'>" + secTitle("계약 조건")
+    + "<table style='width:100%;border-collapse:collapse;table-layout:fixed;'>"
+    + "<colgroup><col style='width:15%;'/><col style='width:35%;'/><col style='width:15%;'/><col style='width:35%;'/></colgroup>"
+    + qR + "</table></div>"
+    + (total ? totBox("계약기간 총 납입 예상금액", total) : "")
+    + (note  ? "<div style='margin-bottom:10px;'>" + secTitle("특약사항") + "<div style='background:#fff5f5;border:1px solid #fca5a5;border-radius:8px;padding:8px 12px;font-size:11px;color:#dc2626;font-weight:700;line-height:1.9;'>" + nl(note) + "</div></div>" : "")
+    + "<div style='display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:14px;padding-top:12px;border-top:1px dashed #cbd5e1;'>"
+    + "<div style='flex:1;font-size:11.5px;color:#64748b;line-height:2.0;'>"
+    + "※ 위 금액은 부가세(VAT) 불포함 가격입니다.<br>"
+    + "※ 상기 금액은 견적 금액으로 실제 금액과 다를 수 있습니다.<br>"
+    + "※ 은행 : 농협 &nbsp;|&nbsp; 예금주 : (유)팡팡렌트카 &nbsp;|&nbsp; 입금계좌 : 301-0215-4589-81<br>"
+    + "<span style='color:#e11d48;font-weight:700;'>※ 본 견적서는 영수증으로 사용할 수 없습니다.</span>"
+    + "</div>"
+    + supHtmlInner()
+    + "</div>"
+    + footHtml();
+
+  var dateStr2 = (date || new Date().toISOString().slice(0,10)).replace(/-/g,"");
+  var fname2 = [name||"고객", carnum||model||"차량", dateStr2].filter(Boolean).join("_") + "_장기견적서";
+  showDoc("quoteDoc", "quoteEmpty", html, fname2);
+}
+
+//  계약서 생성
+function genContract() {
+  var g = function(id) { return (document.getElementById(id) || {}).value || ""; };
+  var name     = g("c_name").trim();
+  var phone    = g("c_phone").trim();
+  var isBiz = document.querySelector("input[name='c_id_type']:checked").value === "biz";
+  var birth    = isBiz ? "" : g("c_birth").trim();
+  var biznum   = isBiz ? g("c_biznum").trim() : "";
+  var idLabel  = isBiz ? "사업자번호" : "주민번호";
+  var idValue  = isBiz ? biznum : birth;
+  var drivers  = getDrivers();
+  var addr     = g("c_addr").trim();
+  var addr2    = g("c_addr2").trim();
+  var model    = g("c_model").trim();
+  var carnum   = g("c_carnum").trim();
+  var year     = g("c_year").trim();
+  var color    = g("c_color").trim();
+  var mileage  = g("c_mileage").trim();
+  var fuel     = g("c_fuel").trim();
+  var start    = g("c_start");
+  var end      = g("c_end");
+  var pEl      = document.getElementById("c_period");
+  var period   = pEl.options[pEl.selectedIndex].text;
+  var payday   = g("c_payday").trim() || "매월 25일";
+  var bankinfo = g("c_bankinfo").trim();
+  var price    = g("c_price").trim();
+  var disc     = Number(g("c_discount") || 0);
+  var ins      = g("c_insurance") || "3천만원";
+  var km       = getKmText("c");
+  var own      = g("c_own") === "1" ? "포함" : "미포함";
+  var mv       = g("c_maint");
+  var maint    = mv === "0" ? "미포함" : "포함";
+  var age      = getAgeText("c");
+  var driverSpecialC = g("c_driver_special").trim();
+  var deposit  = g("c_deposit").trim() || "없음";
+  var delivery = g("c_delivery").trim() || "없음";
+  var etc      = g("c_etc").trim() || "없음";
+  var total    = g("c_total").trim();
+  var note     = g("c_special").trim();
+  var today    = new Date().toISOString().split("T")[0];
+
+  if (!name || !phone || !model || !price || !start || !end) {
+    alert("필수 항목을 입력해주세요."); return;
+  }
+
+  var periodStr = fd(start) + " ~ " + fd(end) + (period && period !== "선택" ? " (" + period + ")" : "");
+
+  // 계약서 전용 TH/TD — 글씨 키우고 패딩 넉넉하게
+  var CTH = 'width:130px;padding:11px 14px;font-size:13px;font-weight:700;color:#475569;text-align:left;background:#f8fafc;vertical-align:middle;border-bottom:1px solid #f1f5f9;';
+  var CTD = 'padding:11px 14px;font-size:13px;color:#1a1a1a;vertical-align:middle;line-height:1.5;border-bottom:1px solid #f1f5f9;';
+
+  // 헤더
+  var cHdr = '<div style="display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:14px;border-bottom:3px solid #0369a1;margin-bottom:18px;">'
+    + '<div><div style="font-family:Nunito,sans-serif;font-weight:900;font-size:22px;color:#0369a1;">팡팡렌트카</div>'
+    + '<div style="font-size:11px;color:#64748b;margin-top:2px;">PangPang Rent-a-car</div>'
+    + '<div style="font-size:11px;color:#475569;margin-top:6px;line-height:1.8;">Tel : 062-973-6635 / 010-4835-6635<br>'
+    + '광주광역시 광산구 첨단중앙로124번길17 2층 &nbsp;|&nbsp; 사업자번호 : 803-81-00790</div></div>'
+    + '<div style="text-align:right;"><div style="font-family:Nunito,sans-serif;font-weight:900;font-size:26px;color:#0f172a;">임대차 계약서</div>'
+    + '<div style="font-size:11px;color:#64748b;margin-top:4px;">No. ' + gn("CT") + '</div>'
+    + '<div style="font-size:11px;color:#64748b;margin-top:3px;">일자 : ' + fd(today) + '</div></div></div>';
+
+  // 차량정보 — 테이블 2열로 (좌우에 두 항목씩)
+  var carR = "<tr>"
+    + "<th style='" + CTH + "'>차량모델</th><td style='" + CTD + "'><strong style='color:#0369a1;'>" + (model||"-") + "</strong></td>"
+    + "<th style='" + CTH + "'>차량번호</th><td style='" + CTD + "'><strong>" + (carnum||"-") + "</strong></td>"
+    + "</tr><tr>"
+    + "<th style='" + CTH + "'>연식</th><td style='" + CTD + "'>" + (year||"-") + "</td>"
+    + "<th style='" + CTH + "'>색상</th><td style='" + CTD + "'>" + (color||"-") + "</td>"
+    + "</tr><tr>"
+    + "<th style='" + CTH + "'>주행거리</th><td style='" + CTD + "'>" + (mileage ? mileage + " km" : "-") + "</td>"
+    + "<th style='" + CTH + "'>연료</th><td style='" + CTD + "'>" + (fuel||"-") + "</td>"
+    + "</tr>";
+
+  // 계약조건 테이블
+  var cR = "";
+  var discountedPrice = disc > 0 ? Math.round(Number((price||"0").replace(/[^0-9]/g,"")) * (1 - disc/100)) : 0;
+
+  cR += "<tr><th style='" + CTH + "'>계약기간</th><td style='" + CTD + "' colspan='3'><strong>" + periodStr + "</strong></td></tr>";
+  if (disc > 0) {
+    cR += "<tr><th style='" + CTH + "'>월렌트료</th><td style='" + CTD + "'>"
+      + "<strong style='color:#0369a1;font-size:15px;'>" + price + "원</strong>"
+      + " &nbsp;<span style='font-size:11px;color:#64748b;'>납입일 : " + payday + "</span>"
+      + "</td><th style='" + CTH + "'>할인 적용가</th><td style='" + CTD + "'>"
+      + "<span style='font-size:11px;color:#64748b;'>" + disc + "% 할인 →</span> "
+      + "<strong style='color:#e11d48;font-size:15px;'>" + discountedPrice.toLocaleString() + "원</strong>"
+      + " <span style='font-size:11px;color:#64748b;'>/ 월</span></td></tr>"
+      + (bankinfo ? "<tr><th style='" + CTH + "'>입금계좌</th><td style='" + CTD + "' colspan='3'><span style='font-size:13px;color:#0369a1;font-weight:700;'>" + bankinfo + "</span></td></tr>" : "");
+  } else {
+    cR += "<tr><th style='" + CTH + "'>월렌트료</th><td style='" + CTD + "' colspan='3'>"
+      + "<strong style='color:#0369a1;font-size:15px;'>" + price + "원</strong>"
+      + " &nbsp;<span style='font-size:11px;color:#64748b;'>납입일 : " + payday + "</span>"
+      + "</td></tr>"
+      + (bankinfo ? "<tr><th style='" + CTH + "'>입금계좌</th><td style='" + CTD + "' colspan='3'><span style='font-size:13px;color:#0369a1;font-weight:700;'>" + bankinfo + "</span></td></tr>" : "");
+  }
+
+  cR += "<tr><th style='" + CTH + "'>보험조건</th><td style='" + CTD + "' colspan='3'>대인 : 무한 / 대물 : " + ins + " / 자기신체사고 : 1,500만원 / 자차 : " + own + " / 긴급출동 : 40km</td></tr>";
+  cR += "<tr><th style='" + CTH + "'>약정주행거리</th><td style='" + CTD + "'><strong>" + km + "</strong><br><span style='font-size:11px;color:#e11d48;'>※ 초과시 1km당 200원</span></td>"
+    + "<th style='" + CTH + "'>운전자 조건</th><td style='" + CTD + "'>" + age + (driverSpecialC ? " / <strong style='color:#0369a1;'>" + driverSpecialC + "</strong>" : "") + "</td></tr>";
+  cR += "<tr><th style='" + CTH + "'>정비서비스</th><td style='" + CTD + "'>" + maint + "</td>"
+    + "<th style='" + CTH + "'>보증금</th><td style='" + CTD + "'>" + deposit + "</td></tr>";
+  cR += "<tr><th style='" + CTH + "'>탁송비</th><td style='" + CTD + "'>" + delivery + "</td>"
+    + "<th style='" + CTH + "'>기타비용</th><td style='" + CTD + "'>" + etc + "</td></tr>";
+  var noteTD = note
+    ? 'padding:11px 14px;font-size:13px;vertical-align:middle;line-height:1.5;border-bottom:1px solid #f1f5f9;color:#dc2626;font-weight:700;'
+    : 'padding:11px 14px;font-size:13px;vertical-align:middle;line-height:1.5;border-bottom:1px solid #f1f5f9;color:#64748b;font-style:italic;';
+  cR += "<tr><th style='" + CTH + "'>특약사항</th><td style='" + noteTD + "' colspan='3'>"
+    + (note ? nl(note) : "본 계약의 특약사항은 임대차 계약 특약사항을 따릅니다.") + "</td></tr>";
+
+  // ── 앞표지 ──
+  var coverHtml = "<div style='page-break-after:always;break-after:page;height:267mm;display:flex;flex-direction:column;justify-content:space-between;padding:24px 40px;box-sizing:border-box;overflow:hidden;'>"
+
+    // 상단: 로고 + 번호
+    + "<div style='display:flex;align-items:center;justify-content:space-between;padding-bottom:14px;border-bottom:3px solid #0369a1;margin-bottom:4px;'>"
+    + "<div style='display:flex;align-items:center;gap:14px;'>"
+    + "<img src='" + LOGO + "' style='height:60px;width:auto;display:block;'/>"
+    + "<div>"
+    + "<div style='font-family:Nunito,sans-serif;font-weight:900;font-size:24px;color:#0f172a;'>팡팡렌트카</div>"
+    + "<div style='font-size:11px;color:#64748b;margin-top:2px;'>PangPang Rent-a-car</div>"
+    + "</div></div>"
+    + "<div style='text-align:right;font-size:12px;color:#64748b;line-height:1.8;'>"
+    + "<div>No. " + gn("CT") + "</div>"
+    + "<div>발행일 : " + fd(today) + "</div>"
+    + "</div></div>"
+
+    // 중앙: 제목
+    + "<div style='text-align:center;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;'>"
+    + "<div style='font-family:Nunito,sans-serif;font-weight:900;font-size:42px;color:#0f172a;letter-spacing:5px;border-bottom:3px solid #0369a1;padding-bottom:12px;'>임대차 계약서</div>"
+    + "<div style='font-size:16px;color:#64748b;letter-spacing:2px;'>VEHICLE RENTAL AGREEMENT</div>"
+
+    // 차량번호 강조 박스
+    + "<div style='margin-top:16px;background:linear-gradient(135deg,#eff6ff,#e0f2fe);border:2px solid #0369a1;border-radius:12px;padding:14px 40px;text-align:center;'>"
+    + "<div style='font-size:13px;color:#64748b;font-weight:700;letter-spacing:2px;margin-bottom:8px;'>차 량 번 호</div>"
+    + "<div style='font-family:Nunito,sans-serif;font-weight:900;font-size:28px;color:#0369a1;letter-spacing:4px;'>" + (carnum||"-") + "</div>"
+    + "<div style='font-size:14px;color:#475569;margin-top:6px;'>" + (model||"") + (year ? " / " + year : "") + "</div>"
+    + "</div>"
+
+    // 계약자 정보
+    + "<div style='margin-top:12px;font-size:14px;color:#1e293b;line-height:2.0;text-align:center;'>"
+    + "<div><span style='color:#64748b;font-size:13px;'>임차인</span> &nbsp;&nbsp;<strong style='font-size:17px;'>" + (name||"-") + "</strong></div>"
+    + "<div><span style='color:#64748b;font-size:13px;'>계약기간</span> &nbsp;&nbsp;<strong>" + periodStr + "</strong></div>"
+    + "<div><span style='color:#64748b;font-size:13px;'>결제일</span> &nbsp;&nbsp;<strong>" + (payday||"매월 25일") + "</strong></div>"
+    + "</div></div>"
+
+    // 긴급연락처 박스
+    + "<div style='background:#fff5f5;border:2px solid #fca5a5;border-radius:10px;padding:12px 24px;margin-bottom:10px;'>"
+    + "<div style='font-size:13px;font-weight:900;color:#dc2626;letter-spacing:1px;margin-bottom:12px;'>\uD83D\uDEA8 긴급연락처</div>"
+    + "<div style='display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;'>"
+    + "<div style='font-size:13px;color:#1e293b;line-height:2.0;'>"
+    + "<strong>팡팡렌트카</strong><br>"
+    + "☎ 062-973-6635 &nbsp;|&nbsp; 010-4835-6635"
+    + "</div>"
+    + "<div style='font-size:13px;color:#1e293b;line-height:2.0;'>"
+    + "<strong>렌터카 공제조합 (보험/긴급출동)</strong><br>"
+    + "☎ 1661-7977"
+    + "</div>"
+    + "</div></div>"
+
+    // 목차
+    + "<div style='border:1px solid #e2e8f0;border-radius:10px;padding:12px 24px;'>"
+    + "<div style='font-size:13px;font-weight:900;color:#0369a1;letter-spacing:1px;margin-bottom:14px;'>\uD83D\uDCCB 목 차</div>"
+    + "<div style='display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;font-size:13px;color:#475569;line-height:1.9;'>"
+    + "<div>1. 계약 당사자</div>"
+    + "<div>2. 차량 정보</div>"
+    + "<div>3. 계약 조건</div>"
+    + "<div>4. 임대차 계약 특약 사항</div>"
+    + "<div>5. 개인정보 수집·이용 동의</div>"
+    + "<div>6. 서명란</div>"
+    + "<div>7. 대여용 자동차 임대차 표준약관</div>"
+    + "<div></div>"
+    + "</div></div>"
+
+    + "</div>";
+
+  var driverRows = "";
+  drivers.forEach(function(d, i) {
+    var parts = [];
+    if (d.name) parts.push("<strong>" + d.name + "</strong>");
+    if (d.birth) parts.push("주민번호 : " + d.birth);
+    if (d.phone) parts.push("연락처 : " + d.phone);
+    if (d.license) parts.push("면허번호 : " + d.license);
+    driverRows += "<tr><th style='" + CTH + "'>운전자 " + (i+1) + "</th><td style='" + CTD + "' colspan='3'>" + parts.join(" / ") + "</td></tr>";
+  });
+
+  var html = coverHtml + cHdr
+    + "<div style='margin-bottom:18px;'>" + secTitle("계약 당사자") + "<table style='width:100%;border-collapse:collapse;'>"
+    + "<tr><th style='" + CTH + "'>임대인 (갑)</th><td style='" + CTD + "' colspan='3'><strong>(유) 팡팡렌트카</strong> 대표이사 정한영</td></tr>"
+    + "<tr><th style='" + CTH + "'>임차인 (을)</th><td style='" + CTD + "' colspan='3'><strong>" + name + "</strong>" + (idValue ? " / " + idLabel + " : " + idValue : "") + " / 연락처 : " + phone + "</td></tr>"
+    + "<tr><th style='" + CTH + "'>주소</th><td style='" + CTD + "' colspan='3'>" + (addr ? addr + (addr2 ? " " + addr2 : "") : "-") + "</td></tr>"
+    + driverRows
+    + "</table></div>"
+    + "<div style='margin-bottom:18px;'>" + secTitle("차량 정보") + "<table style='width:100%;border-collapse:collapse;table-layout:fixed;'>"
+    + "<colgroup><col style='width:20%;'/><col style='width:30%;'/><col style='width:20%;'/><col style='width:30%;'/></colgroup>"
+    + carR + "</table></div>"
+    + "<div style='margin-bottom:18px;'>" + secTitle("계약 조건") + "<table style='width:100%;border-collapse:collapse;table-layout:fixed;'>"
+    + "<colgroup><col style='width:20%;'/><col style='width:30%;'/><col style='width:20%;'/><col style='width:30%;'/></colgroup>"
+    + cR + "</table></div>"
+    + (total ? totBox("계약기간 총 납입금액", total) : "")
+    + termsHtml(km) + privacyHtml() + signHtml(name) + rentalTermsHtml();
+
+  var dateStr3 = today.replace(/-/g,"");
+  var fname3 = [name||"고객", carnum||model||"차량", dateStr3].filter(Boolean).join("_") + "_계약서";
+  showDoc("contractDoc", "contractEmpty", html, fname3);
+}
+
+//  JPG / PDF 다운로드
+
+//  영수증 유틸
+function fmtReceiptPrice() {
+  var el = document.getElementById("r_price");
+  var raw = el.value.replace(/[^0-9]/g, "");
+  el.value = raw ? Number(raw).toLocaleString() : "";
+}
+function calcQuoteDates() {
+  var s = document.getElementById("q_start").value;
+  var pEl = document.getElementById("q_period");
+  var months = parseInt(pEl.value || "0");
+  if (!s || !months) return;
+  var start = new Date(s);
+  var end = new Date(start);
+  end.setMonth(end.getMonth() + months);
+  end.setDate(end.getDate() - 1);
+  var endStr = end.toISOString().split("T")[0];
+  document.getElementById("q_end").value = endStr;
+}
+function calcReceiptDays() {
+  var s = document.getElementById("r_start").value;
+  var e = document.getElementById("r_end").value;
+  if (!s || !e) return;
+  var unit = (document.getElementById("r_unit") || {}).value || "hour";
+  var pEl = document.getElementById("r_period");
+  if (unit === "day") {
+    var diff = Math.round((new Date(e) - new Date(s)) / 86400000) + 1;
+    if (diff < 1) { alert("종료일을 확인해주세요."); return; }
+    if (pEl) pEl.value = diff + "일 (" + fd(s) + " ~ " + fd(e) + ")";
+  } else {
+    var diff = Math.round((new Date(e) - new Date(s)) / 86400000);
+    if (diff < 0) { alert("종료일을 확인해주세요."); return; }
+    if (pEl) pEl.value = diff + "일 (" + fd(s) + " ~ " + fd(e) + ")";
+  }
+}
+function clearReceipt() {
+  ["r_name","r_phone","r_birth","r_biznum","r_addr","r_date","r_cust_model","r_cust_carnum","r_model","r_carnum","r_start","r_end","r_period","r_price","r_note"].forEach(function(id) {
+    var el = document.getElementById(id); if (el) el.value = "";
+  });
+  // 개인 모드로 초기화
+  var rb = document.querySelector("input[name='r_birth_type'][value='birth']");
+  if (rb) { rb.checked = true; toggleBirthType("r"); }
+  document.getElementById("receiptDoc").style.display = "none";
+  document.getElementById("receiptEmpty").style.display = "flex";
+}
+
+//  영수증 생성
+function genReceipt() {
+  var g = function(id) { return (document.getElementById(id) || {}).value || ""; };
+  var name   = g("r_name").trim();
+  var phone  = g("r_phone").trim();
+  var _rBirth = getBirthOrBiz("r"); var birthLabel = _rBirth.label; var birth = _rBirth.value;
+  var addr   = g("r_addr").trim();
+  var date   = g("r_date");
+  var model  = g("r_model").trim();
+  var carnum = g("r_carnum").trim();
+  var custModel = g("r_cust_model").trim();
+  var custCarnum = g("r_cust_carnum").trim();
+  var type   = g("r_type") || "단기대여";
+  var period = g("r_period").trim();
+  var price  = g("r_price").trim();
+  var pay    = g("r_pay") || "현금";
+  var note   = g("r_note").trim();
+
+  if (!name || !price) { alert("고객명과 결제 금액은 필수입니다."); return; }
+
+  var priceNum = Number(price.replace(/[^0-9]/g,""));
+  var korAmt   = numToKor(priceNum);
+
+  var rTH = "padding:10px 14px;font-size:15px;font-weight:700;color:#475569;background:#f8fafc;border-bottom:1px solid #f1f5f9;vertical-align:middle;width:130px;";
+  var rTD = "padding:10px 14px;font-size:15px;color:#1a1a1a;border-bottom:1px solid #f1f5f9;vertical-align:middle;";
+
+  // 헤더
+  var hdr = "<div style=\"display:flex;align-items:flex-start;justify-content:space-between;padding-bottom:12px;border-bottom:3px solid #0369a1;margin-bottom:18px;\">"
+    + "<div><div style=\"font-family:Nunito,sans-serif;font-weight:900;font-size:22px;color:#0369a1;\">팡팡렌트카</div>"
+    + "<div style=\"font-size:11px;color:#64748b;margin-top:2px;\">PangPang Rent-a-car</div>"
+    + "<div style=\"font-size:11px;color:#475569;margin-top:4px;line-height:1.7;\">Tel : 062-973-6635 / 010-4835-6635<br>광주광역시 광산구 첨단중앙로124번길17 2층<br>사업자번호 : 803-81-00790</div></div>"
+    + "<div style=\"text-align:right;\"><div style=\"font-family:Nunito,sans-serif;font-weight:900;font-size:44px;color:#0f172a;letter-spacing:3px;\">영 수 증</div>"
+    + "<div style=\"font-size:11px;color:#64748b;margin-top:3px;\">No. " + gn("RC") + "</div>"
+    + "<div style=\"font-size:11px;color:#64748b;margin-top:3px;\">일자 : " + fd(date) + "</div></div></div>";
+
+  var colgroup = "<colgroup><col style=\"width:25%\"/><col style=\"width:25%\"/><col style=\"width:25%\"/><col style=\"width:25%\"/></colgroup>";
+
+  // 고객 테이블 (고객명+연락처 항상, 나머지 입력시만)
+  var infoR = "<tr><th style=\"" + rTH + "\">고객명</th><td style=\"" + rTD + "\"><strong style=\"color:#0369a1;\">" + (name||"-") + "</strong></td>"
+    + "<th style=\"" + rTH + "\">연락처</th><td style=\"" + rTD + "\">" + (phone||"-") + "</td></tr>"
+    + ((birth || addr) ? "<tr><th style=\"" + rTH + "\">" + birthLabel + "</th><td style=\"" + rTD + "\">" + (birth||"-") + "</td>"
+    + "<th style=\"" + rTH + "\">주소</th><td style=\"" + rTD + "\">" + (addr||"-") + "</td></tr>" : "")
+    + ((custModel || custCarnum) ? "<tr><th style=\"" + rTH + "\">차량모델</th><td style=\"" + rTD + "\">" + (custModel||"-") + "</td>"
+    + "<th style=\"" + rTH + "\">차량번호</th><td style=\"" + rTD + "\">" + (custCarnum||"-") + "</td></tr>" : "");
+
+  // 대여차량 섹션 (차량 입력시만 별도로도 표시)
+  var carSection = (model || carnum) ? "<div style=\"margin-bottom:16px;\">" + secTitle("대여 차량")
+    + "<table style=\"width:100%;border-collapse:collapse;table-layout:fixed;\">"
+    + "<colgroup><col style=\"width:25%\"/><col style=\"width:25%\"/><col style=\"width:25%\"/><col style=\"width:25%\"/></colgroup>"
+    + "<tr><th style=\"" + rTH + "\">차량모델</th><td style=\"" + rTD + "\">" + (model||"-") + "</td>"
+    + "<th style=\"" + rTH + "\">차량번호</th><td style=\"" + rTD + "\">" + (carnum||"-") + "</td></tr>"
+    + "</table></div>" : "";
+
+  // 결제 내용 테이블
+  var payR = "<tr><th style=\"" + rTH + "\">대여유형</th><td style=\"" + rTD + "\" colspan=\"3\">" + type + "</td></tr>";
+  if (period) payR += "<tr><th style=\"" + rTH + "\">대여기간</th><td style=\"" + rTD + "\" colspan=\"3\">" + period + "</td></tr>";
+  payR += "<tr><th style=\"" + rTH + "\">결제수단</th><td style=\"" + rTD + "\" colspan=\"3\"><strong>" + pay + "</strong></td></tr>";
+  if (note) payR += "<tr><th style=\"" + rTH + "\">비고</th><td style=\"" + rTD + "\" colspan=\"3\">" + nl(note) + "</td></tr>";
+
+  // 결제 금액 박스
+  var amtBox = "<div style=\"margin:20px 0;padding:28px 20px;background:linear-gradient(135deg,#eff6ff,#e0f2fe);border:2px solid #0369a1;border-radius:12px;text-align:center;\">"
+    + "<div style=\"font-size:12px;font-weight:700;color:#64748b;letter-spacing:1px;margin-bottom:10px;\">[ 영 수 금 액 ]</div>"
+    + "<div style=\"font-size:34px;font-weight:900;color:#0369a1;margin-bottom:8px;letter-spacing:1px;\">" + price + " 원</div>"
+    + "<div style=\"font-size:14px;color:#475569;font-weight:700;border-top:1px solid #bae6fd;padding-top:10px;margin-top:4px;\">일금 &nbsp;<strong style=\"font-size:16px;color:#0369a1;\">" + korAmt + "</strong>&nbsp;원정</div>"
+
+    + "</div>";
+
+  // 서명란
+  var signArea = "<div style=\"margin-top:16px;padding-top:14px;border-top:1px dashed #cbd5e1;display:flex;align-items:center;justify-content:space-between;gap:16px;\">"
+    + "<div style=\"flex:1;font-size:12px;color:#475569;line-height:2.0;\">"
+    + "<span style=\"color:#e11d48;font-weight:700;\">위 금액을 정히 영수하였음을 확인합니다.</span><br>"
+    + "<span style=\"font-size:11px;color:#e11d48;font-weight:700;\">본 영수증은 팡팡렌트카가 발행한 공식 영수증입니다.</span>"
+    + "</div>"
+    + "<div style=\"border:1px solid #cbd5e1;border-radius:8px;padding:12px 24px;text-align:center;min-width:200px;flex-shrink:0;\">"
+    + "<div style=\"font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:10px;letter-spacing:0.5px;\">공 급 자</div>"
+    + "<div style=\"border-top:1px solid #e2e8f0;padding-top:10px;\">"
+    + "<div style=\"font-size:12px;font-weight:700;color:#1e293b;margin-bottom:6px;\">(유) 팡팡렌트카</div>"
+    + "<div style=\"display:flex;align-items:center;justify-content:center;gap:6px;\">"
+    + "<span style=\"font-size:12px;color:#475569;font-weight:600;\">대표이사 &nbsp;정한영</span>"
+    + stampHtml() + "</div></div></div></div>";
+
+  var html = hdr
+    + "<div style=\"margin-bottom:16px;\">" + secTitle("고객 정보")
+    + "<table style=\"width:100%;border-collapse:collapse;table-layout:fixed;\">" + colgroup + infoR + "</table></div>"
+    + carSection
+    + "<div style=\"margin-bottom:16px;\">" + secTitle("결제 내용")
+    + "<table style=\"width:100%;border-collapse:collapse;table-layout:fixed;\">" + colgroup + payR + "</table></div>"
+    + amtBox + signArea + footHtml();
+
+  var dateStr = (date || new Date().toISOString().slice(0,10)).replace(/-/g,"");
+  var fname = [name||"고객", carnum||model||"차량", dateStr].filter(Boolean).join("_") + "_영수증";
+  showDoc("receiptDoc", "receiptEmpty", html, fname);
+}
+
+function downloadJPG(docId, label, btn) {
+  var docEl = document.getElementById(docId);
+  if (!docEl || docEl.style.display === "none") { alert("먼저 문서를 생성해주세요!"); return; }
+  var content = docEl.querySelector(".doc-inner") || docEl.querySelector("[id$='Content']");
+  var wrap = docEl.querySelector(".doc-wrap");
+  if (!content) { alert("문서 내용을 찾을 수 없습니다."); return; }
+  var orig = btn.textContent;
+  btn.textContent = "변환 중..."; btn.disabled = true;
+  var baseName = docEl.getAttribute("data-filename") || label;
+  var filename = baseName + ".jpg";
+  var fixedW = 794;
+  if (window.unfitDocs) unfitDocs();
+  var origW = content.style.width, origMinW = content.style.minWidth, origMaxW = content.style.maxWidth;
+  content.style.width = fixedW + "px";
+  content.style.minWidth = fixedW + "px";
+  content.style.maxWidth = fixedW + "px";
+  if (wrap) { wrap.style.minWidth = (fixedW+40) + "px"; wrap.style.overflow = "visible"; }
+  setTimeout(function() {
+    html2canvas(content, {
+      scale: 2, useCORS: true, backgroundColor: "#ffffff", logging: false,
+      width: fixedW, height: content.scrollHeight,
+      windowWidth: fixedW, windowHeight: content.scrollHeight,
+      scrollX: 0, scrollY: 0
+    }).then(function(canvas) {
+      content.style.width = origW; content.style.minWidth = origMinW; content.style.maxWidth = origMaxW;
+      if (wrap) { wrap.style.minWidth = ""; wrap.style.overflow = ""; }
+      if (window.fitDocs) fitDocs();
+      var imgData = canvas.toDataURL("image/jpeg", 0.97);
+      var isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      if (isMobile) {
+        var overlay = document.createElement("div");
+        overlay.style.cssText = "position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:9999;overflow-y:auto;";
+        var closeBtn = document.createElement("button");
+        closeBtn.textContent = "X 닫기";
+        closeBtn.style.cssText = "display:block;margin:8px 8px 0 auto;padding:8px 16px;background:#e11d48;color:#fff;border:none;border-radius:8px;font-size:14px;";
+        closeBtn.onclick = function() { document.body.removeChild(overlay); };
+        var tip = document.createElement("p");
+        tip.style.cssText = "color:#fff;font-size:13px;text-align:center;padding:8px;margin:0;font-family:sans-serif;";
+        tip.innerHTML = "이미지를 <strong style='color:#38bdf8;'>꾹 눌러서</strong> 저장하세요";
+        var img = document.createElement("img");
+        img.src = imgData; img.style.cssText = "width:100%;display:block;";
+        overlay.appendChild(closeBtn); overlay.appendChild(tip); overlay.appendChild(img);
+        document.body.appendChild(overlay);
+      } else {
+        var link = document.createElement("a");
+        link.download = filename; link.href = imgData;
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+      }
+      btn.textContent = orig; btn.disabled = false;
+    })
+    .catch(function(e) {
+      content.style.width = origW; content.style.minWidth = origMinW; content.style.maxWidth = origMaxW;
+      if (wrap) { wrap.style.minWidth = ""; wrap.style.overflow = ""; }
+      if (window.fitDocs) fitDocs();
+      console.error(e);
+      alert("JPG 변환 중 오류가 발생했습니다.");
+      btn.textContent = orig; btn.disabled = false;
+    });
+  }, 100);
+}
+
+function downloadPDF(docId) {
+  var docEl = document.getElementById(docId);
+  if (!docEl || docEl.style.display === "none") { alert("먼저 문서를 생성해주세요!"); return; }
+  var isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  var fname = docEl.getAttribute("data-filename") || "팡팡렌트카_문서";
+  if (isMobile) {
+    downloadJPG(docId, fname, { textContent: "", disabled: false });
+  } else {
+    var origTitle = document.title;
+    document.title = fname;
+    window.print();
+    setTimeout(function() { document.title = origTitle; }, 1000);
+  }
+}
+
+
+// ══════ 현황판 추가: 문서 저장 · 불러오기 · 견적서 → 계약서 · 휴대폰 화면 맞춤 · 주민번호 가리기 ══════
+var DOC_TABS = {
+  simple:    { prefix: "s",  label: "일반 견적서", doc: "simpleDoc",    gen: "genSimple" },
+  statement: { prefix: "st", label: "거래명세서",  doc: "statementDoc", gen: "genStatement" },
+  quote:     { prefix: "q",  label: "장기 견적서", doc: "quoteDoc",     gen: "genQuote" },
+  contract:  { prefix: "c",  label: "계약서",      doc: "contractDoc",  gen: "genContract" },
+  receipt:   { prefix: "r",  label: "영수증",      doc: "receiptDoc",   gen: "genReceipt" }
+};
+var DOC_TO_TAB = {};
+Object.keys(DOC_TABS).forEach(function (t) { DOC_TO_TAB[DOC_TABS[t].doc] = t; });
+var _curDocId = {};          // 탭별로 지금 고치고 있는 저장 문서 (없으면 새 문서)
+var _savedDocs = {};         // 저장된 문서 전체 (실시간)
+var _savedFilter = "all";
+var _silentGen = false;      // 불러와서 미리보기만 다시 그릴 때는 저장 안 함
+
+function docsToast(msg) {
+  var t = document.getElementById("docsToast");
+  if (!t) { t = document.createElement("div"); t.id = "docsToast"; document.body.appendChild(t); }
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(t._h); t._h = setTimeout(function () { t.classList.remove("show"); }, 2600);
+}
+
+// ── 주민번호 뒷자리 가리기: 문서(미리보기·JPG·인쇄)에만 적용, 입력칸과 저장값은 그대로 ──
+function maskRRN(html) {
+  return String(html).replace(/(\d{6})\s*-\s*([1-8])\d{6}(?!\d)/g, "$1-$2******");
+}
+
+// ── 휴대폰: 문서를 A4 폭 그대로 화면에 맞게 줄여서 보여줌 ──
+var DOC_BASE_W = 840;
+function fitDocs() {
+  document.querySelectorAll(".doc-wrap").forEach(function (w) {
+    var holder = w.parentElement;
+    if (!holder) return;
+    if (window.innerWidth > 900 || !w.offsetParent) { unfitOne(w); return; }
+    holder.classList.add("doc-fit");
+    w.style.width = DOC_BASE_W + "px"; w.style.maxWidth = "none";
+    var s = Math.min(1, holder.clientWidth / DOC_BASE_W);
+    w.style.transform = "scale(" + s + ")";
+    holder.style.height = Math.ceil(w.offsetHeight * s) + "px";
+  });
+}
+function unfitOne(w) {
+  var holder = w.parentElement;
+  w.style.transform = ""; w.style.width = ""; w.style.maxWidth = "";
+  if (holder) { holder.style.height = ""; holder.classList.remove("doc-fit"); }
+}
+function unfitDocs() { document.querySelectorAll(".doc-wrap").forEach(unfitOne); }
+window.addEventListener("resize", function () { clearTimeout(window._fitT); window._fitT = setTimeout(fitDocs, 120); });
+
+// ── 입력값 모으기 / 되돌리기 ──
+function isDynamicId(id) { return /^(drv_(name|phone|license|birth)_|st_(iname|qty|unit|amt)_)\d+$/.test(id); }
+function collectForm(tab) {
+  var box = document.getElementById("tab-" + tab);
+  var fields = {}, radios = {};
+  box.querySelectorAll("input[id], select[id], textarea[id]").forEach(function (el) {
+    if (el.type === "radio" || isDynamicId(el.id)) return;
+    fields[el.id] = el.type === "checkbox" ? !!el.checked : el.value;
+  });
+  box.querySelectorAll("input[type=radio]:checked").forEach(function (el) { if (el.name) radios[el.name] = el.value; });
+  var rec = { fields: fields, radios: radios };
+  if (tab === "contract") {
+    rec.drivers = Array.from(document.getElementById("driver-list").children).map(function (row) {
+      var g = function (k) { var e = row.querySelector("[id^='drv_" + k + "_']"); return e ? e.value : ""; };
+      return { name: g("name"), phone: g("phone"), license: g("license"), birth: g("birth") };
+    });
+  }
+  if (tab === "statement") {
+    rec.items = Array.from(document.getElementById("st-item-list").children).map(function (row) {
+      var g = function (k) { var e = row.querySelector("[id^='st_" + k + "_']"); return e ? e.value : ""; };
+      return { name: g("iname"), qty: g("qty"), unit: g("unit"), amt: g("amt") };
+    });
+  }
+  return rec;
+}
+function setVal(el, v) {
+  if (!el) return false;
+  if (el.type === "checkbox") { el.checked = !!v; return true; }
+  if (el.tagName === "SELECT") {
+    var ok = Array.from(el.options).some(function (o) { return o.value === v; });
+    if (!ok) return false;
+    el.value = v; return true;
+  }
+  el.value = v == null ? "" : v; return true;
+}
+function applyRadios(radios) {
+  Object.keys(radios || {}).forEach(function (name) {
+    var r = document.querySelector("input[type=radio][name='" + name + "'][value='" + radios[name] + "']");
+    if (r) { r.checked = true; r.dispatchEvent(new Event("change", { bubbles: true })); }
+  });
+}
+function resetTabForm(tab) {
+  if (tab === "statement" && typeof clearStatement === "function") clearStatement();
+  else if (tab === "receipt" && typeof clearReceipt === "function") clearReceipt();
+  else if (typeof clearTab === "function") clearTab(tab);
+}
+function fillForm(tab, rec) {
+  resetTabForm(tab);
+  applyRadios(rec.radios);
+  if (tab === "contract") {
+    document.getElementById("driver-list").innerHTML = ""; _driverCount = 0;
+    (rec.drivers || []).forEach(function (d) {
+      addDriver(); var n = _driverCount;
+      setVal(document.getElementById("drv_name_" + n), d.name); setVal(document.getElementById("drv_phone_" + n), d.phone);
+      setVal(document.getElementById("drv_license_" + n), d.license); setVal(document.getElementById("drv_birth_" + n), d.birth);
+    });
+  }
+  if (tab === "statement") {
+    document.getElementById("st-item-list").innerHTML = ""; _stItemCount = 0;
+    (rec.items || []).forEach(function (it) {
+      addStItem(); var n = _stItemCount;
+      setVal(document.getElementById("st_iname_" + n), it.name); setVal(document.getElementById("st_qty_" + n), it.qty);
+      setVal(document.getElementById("st_unit_" + n), it.unit); setVal(document.getElementById("st_amt_" + n), it.amt);
+    });
+    if (typeof calcStTotal === "function") calcStTotal();
+  }
+  Object.keys(rec.fields || {}).forEach(function (id) { setVal(document.getElementById(id), rec.fields[id]); });
+}
+
+// ── 저장 (문서를 생성할 때마다 자동) ──
+function docSummary(tab, rec) {
+  var p = DOC_TABS[tab].prefix, f = rec.fields || {};
+  var v = function (k) { return String(f[p + "_" + k] || "").trim(); };
+  return {
+    name: v("name"), phone: v("phone"),
+    car: [v("model") || v("cust_model"), v("carnum") || v("cust_carnum")].filter(Boolean).join(" "),
+    amount: v("total") || v("price"), date: v("date") || v("start")
+  };
+}
+async function saveCurrentDoc(tab) {
+  if (!window.DOCS_DB) return;
+  var rec = collectForm(tab);
+  var sum = docSummary(tab, rec);
+  var data = Object.assign({ type: tab }, sum, rec, { updatedAt: new Date().toISOString() });
+  try {
+    var id = await window.DOCS_DB.save(data, _curDocId[tab] || null);
+    var isNew = !_curDocId[tab];
+    _curDocId[tab] = id;
+    updateEditBanner(tab);
+    docsToast(isNew ? "💾 저장했어요 · 📂 저장된 문서에서 다시 볼 수 있어요" : "💾 수정한 내용으로 저장했어요");
+  } catch (e) {
+    console.error(e);
+    docsToast("⚠️ 저장하지 못했어요 (Firebase 규칙에 companyDocs가 있는지 확인)");
+  }
+}
+
+// 문서가 만들어질 때(showDoc) 끼어들어: 주민번호 가리기 → 화면 맞춤 → 자동 저장
+var _origShowDoc = showDoc;
+showDoc = function (docId, emptyId, html, filename) {
+  _origShowDoc(docId, emptyId, maskRRN(html), filename);
+  setTimeout(fitDocs, 30);
+  var tab = DOC_TO_TAB[docId];
+  if (tab && !_silentGen) {
+    saveCurrentDoc(tab);
+    if (window.innerWidth <= 900) {
+      // 위에 붙은 머리줄(약 92px)에 가리지 않게 미리보기 제목부터 보이도록
+      var top = document.querySelector("#tab-" + tab + " .preview-top") || document.getElementById(docId);
+      if (top) setTimeout(function () { window.scrollTo({ top: top.getBoundingClientRect().top + window.scrollY - 100, behavior: "smooth" }); }, 80);
+    }
+  }
+};
+
+// 초기화하면 "새 문서"로
+["clearTab", "clearStatement", "clearReceipt"].forEach(function (fn) {
+  if (typeof window[fn] !== "function") return;
+  var orig = window[fn];
+  window[fn] = function (tab) {
+    var r = orig.apply(this, arguments);
+    var t = fn === "clearStatement" ? "statement" : fn === "clearReceipt" ? "receipt" : tab;
+    if (t && !_filling) { delete _curDocId[t]; updateEditBanner(t); }
+    return r;
+  };
+});
+var _filling = false;
+
+// ── 각 탭 위에 "저장된 문서 고치는 중" 표시 + 견적서 탭에 "계약서로" 버튼 ──
+function updateEditBanner(tab) {
+  var b = document.getElementById("editBanner-" + tab);
+  if (!b) return;
+  var id = _curDocId[tab], d = id && _savedDocs[id];
+  if (!id) { b.style.display = "none"; return; }
+  b.style.display = "flex";
+  b.querySelector("span").innerHTML = "✏️ 저장된 문서를 고치는 중 · <b>" + escapeHtmlD((d && d.name) || "이름 없음") + "</b> — 다시 생성하면 덮어써요";
+}
+function escapeHtmlD(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+function setupTabExtras() {
+  Object.keys(DOC_TABS).forEach(function (tab) {
+    var panel = document.querySelector("#tab-" + tab + " .input-panel");
+    if (!panel || document.getElementById("editBanner-" + tab)) return;
+    var b = document.createElement("div");
+    b.className = "edit-banner"; b.id = "editBanner-" + tab;
+    b.innerHTML = '<span></span><button type="button">새 문서로</button>';
+    b.querySelector("button").onclick = function () { resetTabForm(tab); delete _curDocId[tab]; updateEditBanner(tab); docsToast("새 문서로 시작해요"); };
+    panel.insertBefore(b, panel.firstChild);
+    if (tab === "simple" || tab === "quote") {
+      var btns = panel.querySelector(".action-btns");
+      var c = document.createElement("button");
+      c.type = "button"; c.className = "to-contract-btn";
+      c.textContent = "📝 이 견적으로 계약서 만들기";
+      c.onclick = function () { quoteToContract(tab, collectForm(tab)); };
+      if (btns) btns.parentNode.insertBefore(c, btns.nextSibling); else panel.appendChild(c);
+    }
+  });
+}
+
+// ── 견적서 → 계약서: 같은 이름의 칸을 옮겨 담음 (고객·차량·기간·금액·특약) ──
+function quoteToContract(fromTab, rec) {
+  var p = DOC_TABS[fromTab].prefix;
+  _filling = true;
+  resetTabForm("contract");
+  _filling = false;
+  delete _curDocId.contract; updateEditBanner("contract");
+  var f = rec.fields || {}, moved = 0;
+  Object.keys(f).forEach(function (id) {
+    if (id.indexOf(p + "_") !== 0) return;
+    var key = id.slice(p.length + 1);
+    if (key === "date" || key === "formula") return;          // 견적일자·산식은 계약서에 없음
+    // 일반(단기) 견적은 하루 요금이라 월 렌트료 칸에 옮기지 않음
+    if (fromTab === "simple" && /^(price|discount|total|period)$/.test(key)) return;
+    if (f[id] === "" || f[id] == null) return;
+    if (setVal(document.getElementById("c_" + key), f[id])) moved++;
+  });
+  // 개인/법인 구분
+  var bt = rec.radios && rec.radios[p + "_birth_type"];
+  if (bt) applyRadios({ c_id_type: bt === "biz" ? "biz" : "rrn" });
+  if (f[p + "_biznum"] && bt === "biz") setVal(document.getElementById("c_biznum"), f[p + "_biznum"]);
+  if (!document.getElementById("c_start").value) document.getElementById("c_start").value = new Date().toISOString().split("T")[0];
+  switchTab("contract");
+  window.scrollTo(0, 0);
+  var panel = document.querySelector("#tab-contract .input-panel"); if (panel) panel.scrollTop = 0;
+  docsToast("📝 견적서 내용 " + moved + "칸을 계약서로 옮겼어요 · 빈 칸(주소·운전자 등) 채우고 계약서 생성을 누르세요");
+}
+
+// ── 저장된 문서 목록 ──
+function renderSaved() {
+  var list = Object.keys(_savedDocs).map(function (id) { return Object.assign({ _id: id }, _savedDocs[id]); })
+    .sort(function (a, b) { return String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")); });
+  var cnt = document.getElementById("savedCount"); if (cnt) cnt.textContent = list.length || "";
+  var fbox = document.getElementById("savedFilters");
+  var types = [["all", "전체"]].concat(Object.keys(DOC_TABS).map(function (t) { return [t, DOC_TABS[t].label]; }));
+  fbox.innerHTML = types.map(function (t) {
+    var n = t[0] === "all" ? list.length : list.filter(function (d) { return d.type === t[0]; }).length;
+    return '<button type="button" class="' + (_savedFilter === t[0] ? "on" : "") + '" onclick="_savedFilter=\'' + t[0] + '\';renderSaved()">' + t[1] + " " + n + "</button>";
+  }).join("");
+  var q = (document.getElementById("savedSearch").value || "").trim().toLowerCase();
+  var shown = list.filter(function (d) {
+    if (_savedFilter !== "all" && d.type !== _savedFilter) return false;
+    if (!q) return true;
+    return [d.name, d.phone, d.car].join(" ").toLowerCase().indexOf(q) >= 0;
+  });
+  var box = document.getElementById("savedList");
+  if (!shown.length) { box.innerHTML = '<div class="saved-empty">' + (list.length ? "찾는 문서가 없어요." : "아직 저장된 문서가 없어요.<br>견적서·계약서를 생성하면 자동으로 여기 저장돼요.") + "</div>"; return; }
+  box.innerHTML = shown.map(function (d) {
+    var t = DOC_TABS[d.type] || { label: d.type };
+    var when = d.updatedAt ? new Date(d.updatedAt) : null;
+    var whenTxt = when ? (when.getMonth() + 1) + "/" + when.getDate() + " " + String(when.getHours()).padStart(2, "0") + ":" + String(when.getMinutes()).padStart(2, "0") : "";
+    var canContract = d.type === "simple" || d.type === "quote";
+    return '<div class="saved-item">'
+      + '<div class="saved-top"><div style="min-width:0;">'
+      + '<span class="saved-type t-' + escapeHtmlD(d.type) + '">' + escapeHtmlD(t.label) + "</span>"
+      + '<div class="saved-name">' + escapeHtmlD(d.name || "이름 없음") + "</div>"
+      + '<div class="saved-meta">' + [d.phone, d.car].filter(Boolean).map(escapeHtmlD).join(" · ") + "</div>"
+      + '</div><div><div class="saved-amt">' + (d.amount ? escapeHtmlD(d.amount) + (/원|만/.test(d.amount) ? "" : "원") : "") + "</div>"
+      + '<div class="saved-date">' + escapeHtmlD(whenTxt) + "</div></div></div>"
+      + '<div class="saved-btns">'
+      + '<button type="button" onclick="openSavedDoc(\'' + d._id + '\')">📄 열기</button>'
+      + (canContract ? '<button type="button" class="to-contract" onclick="savedToContract(\'' + d._id + '\')">📝 계약서로</button>' : "")
+      + '<button type="button" class="del" onclick="deleteSavedDoc(\'' + d._id + '\')">삭제</button>'
+      + "</div></div>";
+  }).join("");
+}
+function openSavedDoc(id) {
+  var d = _savedDocs[id]; if (!d || !DOC_TABS[d.type]) return;
+  _filling = true; fillForm(d.type, d); _filling = false;
+  _curDocId[d.type] = id; updateEditBanner(d.type);
+  switchTab(d.type);
+  _silentGen = true;
+  try { window[DOC_TABS[d.type].gen](); } catch (e) { console.warn(e); }
+  _silentGen = false;
+  window.scrollTo(0, 0);
+}
+function savedToContract(id) { var d = _savedDocs[id]; if (d) quoteToContract(d.type, d); }
+async function deleteSavedDoc(id) {
+  var d = _savedDocs[id];
+  if (!confirm("\"" + ((d && d.name) || "이름 없음") + "\" " + ((DOC_TABS[d && d.type] || {}).label || "문서") + "를 지울까요?\n지우면 되돌릴 수 없어요.")) return;
+  try {
+    await window.DOCS_DB.remove(id);
+    Object.keys(_curDocId).forEach(function (t) { if (_curDocId[t] === id) { delete _curDocId[t]; updateEditBanner(t); } });
+    docsToast("지웠어요");
+  } catch (e) { console.error(e); docsToast("⚠️ 지우지 못했어요"); }
+}
+// 탭을 바꾸면 문서 크기를 다시 맞춤
+var _origSwitchTab = switchTab;
+switchTab = function (tab) { _origSwitchTab(tab); if (tab === "saved") renderSaved(); setTimeout(fitDocs, 30); };
+window.onSavedDocs = function (all) {
+  _savedDocs = all || {};
+  renderSaved();
+  Object.keys(_curDocId).forEach(updateEditBanner);
+};
+setupTabExtras();
+
+</script>
+<!-- 현황판(Firebase) 관리자 계정으로 로그인 + 문서 저장 (companyDocs/{업체ID}, 관리자만 읽기·쓰기) -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+  import { getDatabase, ref, get, set, push, remove, onValue } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+  import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+  const app = initializeApp({
+    apiKey: "AIzaSyB0snoSwJ0wTOxI8vRf2GU27VF05zN0c7k",
+    authDomain: "fleet-board-f2345.firebaseapp.com",
+    databaseURL: "https://fleet-board-f2345-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "fleet-board-f2345",
+    storageBucket: "fleet-board-f2345.firebasestorage.app",
+    messagingSenderId: "613571323567",
+    appId: "1:613571323567:web:0003a663f5891364ef565a"
+  });
+  const db = getDatabase(app);
+  const auth = getAuth(app);
+  let companyId = null, unsub = null;
+  window.DOCS_AUTH = {
+    signIn: (email, pw) => signInWithEmailAndPassword(auth, email, pw),
+    signOut: () => { if(unsub){ unsub(); unsub = null; } companyId = null; window.DOCS_DB = null; return signOut(auth); }
+  };
+  onAuthStateChanged(auth, async (user) => {
+    if(!user){ if(unsub){ unsub(); unsub = null; } return; }
+    try{
+      const idx = await get(ref(db, 'userIndex/' + user.uid));
+      const cid = idx.exists() ? idx.val().companyId : null;
+      const me = cid ? await get(ref(db, 'companies/' + cid + '/members/' + user.uid)) : null;
+      if(!cid || !me || !me.exists() || me.val().role !== 'owner'){
+        await signOut(auth);
+        showLoginError('관리자 계정만 들어올 수 있어요.');
+        return;
+      }
+      companyId = cid;
+      const base = 'companyDocs/' + cid;
+      window.DOCS_DB = {
+        async save(data, id){
+          const nowIso = new Date().toISOString();
+          data.by = user.email || '';
+          if(id){
+            const old = await get(ref(db, base + '/' + id));
+            data.createdAt = (old.exists() && old.val().createdAt) || nowIso;
+            await set(ref(db, base + '/' + id), data);
+            return id;
+          }
+          data.createdAt = nowIso;
+          const r = push(ref(db, base));
+          await set(r, data);
+          return r.key;
+        },
+        remove: (id) => remove(ref(db, base + '/' + id))
+      };
+      unsub = onValue(ref(db, base), (snap) => { window.onSavedDocs && window.onSavedDocs(snap.val() || {}); },
+        (err) => { console.warn(err); showLoginError && docsToast('⚠️ 저장된 문서를 불러오지 못했어요 (Firebase 규칙 확인)'); });
+      enterAdmin();
+    }catch(e){
+      console.error(e);
+      showLoginError('확인 중 문제가 생겼어요. 다시 시도해주세요.');
+    }
+  });
+</script>
+
+</body>
+</html>
