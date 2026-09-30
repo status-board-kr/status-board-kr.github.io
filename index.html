@@ -1016,6 +1016,33 @@
     <div class="sub">이 업체에 속한 직원 목록입니다. 새 직원은 초대코드로 참여시킬 수 있어요.</div>
     <div id="staffList"><div class="empty">불러오는 중...</div></div>
 
+    <div id="aiKeyCard" style="display:none;margin-top:16px;padding:14px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+        <div style="width:40px;height:40px;border-radius:10px;background:rgba(96,165,250,.15);border:1px solid rgba(96,165,250,.45);display:flex;align-items:center;justify-content:center;font-size:19px;">🤖</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:700;color:var(--text);">AI 키 <span style="color:var(--sub);font-weight:400;font-size:11px;">(관리자만 보여요)</span></div>
+          <div id="aiKeyState" style="font-size:11px;color:var(--sub);margin-top:2px;">키 없음</div>
+        </div>
+      </div>
+      <label style="font-size:12px;color:var(--sub);">Gemini 키 <span id="aiKeyCurGemini"></span></label>
+      <div style="display:flex;gap:6px;margin:4px 0 10px;">
+        <input id="aiKeyGemini" type="password" autocomplete="off" placeholder="AIza… 로 시작하는 키 붙여넣기" style="flex:1;min-width:0;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--text);font-size:13px;">
+        <button type="button" onclick="toggleKeyView('aiKeyGemini')" style="background:var(--panel);border:1px solid var(--line);color:var(--sub);border-radius:8px;padding:0 10px;">👁</button>
+      </div>
+      <label style="font-size:12px;color:var(--sub);">Grok 키 (없어도 돼요 · 예비용) <span id="aiKeyCurGrok"></span></label>
+      <div style="display:flex;gap:6px;margin:4px 0 12px;">
+        <input id="aiKeyGrok" type="password" autocomplete="off" placeholder="xai- 로 시작하는 키 붙여넣기" style="flex:1;min-width:0;padding:10px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--text);font-size:13px;">
+        <button type="button" onclick="toggleKeyView('aiKeyGrok')" style="background:var(--panel);border:1px solid var(--line);color:var(--sub);border-radius:8px;padding:0 10px;">👁</button>
+      </div>
+      <button class="btn-save" style="width:100%;padding:12px;border-radius:10px;font-weight:700;" onclick="saveAiKeysFromCard()">저장</button>
+      <div style="display:flex;gap:6px;margin-top:8px;">
+        <button type="button" style="flex:1;background:var(--panel);border:1px solid var(--line);color:var(--blue);font-size:12px;padding:8px;border-radius:8px;" onclick="openExternalUrl('https://aistudio.google.com/apikey')">Gemini 키 받기 (무료)</button>
+        <button type="button" style="flex:1;background:var(--panel);border:1px solid var(--line);color:var(--blue);font-size:12px;padding:8px;border-radius:8px;" onclick="openExternalUrl('https://console.x.ai')">Grok 키 받기</button>
+      </div>
+      <div style="font-size:11px;color:var(--sub);margin-top:8px;line-height:1.5;">
+        여기 한 번 넣으면 모든 직원 폰의 사진 자동 인식과 홈페이지 AI 상담에 같이 쓰여요.
+      </div>
+    </div>
     <div id="quickAppCard" style="display:none;margin-top:16px;padding:14px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;">
       <div style="display:flex;align-items:center;gap:10px;">
         <div style="width:40px;height:40px;border-radius:10px;background:rgba(251,191,36,.15);border:1px solid rgba(251,191,36,.45);display:flex;align-items:center;justify-content:center;font-size:19px;">⭐</div>
@@ -1057,7 +1084,6 @@
       <h3 style="margin-bottom:6px;">💬 직원 메신저</h3>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;">
         <button class="chat-tool-btn" onclick="backupChat()">💾 백업</button>
-        <button class="chat-tool-btn" onclick="setupAiKeys()" id="aiKeyBtn">🤖 AI 설정</button>
       </div>
       <div class="sub">최근 50개를 보여줘요 · 위로 올리면 더 불러와요 · 대화는 2년간 보관 (🔍검색·💾백업)</div>
       <div id="chatOlderStatus" style="text-align:center;font-size:11px;color:var(--sub);min-height:14px;margin-bottom:4px;"></div>
@@ -2720,7 +2746,7 @@ async function onBulkPhotoPicked(input){
   const files = [...(input.files || [])];
   input.value = '';
   if(!files.length) return;
-  if(!hasAnyAiKey()){ bulkStatus('⚠️ 등록증 사진을 읽으려면 ⚙️에서 AI 설정(API 키)이 필요해요.'); return; }
+  if(!hasAnyAiKey()){ bulkStatus('⚠️ 등록증 사진을 읽으려면 관리자가 👥 직원 관리에서 AI 키를 넣어야 해요.'); return; }
   bulkStatus('🪪 사진 ' + files.length + '장을 읽는 중... (조금 걸려요)');
   const all = [];
   try{
@@ -2989,6 +3015,7 @@ async function openStaffModal(){
   const inviteBox = document.getElementById('staffInviteBox');
   if(inviteBox) inviteBox.style.display = (window.COMPANY_ROLE==='owner') ? 'block' : 'none';
   updateQuickAppCard();
+  updateAiKeyLabel();
 
   const { ref, get, db } = window._fb;
   try{
@@ -4095,43 +4122,44 @@ function startAiKeySync(){
     updateAiKeyLabel();
   }, (err)=> console.warn('AI 설정 수신 실패:', err && err.code));
 }
+// ── AI 키: 👥 직원 관리 안의 칸에서 관리자만 넣고 바꿈 ──
+function maskKey(k){ return k ? (k.slice(0, 6) + '…' + k.slice(-4)) : ''; }
 function updateAiKeyLabel(){
-  const b = document.getElementById('aiKeyBtn');
-  if(!b) return;
-  const k = getAiKeys();
-  const parts = [];
-  if(k.gemini) parts.push('Gemini');
-  if(k.grok) parts.push('Grok');
-  const shared = (_companyAiKeys.gemini || _companyAiKeys.grok) ? '·공용' : '';
-  b.textContent = parts.length ? `🤖 AI 켜짐(${parts.join('+')}${shared})` : '🤖 AI 설정';
-}
-async function setupAiKeys(){
+  const card = document.getElementById('aiKeyCard');
+  if(!card) return;
   const isOwner = window.COMPANY_ROLE === 'owner';
-  if(!isOwner){
-    // 직원은 관리자가 넣은 공용 키를 자동으로 씁니다
-    alert(hasAnyAiKey()
-      ? '🤖 사진 자동 인식이 켜져 있어요.\n관리자가 업체 공용으로 설정해둔 키를 자동으로 쓰고 있어요.'
-      : '🤖 아직 사진 자동 인식이 설정되지 않았어요.\n관리자에게 "AI 설정"을 부탁해주세요. (관리자가 한 번 넣으면 모든 직원 폰에 적용돼요)');
-    return;
-  }
-  const cur = _companyAiKeys;
-  const mask = (k) => k ? (k.slice(0, 6) + '…' + k.slice(-4)) : '없음';
-  const gv = await appPrompt('AI 설정 1/2 — Gemini 키',
-    '여기 넣으면 모든 직원 폰에 자동 적용돼요.\n비워두고 확인하면 Gemini 키를 지웁니다.\n\n현재 Gemini 키: ' + mask(cur.gemini),
-    '', { placeholder:'Gemini API 키 붙여넣기' });
-  if(gv === null) return;
-  const grv = await appPrompt('AI 설정 2/2 — Grok 키',
-    '두 키를 모두 넣으면 Gemini가 실패할 때 Grok으로 자동 전환돼요.\n비워두고 확인하면 Grok 키를 지웁니다.\n\n현재 Grok 키: ' + mask(cur.grok),
-    '', { placeholder:'Grok(xAI) API 키 붙여넣기' });
-  if(grv === null) return;
-  const gt = gv.trim(), grt = grv.trim();
+  card.style.display = isOwner ? 'block' : 'none';
+  if(!isOwner) return;
+  const k = _companyAiKeys;
+  const on = [k.gemini && 'Gemini', k.grok && 'Grok'].filter(Boolean);
+  const st = document.getElementById('aiKeyState');
+  st.textContent = on.length ? `✅ 켜짐 (${on.join(' + ')})` : '⚠️ 키 없음 — 사진 자동 인식·홈페이지 AI 상담이 꺼져 있어요';
+  st.style.color = on.length ? 'var(--green)' : 'var(--amber)';
+  document.getElementById('aiKeyCurGemini').textContent = k.gemini ? '· 지금: ' + maskKey(k.gemini) : '';
+  document.getElementById('aiKeyCurGrok').textContent = k.grok ? '· 지금: ' + maskKey(k.grok) : '';
+  // 입력 중이 아니면 저장된 키로 채워둠 (비우고 저장하면 지워짐)
+  ['aiKeyGemini', 'aiKeyGrok'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    if(el && document.activeElement !== el && !el.dataset.dirty) el.value = i === 0 ? (k.gemini || '') : (k.grok || '');
+  });
+}
+function toggleKeyView(id){
+  const el = document.getElementById(id);
+  if(el) el.type = el.type === 'password' ? 'text' : 'password';
+}
+async function saveAiKeysFromCard(){
+  if(window.COMPANY_ROLE !== 'owner'){ showToast('관리자만 바꿀 수 있어요'); return; }
+  const gt = document.getElementById('aiKeyGemini').value.trim();
+  const grt = document.getElementById('aiKeyGrok').value.trim();
   for(const t of [gt, grt]){
     if(t && (t.length < 20 || t.length > 300 || /\s/.test(t))){ showToast('키 모양이 이상해요. 다시 복사해주세요'); return; }
   }
   try{
     const { ref, set, remove, db } = window._fb;
-    if(!gt && !grt){ await remove(ref(db, P('aiSettings'))); showToast('공용 API 키를 지웠어요'); }
-    else{
+    if(!gt && !grt){
+      if(!confirm('AI 키를 모두 지울까요?\n사진 자동 인식과 홈페이지 AI 상담이 꺼져요.')) return;
+      await remove(ref(db, P('aiSettings'))); showToast('AI 키를 지웠어요');
+    }else{
       await set(ref(db, P('aiSettings')), { geminiKey: gt, grokKey: grt,
         updatedAt: new Date().toISOString(), updatedBy: (window.CURRENT_USER && window.CURRENT_USER.email) || '' });
       showToast('저장했어요 · 모든 직원 폰에 자동 적용돼요');
@@ -4139,9 +4167,11 @@ async function setupAiKeys(){
     // 예전에 이 폰에만 넣어둔 키는 정리 (공용 키로 통일)
     localStorage.removeItem(GEMINI_KEY_LS); localStorage.removeItem(GROK_KEY_LS);
     localStorage.removeItem(OLD_AI_KEY_LS); localStorage.removeItem(OLD_CLAUDE_KEY_LS);
-  }catch(e){ console.error(e); showToast('저장 실패 - 관리자 권한을 확인해주세요'); }
+    ['aiKeyGemini', 'aiKeyGrok'].forEach(id => { const el = document.getElementById(id); if(el){ delete el.dataset.dirty; el.type = 'password'; } });
+  }catch(e){ console.error(e); showToast('저장 실패 - 관리자 권한이나 Firebase 규칙을 확인해주세요'); }
   updateAiKeyLabel();
 }
+document.addEventListener('input', (e)=>{ if(e.target && (e.target.id === 'aiKeyGemini' || e.target.id === 'aiKeyGrok')) e.target.dataset.dirty = '1'; });
 function compressImage(file, maxSide, quality){
   return new Promise((resolve, reject)=>{
     const url = URL.createObjectURL(file);
@@ -4520,7 +4550,7 @@ async function sendChatPhoto(text){
     }else{
       const head = otherPlates.length
         ? `읽은 번호판: ${otherPlates.join(', ')}\n우리 차량 목록에 없어요. (메모 끝에 넣어둘게요)`
-        : ((ai && ai.reason === 'nokey') ? 'AI 설정(API 키)이 없어서 번호판을 못 읽었어요.' : ((ai && ai.reason) || '번호판을 못 읽었어요.'));
+        : ((ai && ai.reason === 'nokey') ? 'AI 키가 없어서 번호판을 못 읽었어요. (관리자: 👥 직원 관리 → AI 키)' : ((ai && ai.reason) || '번호판을 못 읽었어요.'));
       const v = await appPrompt('차량번호를 알려주세요', `보낼 내용: "${text}"\n\n${head}`, '',
         { inputMode:'numeric', placeholder:'뒷 4자리 (예: 9585)' });
       tail = v ? String(v).replace(/[^0-9]/g, '').slice(-4) : null;
@@ -4553,7 +4583,7 @@ async function sendChatPhoto(text){
     }else{
     const head = km
       ? `📷 계기판에서 읽은 누적 주행거리: ${km.toLocaleString()} km${ai.confidence === 'low' ? '  (⚠️ 흐릿해서 확실하지 않아요)' : ''}\n\n맞으면 [확인], 다르면 숫자를 고쳐서 [확인]하세요.`
-      : `${ai && ai.reason === 'nokey' ? '🤖 AI 설정(API 키)이 없어서 자동으로 못 읽었어요.' : '⚠️ ' + ((ai && ai.reason) || '주행거리를 못 읽었어요')}\n\n종료 주행거리(km)를 직접 입력하세요. (모르면 빈칸)`;
+      : `${ai && ai.reason === 'nokey' ? '🤖 AI 키가 없어서 자동으로 못 읽었어요. (관리자: 👥 직원 관리 → AI 키)' : '⚠️ ' + ((ai && ai.reason) || '주행거리를 못 읽었어요')}\n\n종료 주행거리(km)를 직접 입력하세요. (모르면 빈칸)`;
     const ans = await appPrompt(`${veh.plate} 회수`, head, km ? String(km) : '',
       { inputMode:'numeric', placeholder:'종료 주행거리 (km)', hint:'모르면 비워두고 확인을 누르세요' });
     const num = ans == null ? NaN : Number(String(ans).replace(/[^0-9]/g, ''));
