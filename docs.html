@@ -1599,8 +1599,8 @@ function showDoc(docId, emptyId, html, filename) {
 
 // 견적서 전용 차량정보 — 컴팩트 2열 테이블
 function carInfoTableHtml(model, carnum, year, color, mileage, fuel) {
-  var th = 'padding:5px 10px;font-size:11.5px;font-weight:700;color:#475569;background:#f8fafc;border-bottom:1px solid #f1f5f9;';
-  var td = 'padding:5px 10px;font-size:12.5px;color:#1a1a1a;border-bottom:1px solid #f1f5f9;';
+  var th = 'padding:9px 12px;font-size:14px;font-weight:700;color:#475569;background:#f8fafc;border-bottom:1px solid #f1f5f9;text-align:left;white-space:nowrap;';
+  var td = 'padding:9px 12px;font-size:14px;color:#1a1a1a;border-bottom:1px solid #f1f5f9;';
   var rows = "";
   if (model || carnum) rows += "<tr><th style='" + th + "'>차량모델</th><td style='" + td + "'><strong style='color:#0369a1;'>" + (model||"-") + "</strong></td>"
     + "<th style='" + th + "'>차량번호</th><td style='" + td + "'>" + (carnum||"-") + "</td></tr>";
@@ -1610,7 +1610,7 @@ function carInfoTableHtml(model, carnum, year, color, mileage, fuel) {
     + "<th style='" + th + "'>연료</th><td style='" + td + "'>" + (fuel||"-") + "</td></tr>";
   return rows ? "<div style='margin-bottom:10px;'>" + secTitle("차량 정보")
     + "<table style='width:100%;border-collapse:collapse;table-layout:fixed;'>"
-    + "<colgroup><col style='width:15%;'/><col style='width:35%;'/><col style='width:15%;'/><col style='width:35%;'/></colgroup>"
+    + "<colgroup><col style='width:17%;'/><col style='width:33%;'/><col style='width:17%;'/><col style='width:33%;'/></colgroup>"
     + rows + "</table></div>" : "";
 }
 
@@ -1838,8 +1838,8 @@ function genSimple() {
   var etc     = g("s_etc").trim() || "없음";
   var note    = g("s_special").trim();
 
-  var sTH = 'padding:8px 12px;font-size:16.5px;font-weight:700;color:#475569;background:#f8fafc;border-bottom:1px solid #f1f5f9;vertical-align:middle;';
-  var sTD = 'padding:8px 12px;font-size:16.5px;color:#1a1a1a;border-bottom:1px solid #f1f5f9;vertical-align:middle;';
+  var sTH = 'padding:9px 12px;font-size:14px;font-weight:700;color:#475569;background:#f8fafc;border-bottom:1px solid #f1f5f9;vertical-align:middle;text-align:left;white-space:nowrap;';
+  var sTD = 'padding:9px 12px;font-size:14px;color:#1a1a1a;border-bottom:1px solid #f1f5f9;vertical-align:middle;';
 
   var qR = "<tr><th style='" + sTH + "'>대여유형</th><td style='" + sTD + "' colspan='3'><strong>" + type + "</strong></td></tr>";
   if (period) qR += "<tr><th style='" + sTH + "'>대여기간</th><td style='" + sTD + "' colspan='3'><strong>" + period + "</strong></td></tr>";
@@ -1878,12 +1878,12 @@ function genSimple() {
     hdrHtml(docTitle, gn("SQ"), date)
     + (custR ? "<div style='margin-bottom:12px;'>" + secTitle("고객 정보")
       + "<table style='width:100%;border-collapse:collapse;table-layout:fixed;'>"
-      + "<colgroup><col style='width:15%;'/><col style='width:35%;'/><col style='width:15%;'/><col style='width:35%;'/></colgroup>"
+      + "<colgroup><col style='width:17%;'/><col style='width:33%;'/><col style='width:17%;'/><col style='width:33%;'/></colgroup>"
       + custR + "</table></div>" : "")
     + carInfoTableHtml(model, carnum, year, color, mileage, fuel)
     + "<div style='margin-bottom:12px;'>" + secTitle("견적 내용")
     + "<table style='width:100%;border-collapse:collapse;table-layout:fixed;'>"
-    + "<colgroup><col style='width:15%;'/><col style='width:35%;'/><col style='width:15%;'/><col style='width:35%;'/></colgroup>"
+    + "<colgroup><col style='width:17%;'/><col style='width:33%;'/><col style='width:17%;'/><col style='width:33%;'/></colgroup>"
     + qR + "</table></div>"
     + summaryHtml
     + (note ? "<div style='margin-bottom:12px;'>" + secTitle("특이사항") + "<div style='background:#fff5f5;border:1px solid #fca5a5;border-radius:8px;padding:10px 14px;font-size:13px;color:#dc2626;font-weight:700;line-height:1.9;'>" + nl(note) + "</div></div>" : "")
