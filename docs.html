@@ -391,7 +391,17 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
   #docsToast, .edit-banner, .to-contract-btn, .saved-tab, .home-btn { display:none !important; }
   .doc-fit { height:auto !important; overflow:visible !important; }
   .doc-fit > .doc-wrap, .doc-wrap { transform:none !important; width:auto !important; }
+  /* 신차 견적서는 칸을 다 채워도 A4 한 장에 들어가게 살짝 줄여서 */
+  #newcarContent { zoom:0.94; }
 }
+
+/* ── 신차 견적서 ── */
+.saved-type.t-newcar { background:rgba(167,139,250,.16); color:#c4b5fd; }
+.nc-opt { border:1px solid var(--border); border-radius:10px; padding:10px 12px; margin-bottom:10px; background:rgba(255,255,255,.02); }
+.nc-opt-title { font-size:13px; font-weight:800; color:var(--sky); margin-bottom:8px; }
+.nc-opt-title span { font-weight:normal; font-size:11px; color:var(--soft); }
+.nc-amt { font-size:12px; color:var(--mint); margin-top:4px; min-height:0; }
+.nc-amt:empty { display:none; }
 
 </style>
 </head>
@@ -435,6 +445,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
     <button class="tab-btn active" onclick="switchTab('simple')">📄 일반 견적서</button>
     <button class="tab-btn" onclick="switchTab('statement')">🗒️ 거래명세서</button>
     <button class="tab-btn" onclick="switchTab('quote')">📋 장기 견적서</button>
+    <button class="tab-btn" onclick="switchTab('newcar')">🚘 신차 견적서</button>
     <button class="tab-btn" onclick="switchTab('contract')">📝 계약서 발행</button>
     <button class="tab-btn" onclick="switchTab('receipt')">🧾 영수증 발행</button>
     <button class="tab-btn" onclick="switchTab('saved')">📂 저장된 문서 <span id="savedCount" class="saved-count"></span></button>
@@ -807,6 +818,131 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
     </div>
   </div>
 
+
+  <!-- ── 신차 견적서 탭 (현황판 추가) ── -->
+  <div class="tab-content" id="tab-newcar">
+    <div class="input-panel">
+      <div class="acard">
+        <div class="acard-title">고객 정보</div>
+        <div class="form-grid">
+          <div class="afield"><label>고객명 *</label><input type="text" id="n_name" placeholder="홍길동"/></div>
+          <div class="afield"><label>연락처 *</label><input type="tel" id="n_phone" placeholder="010-0000-0000" oninput="fmtTel(this)"/></div>
+          <div class="afield">
+            <label>생년월일 / 사업자번호
+              <span style="margin-left:6px;">
+                <label style="font-weight:normal;font-size:11px;cursor:pointer;"><input type="radio" name="n_birth_type" value="birth" checked onchange="toggleBirthType('n')"> 개인</label>
+                <label style="font-weight:normal;font-size:11px;cursor:pointer;margin-left:4px;"><input type="radio" name="n_birth_type" value="biz" onchange="toggleBirthType('n')"> 법인</label>
+              </span>
+            </label>
+            <input type="text" id="n_birth" placeholder="19900101" maxlength="8" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'')"/>
+            <input type="text" id="n_biznum" placeholder="사업자등록번호 000-00-00000" maxlength="12" style="display:none;" oninput="fmtBizNum(this)"/>
+            <input type="text" id="n_corpnum" placeholder="법인등록번호 000000-0000000 (선택)" maxlength="14" inputmode="numeric" style="display:none;margin-top:6px;" oninput="fmtRRN(this)"/>
+            <input type="text" id="n_ceo" placeholder="대표자 이름 (선택)" maxlength="20" style="display:none;margin-top:6px;"/>
+          </div>
+          <div class="afield"><label>견적일자</label><input type="date" id="n_date"/></div>
+          <div class="afield" style="grid-column:1/-1;"><label>주소</label><input type="text" id="n_addr" placeholder="주소를 입력하세요"/></div>
+        </div>
+      </div>
+
+      <div class="acard">
+        <div class="acard-title">신차 정보</div>
+        <div class="form-grid">
+          <div class="afield"><label>제조사</label><input type="text" id="n_maker" placeholder="현대"/></div>
+          <div class="afield"><label>차량모델 *</label><input type="text" id="n_model" placeholder="디 올 뉴 그랜저"/></div>
+          <div class="afield"><label>트림</label><input type="text" id="n_trim" placeholder="2.5 가솔린 익스클루시브"/></div>
+          <div class="afield"><label>연료</label><select id="n_fuel"><option value="">선택</option><option>가솔린</option><option>디젤</option><option>LPG</option><option>하이브리드</option><option>전기</option><option>수소</option></select></div>
+          <div class="afield"><label>외장 색상</label><input type="text" id="n_color" placeholder="어비스 블랙 펄"/></div>
+          <div class="afield"><label>내장 색상</label><input type="text" id="n_incolor" placeholder="블랙"/></div>
+          <div class="afield"><label>차량 가격 (옵션 포함, 원)</label><input type="text" id="n_carprice" placeholder="45,000,000" inputmode="numeric" oninput="fmtMon(this);calcNewcar()"/></div>
+          <div class="afield"><label>출고 예정</label><input type="text" id="n_eta" placeholder="계약 후 약 1개월"/></div>
+          <div class="afield" style="grid-column:1/-1;"><label>선택 옵션</label><textarea id="n_options" placeholder="파노라마 선루프, 빌트인 캠 …"></textarea></div>
+        </div>
+      </div>
+
+      <div class="acard">
+        <div class="acard-title">기간별 금액 <span style="font-weight:normal;font-size:11px;color:var(--soft);">— 필요한 만큼만 채우세요 (1개만 채우면 1개만 나와요)</span></div>
+        <div class="nc-opts" id="nc-opts"></div>
+      </div>
+
+      <div class="acard">
+        <div class="acard-title">공통 조건</div>
+        <div class="form-grid">
+          <div class="afield">
+            <label>운전자 나이</label>
+            <select id="n_age"><option value="21">만 21세 이상</option><option value="26" selected>만 26세 이상</option></select>
+          </div>
+          <div class="afield">
+            <label>운전자 범위</label>
+            <select id="n_driver_special">
+              <option value="">누구나 (나이 조건 내)</option>
+              <option value="지정1인">지정 1인</option>
+              <option value="지정2인">지정 2인</option>
+              <option value="임직원한정">임직원 한정</option>
+            </select>
+          </div>
+          <div class="afield">
+            <label>약정 주행거리</label>
+            <select id="n_km">
+              <option>연 10,000km</option><option>연 15,000km</option><option selected>연 20,000km</option>
+              <option>연 30,000km</option><option>연 40,000km</option><option>무제한</option>
+            </select>
+          </div>
+          <div class="afield">
+            <label>대물 배상</label>
+            <select id="n_insurance"><option value="1억원">대물 1억원</option><option value="2억원">대물 2억원</option><option value="3억원">대물 3억원</option><option value="5천만원">대물 5천만원</option></select>
+          </div>
+          <div class="afield">
+            <label>자차 (자기차량손해)</label>
+            <select id="n_own"><option value="1">포함</option><option value="0">미포함</option></select>
+          </div>
+          <div class="afield">
+            <label>자차 면책금</label>
+            <input type="text" id="n_selfpay" placeholder="예: 30만원"/>
+          </div>
+          <div class="afield">
+            <label>정비 서비스</label>
+            <select id="n_maint"><option value="미포함">미포함 (보증 수리)</option><option value="포함">포함 (소모품 교환)</option></select>
+          </div>
+          <div class="afield">
+            <label>계약 끝나면</label>
+            <select id="n_end_opt"><option value="인수 또는 반납 선택">인수 또는 반납 선택</option><option value="반납">반납</option><option value="인수">인수</option></select>
+          </div>
+          <div class="afield">
+            <label>월 렌트료 부가세</label>
+            <select id="n_vat"><option value="포함">부가세 포함</option><option value="별도">부가세 별도</option></select>
+          </div>
+          <div class="afield"><label>탁송</label><input type="text" id="n_delivery" placeholder="무료 (전국)"/></div>
+        </div>
+        <div class="afield" style="margin-top:6px;">
+          <label>특약사항</label>
+          <textarea id="n_special" placeholder="특약사항을 입력하세요"></textarea>
+        </div>
+      </div>
+
+      <div class="action-btns">
+        <button class="abtn abtn-quote" onclick="genNewcar()">🚘 신차 견적서 생성</button>
+        <button class="abtn abtn-clear" onclick="clearNewcar()">🗑️ 초기화</button>
+      </div>
+    </div>
+
+    <div class="preview-panel">
+      <div class="preview-top">
+        <h3>🚘 신차 견적서 미리보기</h3>
+        <div class="preview-top-btns">
+          <button class="print-btn pdf" onclick="downloadPDF('newcarDoc')">🖨️ 인쇄/PDF</button>
+          <button class="print-btn" onclick="downloadJPG('newcarDoc','신차견적서',this)">🖼️ JPG</button>
+        </div>
+      </div>
+      <div id="newcarEmpty" class="empty-state">
+        <div class="eico">🚘</div>
+        <p>왼쪽에 정보를 입력하고<br/><strong>신차 견적서 생성</strong> 버튼을 누르세요</p>
+      </div>
+      <div id="newcarDoc" style="display:none;">
+        <div class="doc-wrap"><div class="doc-inner" id="newcarContent"></div></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ── 계약서 탭 ── -->
   <div class="tab-content" id="tab-contract">
     <div class="input-panel">
@@ -926,7 +1062,8 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
               <option value="1">1개월</option><option value="2">2개월</option>
               <option value="3">3개월</option><option value="6">6개월</option>
               <option value="12">12개월</option><option value="24">24개월</option>
-              <option value="36">36개월</option>
+              <option value="36">36개월</option><option value="48">48개월</option>
+              <option value="60">60개월</option>
             </select>
           </div>
           <div class="afield"><label>납입일</label><input type="text" id="c_payday" placeholder="매월 25일"/></div>
@@ -1128,7 +1265,7 @@ function enterAdmin() {
   document.getElementById("loginScreen").style.display = "none";
   document.getElementById("adminScreen").style.display = "flex";
   var today = todayLocal();
-  ["s_date","q_date","q_start","c_start","r_date"].forEach(function(id) {
+  ["s_date","q_date","q_start","c_start","r_date","n_date"].forEach(function(id) {
     var el = document.getElementById(id); if (el && !el.value) el.value = today;
   });
 }
@@ -2426,11 +2563,188 @@ function downloadPDF(docId) {
 }
 
 
+// ══════ 현황판 추가: 신차 견적서 (기간별 1~3안 비교, 총액은 넣지 않음) ══════
+var NC_OPTS = 3;
+(function buildNewcarOpts() {
+  var box = document.getElementById("nc-opts");
+  if (!box) return;
+  var html = "";
+  for (var k = 1; k <= NC_OPTS; k++) {
+    var p = "n_p" + k + "_";
+    html += '<div class="nc-opt">'
+      + '<div class="nc-opt-title">' + k + '안' + (k === 1 ? ' <span>(기본)</span>' : ' <span>(비교용 · 선택)</span>') + '</div>'
+      + '<div class="form-grid">'
+      + '<div class="afield"><label>계약기간' + (k === 1 ? ' *' : '') + '</label><select id="' + p + 'period" onchange="calcNewcar()"><option value="">선택</option>'
+      + '<option value="12">12개월</option><option value="24">24개월</option><option value="36">36개월</option><option value="48">48개월</option><option value="60">60개월</option></select></div>'
+      + '<div class="afield"><label>월 렌트료 (원)' + (k === 1 ? ' *' : '') + '</label><input type="text" id="' + p + 'price" placeholder="650,000" inputmode="numeric" oninput="fmtMon(this)"/></div>'
+      + '<div class="afield"><label>보증금 (차량가의 %)</label><input type="text" id="' + p + 'deposit" placeholder="0" inputmode="decimal" oninput="ncPct(this)"/><div class="nc-amt" id="' + p + 'deposit_amt"></div></div>'
+      + '<div class="afield"><label>선납금 (차량가의 %)</label><input type="text" id="' + p + 'prepay" placeholder="0" inputmode="decimal" oninput="ncPct(this)"/><div class="nc-amt" id="' + p + 'prepay_amt"></div></div>'
+      + '<div class="afield"><label>만기 인수가 (차량가의 %)</label><input type="text" id="' + p + 'residual" placeholder="예: 45" inputmode="decimal" oninput="ncPct(this)"/><div class="nc-amt" id="' + p + 'residual_amt"></div></div>'
+      + '</div></div>';
+  }
+  box.innerHTML = html;
+})();
+
+function ncNum(id) { return Number(String((document.getElementById(id) || {}).value || "").replace(/[^0-9.]/g, "")) || 0; }
+function ncVal(id) { return String((document.getElementById(id) || {}).value || "").trim(); }
+function ncWon(n) { return Math.round(n).toLocaleString() + "원"; }
+// % 칸: 숫자와 점만, 0~100
+function ncPct(el) {
+  var v = el.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1");
+  if (Number(v) > 100) v = "100";
+  el.value = v;
+  calcNewcar();
+}
+// % → 금액 (차량 가격이 있을 때만)
+function ncPctAmt(pct) {
+  var car = ncNum("n_carprice");
+  return car && pct ? Math.round(car * pct / 100) : 0;
+}
+function calcNewcar() {
+  for (var k = 1; k <= NC_OPTS; k++) {
+    ["deposit", "prepay", "residual"].forEach(function (f) {
+      var pct = ncNum("n_p" + k + "_" + f), out = document.getElementById("n_p" + k + "_" + f + "_amt");
+      if (!out) return;
+      var amt = ncPctAmt(pct);
+      out.textContent = pct ? (amt ? "= " + ncWon(amt) : "차량 가격을 넣으면 금액이 나와요") : "";
+    });
+  }
+}
+// 채워진 안만 (기간 + 월 렌트료가 있는 것)
+function ncOptions() {
+  var list = [];
+  for (var k = 1; k <= NC_OPTS; k++) {
+    var p = "n_p" + k + "_";
+    var period = ncVal(p + "period"), price = ncNum(p + "price");
+    if (!period || !price) continue;
+    list.push({ k: k, period: Number(period), price: price, deposit: ncNum(p + "deposit"), prepay: ncNum(p + "prepay"), residual: ncNum(p + "residual") });
+  }
+  return list;
+}
+function ncPctText(pct) {
+  if (!pct) return "없음";
+  var amt = ncPctAmt(pct);
+  return amt ? "<strong>" + ncWon(amt) + "</strong> <span style='font-size:11px;color:#64748b;'>(차량가 " + pct + "%)</span>" : "차량가의 " + pct + "%";
+}
+
+function clearNewcar() {
+  document.querySelectorAll("#tab-newcar input[id], #tab-newcar select[id], #tab-newcar textarea[id]").forEach(function (el) {
+    if (el.type === "radio") return;
+    if (el.tagName === "SELECT") {
+      var d = Array.from(el.options).findIndex(function (o) { return o.defaultSelected; });
+      el.selectedIndex = d >= 0 ? d : 0;
+    } else el.value = "";
+  });
+  var rb = document.querySelector("input[name='n_birth_type'][value='birth']");
+  if (rb) { rb.checked = true; toggleBirthType("n"); }
+  var dt = document.getElementById("n_date"); if (dt) dt.value = todayLocal();
+  calcNewcar();
+  document.getElementById("newcarDoc").style.display = "none";
+  document.getElementById("newcarEmpty").style.display = "flex";
+}
+
+function genNewcar() {
+  var g = ncVal;
+  var name = g("n_name"), phone = g("n_phone");
+  var _nB = getBirthOrBiz("n"); var birthLabel = _nB.label; var birth = _nB.value;
+  var addr = g("n_addr"), date = g("n_date");
+  var maker = g("n_maker"), model = g("n_model"), trim = g("n_trim"), fuel = g("n_fuel");
+  var color = g("n_color"), incolor = g("n_incolor"), eta = g("n_eta"), options = g("n_options");
+  var carprice = ncNum("n_carprice");
+  var opts = ncOptions();
+
+  if (!name || !phone || !model) { alert("고객명, 연락처, 차량모델은 필수입니다."); return; }
+  if (!opts.length) { alert("기간별 금액에서 계약기간과 월 렌트료를 한 개 이상 넣어주세요."); return; }
+
+  var age = g("n_age") === "21" ? "만 21세 이상" : "만 26세 이상";
+  var drv = g("n_driver_special");
+  var km = g("n_km"), ins = g("n_insurance") || "1억원";
+  var own = g("n_own") === "0" ? "미포함" : "포함";
+  var selfpay = g("n_selfpay");
+  var maint = g("n_maint"), endOpt = g("n_end_opt"), vat = g("n_vat") || "포함";
+  var delivery = g("n_delivery"), note = g("n_special");
+
+  var secTitle = function (t) { return '<div style="font-size:11px;font-weight:700;color:#0369a1;letter-spacing:1px;padding:3px 10px;background:#e0f2fe;border-radius:6px;margin-bottom:6px;display:inline-block;">' + t + '</div>'; };
+  var TH_ = 'padding:5px 12px;font-size:12.5px;font-weight:700;color:#475569;text-align:left;background:#f8fafc;vertical-align:top;border-bottom:1px solid #f1f5f9;white-space:nowrap;';
+  var TD_ = 'padding:5px 12px;font-size:12.5px;color:#1a1a1a;vertical-align:top;line-height:1.5;border-bottom:1px solid #f1f5f9;';
+  var COLS = "<colgroup><col style='width:15%;'/><col style='width:35%;'/><col style='width:15%;'/><col style='width:35%;'/></colgroup>";
+  var tbl = "<table style='width:100%;border-collapse:collapse;table-layout:fixed;'>";
+  var pair = function (a, av, b, bv) {
+    return "<tr><th style='" + TH_ + "'>" + a + "</th><td style='" + TD_ + "'>" + (av || "-") + "</td>"
+      + "<th style='" + TH_ + "'>" + b + "</th><td style='" + TD_ + "'>" + (bv || "-") + "</td></tr>";
+  };
+  var pairIf = function (a, av, b, bv) { return av || bv ? pair(a, av, b, bv) : ""; };   // 둘 다 비면 줄 생략
+  var wide = function (a, av) { return "<tr><th style='" + TH_ + "'>" + a + "</th><td style='" + TD_ + "' colspan='3'>" + av + "</td></tr>"; };
+
+  // 고객 정보
+  var cust = "<div style='margin-bottom:8px;'>" + secTitle("고객 정보") + tbl + COLS
+    + pair("고객명", "<strong style='color:#0369a1;'>" + name + "</strong>", "연락처", phone)
+    + pair(birthLabel, birth, "주소", addr)
+    + "</table></div>";
+
+  // 신차 정보
+  var car = "<div style='margin-bottom:8px;'>" + secTitle("신차 정보") + tbl + COLS
+    + "<tr><th style='" + TH_ + "'>차량모델</th><td style='" + TD_ + "' colspan='3'><strong style='color:#0369a1;font-size:14px;'>" + [maker, model].filter(Boolean).join(" ") + "</strong>" + (trim ? " &nbsp;<span style='color:#475569;'>" + trim + "</span>" : "") + "</td></tr>"
+    + pairIf("색상", [color && "외장 " + color, incolor && "내장 " + incolor].filter(Boolean).join(" / "), "연료", fuel)
+    + pairIf("차량 가격", carprice ? "<strong>" + ncWon(carprice) + "</strong> <span style='font-size:11px;color:#64748b;'>(옵션 포함)</span>" : "", "출고 예정", eta)
+    + (options ? wide("선택 옵션", options.split(/\n+/).map(function (s) { return s.trim(); }).filter(Boolean).join(" · ")) : "")
+    + "</table></div>";
+
+  // 기간별 금액
+  var n = opts.length;
+  var showPrepay = opts.some(function (o) { return o.prepay; });
+  var showResidual = endOpt !== "반납" && opts.some(function (o) { return o.residual; });
+  var hTH = 'padding:6px 10px;font-size:13px;font-weight:800;color:#fff;background:#0369a1;text-align:center;border:1px solid #0369a1;';
+  var cTH = 'padding:5px 12px;font-size:12.5px;font-weight:700;color:#475569;background:#f8fafc;text-align:left;border:1px solid #e2e8f0;white-space:nowrap;';
+  var cTD = 'padding:5px 10px;font-size:13px;color:#1a1a1a;text-align:center;border:1px solid #e2e8f0;line-height:1.35;';
+  var row = function (label, fn) {
+    return "<tr><th style='" + cTH + "'>" + label + "</th>" + opts.map(function (o) { return "<td style='" + cTD + "'>" + fn(o) + "</td>"; }).join("") + "</tr>";
+  };
+  var cmp = "<div style='margin-bottom:8px;'>" + secTitle((n > 1 ? "기간별 견적 비교" : "견적 금액") + " · 월 렌트료 부가세 " + vat)
+    + "<table style='width:100%;border-collapse:collapse;table-layout:fixed;'>"
+    + "<colgroup><col style='width:" + (n > 1 ? 19 : 25) + "%;'/>" + opts.map(function () { return "<col/>"; }).join("") + "</colgroup>"
+    + (n > 1 ? "<tr><th style='" + hTH + "background:#f8fafc;border-color:#e2e8f0;'></th>" + opts.map(function (o, i) { return "<th style='" + hTH + "'>" + (i + 1) + "안</th>"; }).join("") + "</tr>" : "")
+    + row("계약기간", function (o) { return "<strong>" + o.period + "개월</strong>"; })
+    + row("월 렌트료", function (o) { return "<strong style='color:#0369a1;font-size:17px;'>" + o.price.toLocaleString() + "원</strong>"; })
+    + row("보증금", function (o) { return ncPctText(o.deposit); })
+    + (showPrepay ? row("선납금", function (o) { return ncPctText(o.prepay); }) : "")
+    + (showResidual ? row("만기 인수가", function (o) { return o.residual ? ncPctText(o.residual) : "-"; }) : "")
+    + "</table></div>";
+
+  // 공통 조건
+  var cond = "<div style='margin-bottom:8px;'>" + secTitle("공통 조건") + tbl + COLS
+    + pair("운전자 조건", age + (drv ? " / <strong style='color:#0369a1;'>" + drv + "</strong>" : ""), "약정주행거리", "<strong>" + km + "</strong>")
+    + wide("보험조건", "대인 무한 · 대물 " + ins + " · 자기신체사고 1,500만원 · 자차 " + own + (own === "포함" && selfpay ? "(면책금 " + selfpay + ")" : "") + " · 긴급출동 40km")
+    + pair("정비서비스", maint, "계약 끝나면", endOpt)
+    + (delivery ? wide("탁송", delivery) : "")
+    + "</table></div>";
+
+  var html = hdrHtml("신차 견적서", gn("NQ"), date)
+    + cust + car + cmp + cond
+    + (note ? "<div style='margin-bottom:8px;'>" + secTitle("특약사항") + "<div style='background:#fff5f5;border:1px solid #fca5a5;border-radius:8px;padding:6px 12px;font-size:11px;color:#dc2626;font-weight:700;line-height:1.7;'>" + nl(note) + "</div></div>" : "")
+    + "<div style='display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:10px;padding-top:10px;border-top:1px dashed #cbd5e1;'>"
+    + "<div style='flex:1;font-size:11.5px;color:#64748b;line-height:1.65;'>"
+    + "※ 월 렌트료는 부가세(VAT) " + (vat === "별도" ? "별도" : "포함") + " 금액입니다.<br>"
+    + "※ 차량 가격·출고 시기에 따라 실제 금액과 다를 수 있습니다.<br>"
+    + (showPrepay ? "※ " + (opts.some(function (o) { return o.deposit; }) ? "보증금은 계약 끝나면 돌려드리고, " : "") + "선납금은 처음 한 번 내는 금액(그만큼 월 렌트료 인하)입니다.<br>"
+       : opts.some(function (o) { return o.deposit; }) ? "※ 보증금은 계약이 끝나면 돌려드립니다.<br>" : "")
+    + "※ 은행 : 농협 &nbsp;|&nbsp; 예금주 : (유)팡팡렌트카 &nbsp;|&nbsp; 입금계좌 : 301-0215-4589-81<br>"
+    + "<span style='color:#e11d48;font-weight:700;'>※ 본 견적서는 영수증으로 사용할 수 없습니다.</span>"
+    + "</div>"
+    + supHtmlInner()
+    + "</div>"
+    + footHtml();
+
+  var fname = [name || "고객", model || "차량", (date || todayLocal()).replace(/-/g, "")].join("_") + "_신차견적서";
+  showDoc("newcarDoc", "newcarEmpty", html, fname);
+}
+
 // ══════ 현황판 추가: 문서 저장 · 불러오기 · 견적서 → 계약서 · 휴대폰 화면 맞춤 · 주민번호 가리기 ══════
 var DOC_TABS = {
   simple:    { prefix: "s",  label: "일반 견적서", doc: "simpleDoc",    gen: "genSimple" },
   statement: { prefix: "st", label: "거래명세서",  doc: "statementDoc", gen: "genStatement" },
   quote:     { prefix: "q",  label: "장기 견적서", doc: "quoteDoc",     gen: "genQuote" },
+  newcar:    { prefix: "n",  label: "신차 견적서", doc: "newcarDoc",    gen: "genNewcar" },
   contract:  { prefix: "c",  label: "계약서",      doc: "contractDoc",  gen: "genContract" },
   receipt:   { prefix: "r",  label: "영수증",      doc: "receiptDoc",   gen: "genReceipt" }
 };
@@ -2520,6 +2834,7 @@ function applyRadios(radios) {
 function resetTabForm(tab) {
   if (tab === "statement" && typeof clearStatement === "function") clearStatement();
   else if (tab === "receipt" && typeof clearReceipt === "function") clearReceipt();
+  else if (tab === "newcar" && typeof clearNewcar === "function") clearNewcar();
   else if (typeof clearTab === "function") clearTab(tab);
 }
 function fillForm(tab, rec) {
@@ -2543,12 +2858,17 @@ function fillForm(tab, rec) {
     if (typeof calcStTotal === "function") calcStTotal();
   }
   Object.keys(rec.fields || {}).forEach(function (id) { setVal(document.getElementById(id), rec.fields[id]); });
+  if (tab === "newcar" && typeof calcNewcar === "function") calcNewcar();
 }
 
 // ── 저장 (문서를 생성할 때마다 자동) ──
 function docSummary(tab, rec) {
   var p = DOC_TABS[tab].prefix, f = rec.fields || {};
   var v = function (k) { return String(f[p + "_" + k] || "").trim(); };
+  if (tab === "newcar") {
+    var first = [1, 2, 3].map(function (k) { return v("p" + k + "_price"); }).filter(Boolean)[0];
+    return { name: v("name"), phone: v("phone"), car: [v("maker"), v("model")].filter(Boolean).join(" "), amount: first ? "월 " + first + "원" : "", date: v("date") };
+  }
   return {
     name: v("name"), phone: v("phone"),
     car: [v("model") || v("cust_model"), v("carnum") || v("cust_carnum")].filter(Boolean).join(" "),
@@ -2590,18 +2910,18 @@ showDoc = function (docId, emptyId, html, filename) {
     if (window.innerWidth <= 900) {
       // 위에 붙은 머리줄·탭(약 140px)에 가리지 않게 미리보기 제목부터 보이도록
       var top = document.querySelector("#tab-" + tab + " .preview-top") || document.getElementById(docId);
-      if (top) setTimeout(function () { window.scrollTo({ top: top.getBoundingClientRect().top + window.scrollY - 150, behavior: "smooth" }); }, 80);
+      if (top) setTimeout(function () { var tb = document.querySelector(".tabs"); var off = (tb ? tb.getBoundingClientRect().bottom : 140) + 10; window.scrollTo({ top: top.getBoundingClientRect().top + window.scrollY - off, behavior: "smooth" }); }, 80);
     }
   }
 };
 
 // 초기화하면 "새 문서"로
-["clearTab", "clearStatement", "clearReceipt"].forEach(function (fn) {
+["clearTab", "clearStatement", "clearReceipt", "clearNewcar"].forEach(function (fn) {
   if (typeof window[fn] !== "function") return;
   var orig = window[fn];
   window[fn] = function (tab) {
     var r = orig.apply(this, arguments);
-    var t = fn === "clearStatement" ? "statement" : fn === "clearReceipt" ? "receipt" : tab;
+    var t = fn === "clearStatement" ? "statement" : fn === "clearReceipt" ? "receipt" : fn === "clearNewcar" ? "newcar" : tab;
     if (t && !_filling) { delete _curDocId[t]; updateEditBanner(t); }
     return r;
   };
@@ -2627,7 +2947,7 @@ function setupTabExtras() {
     b.innerHTML = '<span></span><button type="button">새 문서로</button>';
     b.querySelector("button").onclick = function () { resetTabForm(tab); delete _curDocId[tab]; updateEditBanner(tab); docsToast("새 문서로 시작해요"); };
     panel.insertBefore(b, panel.firstChild);
-    if (tab === "simple" || tab === "quote") {
+    if (tab === "simple" || tab === "quote" || tab === "newcar") {
       var btns = panel.querySelector(".action-btns");
       var c = document.createElement("button");
       c.type = "button"; c.className = "to-contract-btn";
@@ -2652,6 +2972,7 @@ function quoteToContract(fromTab, rec) {
     if (key === "date" || key === "formula") return;          // 견적일자·산식은 계약서에 없음
     // 일반(단기) 견적은 하루 요금이라 월 렌트료 칸에 옮기지 않음
     if (fromTab === "simple" && /^(price|discount|total|period)$/.test(key)) return;
+    if (fromTab === "newcar" && /^(maint|km|p\d_)/.test(key)) return;   // 신차는 아래에서 따로
     if (f[id] === "" || f[id] == null) return;
     if (setVal(document.getElementById("c_" + key), f[id])) moved++;
   });
@@ -2659,7 +2980,21 @@ function quoteToContract(fromTab, rec) {
   var bt = rec.radios && rec.radios[p + "_birth_type"];
   if (bt) applyRadios({ c_id_type: bt === "biz" ? "biz" : "rrn" });
   if (f[p + "_biznum"] && bt === "biz") setVal(document.getElementById("c_biznum"), f[p + "_biznum"]);
-  if (!document.getElementById("c_start").value) document.getElementById("c_start").value = new Date().toISOString().split("T")[0];
+  if (fromTab === "newcar") {
+    // 차량모델 = 제조사 + 모델 + 트림, 금액은 1안(맨 앞의 채워진 안) 기준
+    var mdl = [f.n_maker, f.n_model, f.n_trim].map(function (s) { return String(s || "").trim(); }).filter(Boolean).join(" ");
+    if (mdl) setVal(document.getElementById("c_model"), mdl);
+    var k = [1, 2, 3].filter(function (k) { return f["n_p" + k + "_period"] && f["n_p" + k + "_price"]; })[0];
+    if (k) {
+      if (setVal(document.getElementById("c_period"), f["n_p" + k + "_period"])) moved++;
+      if (setVal(document.getElementById("c_price"), f["n_p" + k + "_price"])) moved++;
+      var car = Number(String(f.n_carprice || "").replace(/\D/g, "")), dp = Number(f["n_p" + k + "_deposit"] || 0);
+      if (car && dp) { setVal(document.getElementById("c_deposit"), Math.round(car * dp / 100).toLocaleString() + "원"); moved++; }
+    }
+    if (f.n_maint === "포함") { setVal(document.getElementById("c_maint"), "50000"); }
+  }
+  if (!document.getElementById("c_start").value) document.getElementById("c_start").value = todayLocal();
+  if (fromTab === "newcar") { try { autoEndDate(); calcTotal("c"); } catch (e) {} }
   switchTab("contract");
   window.scrollTo(0, 0);
   var panel = document.querySelector("#tab-contract .input-panel"); if (panel) panel.scrollTop = 0;
@@ -2689,7 +3024,7 @@ function renderSaved() {
     var t = DOC_TABS[d.type] || { label: d.type };
     var when = d.updatedAt ? new Date(d.updatedAt) : null;
     var whenTxt = when ? (when.getMonth() + 1) + "/" + when.getDate() + " " + String(when.getHours()).padStart(2, "0") + ":" + String(when.getMinutes()).padStart(2, "0") : "";
-    var canContract = d.type === "simple" || d.type === "quote";
+    var canContract = d.type === "simple" || d.type === "quote" || d.type === "newcar";
     return '<div class="saved-item">'
       + '<div class="saved-top"><div style="min-width:0;">'
       + '<span class="saved-type t-' + escapeHtmlD(d.type) + '">' + escapeHtmlD(t.label) + "</span>"
