@@ -449,7 +449,8 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
               </span>
             </label>
             <input type="text" id="s_birth" placeholder="19900101" maxlength="8" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'')"/>
-            <input type="text" id="s_biznum" placeholder="000-00-00000" maxlength="12" style="display:none;" oninput="fmtBizNum(this)"/>
+            <input type="text" id="s_biznum" placeholder="사업자등록번호 000-00-00000" maxlength="12" style="display:none;" oninput="fmtBizNum(this)"/>
+            <input type="text" id="s_corpnum" placeholder="법인등록번호 000000-0000000 (선택)" maxlength="14" inputmode="numeric" style="display:none;margin-top:6px;" oninput="fmtRRN(this)"/>
           </div>
           <div class="afield"><label>견적일자</label><input type="date" id="s_date"/></div>
           <div class="afield" style="grid-column:1/-1;"><label>주소</label><input type="text" id="s_addr" placeholder="주소를 입력하세요"/></div>
@@ -560,7 +561,8 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
               </span>
             </label>
             <input type="text" id="st_birth" placeholder="19900101" maxlength="8" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'')"/>
-            <input type="text" id="st_biznum" placeholder="000-00-00000" maxlength="12" style="display:none;" oninput="fmtBizNum(this)"/>
+            <input type="text" id="st_biznum" placeholder="사업자등록번호 000-00-00000" maxlength="12" style="display:none;" oninput="fmtBizNum(this)"/>
+            <input type="text" id="st_corpnum" placeholder="법인등록번호 000000-0000000 (선택)" maxlength="14" inputmode="numeric" style="display:none;margin-top:6px;" oninput="fmtRRN(this)"/>
           </div>
           <div class="afield"><label>발행일자</label><input type="date" id="st_date"/></div>
           <div class="afield" style="grid-column:1/-1;"><label>주소</label><input type="text" id="st_addr" placeholder="주소를 입력하세요"/></div>
@@ -645,7 +647,8 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
               </span>
             </label>
             <input type="text" id="q_birth" placeholder="19900101" maxlength="8" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'')"/>
-            <input type="text" id="q_biznum" placeholder="000-00-00000" maxlength="12" style="display:none;" oninput="fmtBizNum(this)"/>
+            <input type="text" id="q_biznum" placeholder="사업자등록번호 000-00-00000" maxlength="12" style="display:none;" oninput="fmtBizNum(this)"/>
+            <input type="text" id="q_corpnum" placeholder="법인등록번호 000000-0000000 (선택)" maxlength="14" inputmode="numeric" style="display:none;margin-top:6px;" oninput="fmtRRN(this)"/>
           </div>
           <div class="afield"><label>견적일자</label><input type="date" id="q_date"/></div>
           <div class="afield" style="grid-column:1/-1;"><label>주소</label><input type="text" id="q_addr" placeholder="주소를 입력하세요"/></div>
@@ -810,7 +813,8 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
               </span>
             </label>
             <input type="text" id="c_birth" placeholder="000000-0000000" maxlength="14" inputmode="numeric" oninput="fmtRRN(this)"/>
-            <input type="text" id="c_biznum" placeholder="000-00-00000" maxlength="12" style="display:none;" oninput="fmtBizNum(this)"/>
+            <input type="text" id="c_biznum" placeholder="사업자등록번호 000-00-00000" maxlength="12" style="display:none;" oninput="fmtBizNum(this)"/>
+            <input type="text" id="c_corpnum" placeholder="법인등록번호 000000-0000000 (선택)" maxlength="14" inputmode="numeric" style="display:none;margin-top:6px;" oninput="fmtRRN(this)"/>
           </div>
           <div class="afield" style="grid-column:1/-1;">
             <label>주소</label>
@@ -980,7 +984,8 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
               </span>
             </label>
             <input type="text" id="r_birth" placeholder="19900101" maxlength="8" inputmode="numeric" oninput="this.value=this.value.replace(/\D/g,'')"/>
-            <input type="text" id="r_biznum" placeholder="000-00-00000" maxlength="12" style="display:none;" oninput="fmtBizNum(this)"/>
+            <input type="text" id="r_biznum" placeholder="사업자등록번호 000-00-00000" maxlength="12" style="display:none;" oninput="fmtBizNum(this)"/>
+            <input type="text" id="r_corpnum" placeholder="법인등록번호 000000-0000000 (선택)" maxlength="14" inputmode="numeric" style="display:none;margin-top:6px;" oninput="fmtRRN(this)"/>
           </div>
           <div class="afield"><label>발행일자</label><input type="date" id="r_date"/></div>
           <div class="afield" style="grid-column:1/-1;"><label>주소 <span style="color:var(--soft);font-size:10px;">(선택)</span></label><input type="text" id="r_addr" placeholder="주소를 입력하세요"/></div>
@@ -1110,7 +1115,7 @@ async function doLogin() {
 function enterAdmin() {
   document.getElementById("loginScreen").style.display = "none";
   document.getElementById("adminScreen").style.display = "flex";
-  var today = new Date().toISOString().split("T")[0];
+  var today = todayLocal();
   ["s_date","q_date","q_start","c_start","r_date"].forEach(function(id) {
     var el = document.getElementById(id); if (el && !el.value) el.value = today;
   });
@@ -1299,6 +1304,7 @@ function calcSimpleDays() {
     // 24시간 단위: 11일~12일 = 1일(24시간)
     var diff = Math.round((new Date(e) - new Date(s)) / 86400000);
     if (diff < 0) { alert("종료일을 확인해주세요."); return; }
+    if (diff === 0) diff = 1;   // 같은 날 반납도 1일(24시간 이내)
     if (pEl) pEl.value = diff + "일 (" + fd(s) + " ~ " + fd(e) + ")";
   }
   calcSimpleTotal();
@@ -1315,8 +1321,8 @@ function calcSimpleTotal() {
     // 일 단위: 날짜 포함 계산 (+1)
     diff = Math.round((new Date(e) - new Date(s)) / 86400000) + 1;
   } else {
-    // 24시간 단위: 실제 경과일
-    diff = Math.round((new Date(e) - new Date(s)) / 86400000);
+    // 24시간 단위: 실제 경과일 (같은 날 반납은 1일)
+    diff = Math.max(1, Math.round((new Date(e) - new Date(s)) / 86400000));
   }
   var subtotal = price * diff;
   var total    = subtotal - Math.round(subtotal * disc / 100);
@@ -1723,7 +1729,7 @@ function genStatement() {
     + "광주광역시 광산구 첨단중앙로124번길17 2층<br>사업자번호 : 803-81-00790</div></div>"
     + "<div style='text-align:right;'><div style='font-family:Nunito,sans-serif;font-weight:900;font-size:30px;color:#0f172a;letter-spacing:3px;'>거 래 명 세 서</div>"
     + "<div style='font-size:11px;color:#64748b;margin-top:4px;'>No. " + gn("ST") + "</div>"
-    + "<div style='font-size:11px;color:#64748b;margin-top:3px;'>발행일 : " + fd(date || new Date().toISOString().slice(0,10)) + "</div></div></div>";
+    + "<div style='font-size:11px;color:#64748b;margin-top:3px;'>발행일 : " + fd(date || todayLocal()) + "</div></div></div>";
 
   // 공급받는자 정보 테이블
   var custR = "";
@@ -1754,8 +1760,7 @@ function genStatement() {
   });
 
   var taxLabel = taxType === "none" ? "비과세" : taxType === "include" ? "VAT 포함" : "VAT 별도 (10%)";
-  var totalNum = Number(total.replace(/[^0-9]/g,""));
-  var korAmt = numToKor(totalNum);
+  var korAmt = numToKor(grandTotal);
 
   var itemTable = "<div style='margin-bottom:14px;'>" + secTitle("거래 내용")
     + "<table style='width:100%;border-collapse:collapse;table-layout:fixed;'>"
@@ -1796,7 +1801,7 @@ function genStatement() {
     + "</div>"
     + footHtml();
 
-  var dateStr = (date || new Date().toISOString().slice(0,10)).replace(/-/g,"");
+  var dateStr = (date || todayLocal()).replace(/-/g,"");
   var fname = [name||"고객", carnum||model||"", dateStr].filter(Boolean).join("_") + "_거래명세서";
   showDoc("statementDoc", "statementEmpty", html, fname);
 }
@@ -1816,7 +1821,7 @@ function genSimple() {
   var carnum  = g("s_carnum").trim();
   var type    = g("s_type") || "단기대여";
   var unit    = (document.getElementById("s_unit") || {}).value || "day";
-  var priceLabel = unit === "hour" ? "시간 렌트료" : "일 렌트료";
+  var priceLabel = unit === "hour" ? "일 렌트료 (24시간)" : "일 렌트료";
   var docTitle = type === "사고대차" ? "사고대차 견적서" : type === "장기대여" ? "장기렌트 견적서" : "일반렌트 견적서";
   var period  = g("s_period").trim();
   var price   = g("s_price").trim();
@@ -1850,7 +1855,7 @@ function genSimple() {
     var summaryHtml = total ? "<div style='margin:16px 0 10px;padding:20px 24px;background:#f8fafc;border:2px solid #e2e8f0;border-radius:10px;text-align:center;'>"
     + "<div style='font-size:14px;font-weight:700;color:#475569;margin-bottom:8px;'>상기와 같이 견적합니다.</div>"
     + "<div style='margin-bottom:6px;'>"
-    + "<span style='font-size:20px;font-weight:900;color:#0369a1;'>₩" + total + "</span>"
+    + "<span style='font-size:20px;font-weight:900;color:#0369a1;'>₩" + total.replace(/원$/, "") + "</span>"
     + "<span style='font-size:14px;color:#475569;font-weight:600;'> &nbsp;&nbsp;일금 <strong style=\'font-size:17px;color:#0369a1;\'>" + korAmt + "</strong>원정</span>"
     + "</div></div>" : "";
 
@@ -1886,7 +1891,7 @@ function genSimple() {
     + "</div>"
     + footHtml();
 
-  var dateStr = (date || new Date().toISOString().slice(0,10)).replace(/-/g,"");
+  var dateStr = (date || todayLocal()).replace(/-/g,"");
   var fname = [name||"고객", carnum||model||"차량", dateStr].filter(Boolean).join("_") + "_일반견적서";
   showDoc("simpleDoc", "simpleEmpty", html, fname);
 }
@@ -1981,7 +1986,7 @@ function genQuote() {
     + "</div>"
     + footHtml();
 
-  var dateStr2 = (date || new Date().toISOString().slice(0,10)).replace(/-/g,"");
+  var dateStr2 = (date || todayLocal()).replace(/-/g,"");
   var fname2 = [name||"고객", carnum||model||"차량", dateStr2].filter(Boolean).join("_") + "_장기견적서";
   showDoc("quoteDoc", "quoteEmpty", html, fname2);
 }
@@ -1995,7 +2000,7 @@ function genContract() {
   var birth    = isBiz ? "" : g("c_birth").trim();
   var biznum   = isBiz ? g("c_biznum").trim() : "";
   var idLabel  = isBiz ? "사업자번호" : "주민번호";
-  var idValue  = isBiz ? biznum : birth;
+  var idValue  = isBiz ? bizDisplay("c") : birth;
   var drivers  = getDrivers();
   var addr     = g("c_addr").trim();
   var addr2    = g("c_addr2").trim();
@@ -2025,7 +2030,7 @@ function genContract() {
   var etc      = g("c_etc").trim() || "없음";
   var total    = g("c_total").trim();
   var note     = g("c_special").trim();
-  var today    = new Date().toISOString().split("T")[0];
+  var today    = todayLocal();
 
   if (!name || !phone || !model || !price || !start || !end) {
     alert("필수 항목을 입력해주세요."); return;
@@ -2223,6 +2228,7 @@ function calcReceiptDays() {
   } else {
     var diff = Math.round((new Date(e) - new Date(s)) / 86400000);
     if (diff < 0) { alert("종료일을 확인해주세요."); return; }
+    if (diff === 0) diff = 1;   // 같은 날 반납도 1일(24시간 이내)
     if (pEl) pEl.value = diff + "일 (" + fd(s) + " ~ " + fd(e) + ")";
   }
 }
@@ -2326,7 +2332,7 @@ function genReceipt() {
     + "<table style=\"width:100%;border-collapse:collapse;table-layout:fixed;\">" + colgroup + payR + "</table></div>"
     + amtBox + signArea + footHtml();
 
-  var dateStr = (date || new Date().toISOString().slice(0,10)).replace(/-/g,"");
+  var dateStr = (date || todayLocal()).replace(/-/g,"");
   var fname = [name||"고객", carnum||model||"차량", dateStr].filter(Boolean).join("_") + "_영수증";
   showDoc("receiptDoc", "receiptEmpty", html, fname);
 }
@@ -2707,6 +2713,136 @@ window.onSavedDocs = function (all) {
   Object.keys(_curDocId).forEach(updateEditBanner);
 };
 setupTabExtras();
+
+// ══════ 세부 오류 수정 (아래 함수들이 원래 함수를 대신합니다) ══════
+// 한국 날짜 (원래는 UTC 기준이라 오전 9시 전엔 어제 날짜가 들어갔음)
+function todayLocal() {
+  var d = new Date();
+  return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+function ymdLocal(d) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+// 전화번호: 010-1234-5678 / 02-123-4567 / 062-973-6635 (10자리 지역번호가 062-9736-635로 틀리게 나오던 것)
+function fmtTel(el) {
+  var v = el.value.replace(/[^0-9]/g, "").slice(0, 11);
+  var out;
+  if (v.startsWith("02")) {
+    if (v.length <= 2) out = v;
+    else if (v.length <= 5) out = v.slice(0, 2) + "-" + v.slice(2);
+    else if (v.length <= 9) out = v.slice(0, 2) + "-" + v.slice(2, v.length - 4) + "-" + v.slice(v.length - 4);
+    else out = v.slice(0, 2) + "-" + v.slice(2, 6) + "-" + v.slice(6, 10);
+  } else if (/^1[5-9]\d{2}/.test(v) && v.length <= 8) {          // 1588-1234 같은 대표번호
+    out = v.length > 4 ? v.slice(0, 4) + "-" + v.slice(4) : v;
+  } else {
+    if (v.length <= 3) out = v;
+    else if (v.length <= 6) out = v.slice(0, 3) + "-" + v.slice(3);
+    else if (v.length <= 10) out = v.slice(0, 3) + "-" + v.slice(3, v.length - 4) + "-" + v.slice(v.length - 4);
+    else out = v.slice(0, 3) + "-" + v.slice(3, 7) + "-" + v.slice(7);
+  }
+  el.value = out;
+}
+// 시작일 + N개월 - 1일 (1/31에 1개월이면 3/2가 되던 것 → 2/28, 달 끝을 넘지 않게)
+function addMonthsEnd(ymd, months) {
+  var p = ymd.split("-").map(Number);
+  var y = p[0], m = p[1] - 1 + months, day = p[2];
+  var ty = y + Math.floor(m / 12), tm = ((m % 12) + 12) % 12;
+  var last = new Date(ty, tm + 1, 0).getDate();
+  // 시작일이 그 달에 없는 날짜면(1/31 → 2월) 그 달 말일까지 (1/31~2/28), 아니면 하루 전까지 (3/15~4/14)
+  if (day > last) return ymdLocal(new Date(ty, tm, last));
+  var end = new Date(ty, tm, day);
+  end.setDate(end.getDate() - 1);
+  return ymdLocal(end);
+}
+function autoEndDate() {
+  var s = document.getElementById("c_start").value;
+  var mo = document.getElementById("c_period").value;
+  if (!s) return;
+  var day = Number(s.split("-")[2]);
+  document.getElementById("c_payday").value = day >= 29 ? "매월 " + day + "일 (없는 달은 말일)" : "매월 " + day + "일";
+  if (!mo) return;
+  document.getElementById("c_end").value = addMonthsEnd(s, Number(mo));
+}
+function calcQuoteDates() {
+  var s = document.getElementById("q_start").value;
+  var months = parseInt(document.getElementById("q_period").value || "0");
+  if (!s || !months) return;
+  document.getElementById("q_end").value = addMonthsEnd(s, months);
+}
+// 개인/법인 전환: 법인이면 사업자등록번호 + 법인등록번호 칸
+function toggleBirthType(prefix) {
+  var isBiz = document.querySelector("input[name='" + prefix + "_birth_type']:checked").value === "biz";
+  showIdFields(prefix, isBiz);
+}
+function toggleContractIdType() {
+  var isBiz = document.querySelector("input[name='c_id_type']:checked").value === "biz";
+  showIdFields("c", isBiz);
+}
+function showIdFields(prefix, isBiz) {
+  var b = document.getElementById(prefix + "_birth"), z = document.getElementById(prefix + "_biznum"), c = document.getElementById(prefix + "_corpnum");
+  if (b) b.style.display = isBiz ? "none" : "";
+  if (z) z.style.display = isBiz ? "" : "none";
+  if (c) c.style.display = isBiz ? "" : "none";
+  // 바꾼 쪽 칸만 비움 (예전엔 반대쪽 값을 지웠는데, 되돌아가면 다시 입력해야 해서 그대로 둠 — 문서엔 선택한 것만 나감)
+}
+// 문서에 넣을 사업자·법인번호 (법인등록번호는 주민번호 가림에 안 걸리게 특수 하이픈 사용)
+function bizDisplay(prefix) {
+  var z = ((document.getElementById(prefix + "_biznum") || {}).value || "").trim();
+  var c = ((document.getElementById(prefix + "_corpnum") || {}).value || "").trim().replace(/-/g, "‑");
+  if (z && c) return z + " / 법인등록번호 " + c;
+  return z || (c ? "법인등록번호 " + c : "");
+}
+function getBirthOrBiz(prefix) {
+  var isBiz = document.querySelector("input[name='" + prefix + "_birth_type']:checked").value === "biz";
+  if (isBiz) return { label: "사업자번호", value: bizDisplay(prefix) };
+  return { label: "생년월일", value: document.getElementById(prefix + "_birth").value.trim() };
+}
+// 할인율은 0~100 사이만 (150을 넣으면 합계가 마이너스가 되던 것)
+document.addEventListener("input", function (e) {
+  var el = e.target;
+  if (!el || !/_discount$/.test(el.id || "") || el.value === "") return;
+  var n = Number(el.value);
+  if (n > 100) el.value = 100; else if (n < 0) el.value = 0;
+}, true);
+
+// ── 생성 전에 형식 확인 (틀리면 알려주고, 그래도 만들지 물어봄) ──
+function digitsOf(id) { return ((document.getElementById(id) || {}).value || "").replace(/\D/g, ""); }
+function checkTab(tab) {
+  var p = DOC_TABS[tab].prefix, msgs = [];
+  var phone = digitsOf(p + "_phone");
+  if (phone && (phone.length < 9 || phone.length > 11)) msgs.push("연락처 자리수가 이상해요 (" + phone.length + "자리)");
+  var typeName = tab === "contract" ? "c_id_type" : p + "_birth_type";
+  var r = document.querySelector("input[name='" + typeName + "']:checked");
+  var isBiz = r && r.value === "biz";
+  if (isBiz) {
+    var bz = digitsOf(p + "_biznum"), cp = digitsOf(p + "_corpnum");
+    if (bz && bz.length !== 10) msgs.push("사업자등록번호는 10자리예요 (지금 " + bz.length + "자리)");
+    if (cp && cp.length !== 13) msgs.push("법인등록번호는 13자리예요 (지금 " + cp.length + "자리)");
+  } else {
+    var bd = digitsOf(p + "_birth");
+    if (tab === "contract") { if (bd && bd.length !== 13) msgs.push("주민번호는 13자리예요 (지금 " + bd.length + "자리)"); }
+    else if (bd && bd.length !== 8 && bd.length !== 6) msgs.push("생년월일은 8자리(19900101)로 적어주세요");
+  }
+  var st = (document.getElementById(p + "_start") || {}).value, en = (document.getElementById(p + "_end") || {}).value;
+  if (st && en && en < st) msgs.push("종료일이 시작일보다 빨라요");
+  if (tab === "contract") {
+    Array.from(document.getElementById("driver-list").children).forEach(function (row, i) {
+      var e = row.querySelector("[id^='drv_birth_']"); var d = e ? e.value.replace(/\D/g, "") : "";
+      if (d && d.length !== 13) msgs.push("운전자 " + (i + 1) + " 주민번호가 13자리가 아니에요");
+    });
+  }
+  return msgs;
+}
+Object.keys(DOC_TABS).forEach(function (tab) {
+  var fn = DOC_TABS[tab].gen;
+  if (typeof window[fn] !== "function") return;
+  var orig = window[fn];
+  window[fn] = function () {
+    if (!_silentGen) {
+      var msgs = checkTab(tab);
+      if (msgs.length && !confirm("확인해주세요:\n- " + msgs.join("\n- ") + "\n\n그래도 만들까요?")) return;
+    }
+    return orig.apply(this, arguments);
+  };
+});
 
 </script>
 <!-- 현황판(Firebase) 관리자 계정으로 로그인 + 문서 저장 (companyDocs/{업체ID}, 관리자만 읽기·쓰기) -->
