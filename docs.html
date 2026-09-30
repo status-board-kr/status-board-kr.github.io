@@ -457,7 +457,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
     <button class="tab-btn active" onclick="switchTab('simple')">📄 일반 견적서</button>
     <button class="tab-btn" onclick="switchTab('statement')">🗒️ 거래명세서</button>
     <button class="tab-btn" onclick="switchTab('quote')">📋 장기 견적서</button>
-    <button class="tab-btn" onclick="switchTab('newcar')">🚘 신차 견적서</button>
+    <button class="tab-btn" onclick="switchTab('newcar')">🚘 신차 렌트 견적서</button>
     <button class="tab-btn" onclick="switchTab('contract')">📝 계약서 발행</button>
     <button class="tab-btn" onclick="switchTab('receipt')">🧾 영수증 발행</button>
     <button class="tab-btn" onclick="switchTab('saved')">📂 저장된 문서 <span id="savedCount" class="saved-count"></span></button>
@@ -876,12 +876,15 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
         <details class="nc-rates" id="nc-rates">
           <summary>⚙️ 계산 기준 <span id="nc-rates-sum"></span></summary>
           <div class="nc-rates-body">
-            <div class="nc-rates-note">원가 = 내 할부금 + 내 선수금 ÷ 계약기간 + 보험료 + 지입료 + 기타<br>월 렌트료 = 원가 + <b>마진</b> − 고객 보증금 이자 − 고객 선납금 ÷ 계약기간 (+21세 추가) · 천원 단위 반올림<br>→ 마진을 0으로 하면 딱 원가, 그 밑으로 받으면 손해예요.</div>
+            <div class="nc-rates-note">원가 = 내 할부금 + (내 선수금 + 취등록세 + 등록 부대비용) ÷ 계약기간 + 보험료 + 지입료 + 기타<br>월 렌트료 = 원가 + <b>마진</b> − 고객 보증금 이자 − 고객 선납금 ÷ 계약기간 (+21세 추가) · 천원 단위 반올림<br>→ 마진을 0으로 하면 딱 원가, 그 밑으로 받으면 손해예요.</div>
             <div class="form-grid">
               <div class="afield" style="grid-column:1/-1;"><label>내가 차 살 때 할부</label></div>
               <div class="afield"><label>할부 금리 (연 %)</label><input type="text" id="nr_rate" inputmode="decimal" oninput="ncRateInput(this)"/></div>
               <div class="afield"><label>할부 기간</label><select id="nr_months" onchange="ncRateInput(this)"><option value="12">12개월</option><option value="24">24개월</option><option value="36">36개월</option><option value="48">48개월</option><option value="60">60개월</option></select></div>
               <div class="afield"><label>내 선수금 (차량가의 %)</label><input type="text" id="nr_down" inputmode="decimal" oninput="ncRateInput(this)"/></div>
+              <div class="afield" style="grid-column:1/-1;"><label style="margin-top:4px;">신차 등록할 때 (계약기간 동안 나눠서 원가에 넣음)</label></div>
+              <div class="afield"><label>취등록세 (차량가의 %)</label><input type="text" id="nr_acq" inputmode="decimal" oninput="ncRateInput(this)"/></div>
+              <div class="afield"><label>공채·번호판 등 (원)</label><input type="text" id="nr_reg" inputmode="numeric" oninput="fmtMon(this);ncRateInput(this)"/></div>
               <div class="afield" style="grid-column:1/-1;"><label style="margin-top:4px;">매달 드는 돈</label></div>
               <div class="afield"><label>보험료 (원/월)</label><input type="text" id="nr_ins" inputmode="numeric" oninput="fmtMon(this);ncRateInput(this)"/></div>
               <div class="afield"><label>지입료 (원/월)</label><input type="text" id="nr_fee" inputmode="numeric" oninput="fmtMon(this);ncRateInput(this)"/></div>
@@ -958,22 +961,22 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
       </div>
 
       <div class="action-btns">
-        <button class="abtn abtn-quote" onclick="genNewcar()">🚘 신차 견적서 생성</button>
+        <button class="abtn abtn-quote" onclick="genNewcar()">🚘 신차 렌트 견적서 생성</button>
         <button class="abtn abtn-clear" onclick="clearNewcar()">🗑️ 초기화</button>
       </div>
     </div>
 
     <div class="preview-panel">
       <div class="preview-top">
-        <h3>🚘 신차 견적서 미리보기</h3>
+        <h3>🚘 신차 렌트 견적서 미리보기</h3>
         <div class="preview-top-btns">
           <button class="print-btn pdf" onclick="downloadPDF('newcarDoc')">🖨️ 인쇄/PDF</button>
-          <button class="print-btn" onclick="downloadJPG('newcarDoc','신차견적서',this)">🖼️ JPG</button>
+          <button class="print-btn" onclick="downloadJPG('newcarDoc','신차렌트견적서',this)">🖼️ JPG</button>
         </div>
       </div>
       <div id="newcarEmpty" class="empty-state">
         <div class="eico">🚘</div>
-        <p>왼쪽에 정보를 입력하고<br/><strong>신차 견적서 생성</strong> 버튼을 누르세요</p>
+        <p>왼쪽에 정보를 입력하고<br/><strong>신차 렌트 견적서 생성</strong> 버튼을 누르세요</p>
       </div>
       <div id="newcarDoc" style="display:none;">
         <div class="doc-wrap"><div class="doc-inner" id="newcarContent"></div></div>
@@ -2606,9 +2609,9 @@ var NC_OPTS = 3;
 var NC_PERIODS = [12, 24, 36, 48, 60];
 // 계산 기준 (금리·보험료는 예시 값 — 화면의 ⚙️ 계산 기준에서 실제 숫자로 바꾸고 저장)
 //  rate/months/down: 내가 차 살 때 할부 금리(연 %)·기간·선수금 % · ins/fee/etc/margin: 월 보험료·지입료·기타·마진 · d2/d3: 2·3안 기본 보증금 %
-var NC_RATES_DEFAULT = { rate: 6, months: 60, down: 0, ins: 100000, fee: 50000, etc: 0, margin: 50000, age21: 30000, d2: 10, d3: 30 };
-var NC_WON_KEYS = ["ins", "fee", "etc", "margin", "age21"];
-var NC_PCT_KEYS = ["rate", "months", "down", "d2", "d3"];
+var NC_RATES_DEFAULT = { rate: 6, months: 60, down: 0, acq: 4, reg: 0, ins: 100000, fee: 50000, etc: 0, margin: 50000, age21: 30000, d2: 10, d3: 30 };
+var NC_WON_KEYS = ["ins", "fee", "etc", "margin", "age21", "reg"];
+var NC_PCT_KEYS = ["rate", "months", "down", "acq", "d2", "d3"];   // acq: 취등록세 % (영업용 렌터카 4% 예시), reg: 공채·번호판 등 원
 var ncRates = Object.assign({}, NC_RATES_DEFAULT);
 var _ncRatesSavedJson = "";
 
@@ -2662,7 +2665,9 @@ function ncInstallment(car) {
 function ncBaseCost() {
   var car = ncNum("n_carprice"), n = Number(ncVal("n_period"));
   if (!car || !n) return null;
-  return ncInstallment(car) + car * (ncRates.down || 0) / 100 / n + (ncRates.ins || 0) + (ncRates.fee || 0) + (ncRates.etc || 0);
+  // 내 선수금·취등록세·등록 부대비용은 처음에 한 번 내는 돈 → 계약기간 동안 나눠서 회수
+  var upfront = car * ((ncRates.down || 0) + (ncRates.acq || 0)) / 100 + (ncRates.reg || 0);
+  return ncInstallment(car) + upfront / n + (ncRates.ins || 0) + (ncRates.fee || 0) + (ncRates.etc || 0);
 }
 // 이 안의 원가 (고객 보증금 이자·선납금은 빼고, 21세면 추가)
 function ncCost(k) {
@@ -2754,7 +2759,7 @@ function ncRatesSummary() {
   if (!s) return;
   var m = Number(ncVal("n_period"));
   var changed = _ncRatesSavedJson ? JSON.stringify(ncRates) !== _ncRatesSavedJson : JSON.stringify(ncRates) !== JSON.stringify(NC_RATES_DEFAULT);
-  s.textContent = "· 할부 " + ncRates.months + "개월 " + ncRates.rate + "%" + (ncRates.down ? " · 선수금 " + ncRates.down + "%" : "") + " · 마진 월 " + Number(ncRates.margin || 0).toLocaleString() + "원"
+  s.textContent = "· 할부 " + ncRates.months + "개월 " + ncRates.rate + "%" + (ncRates.down ? " · 선수금 " + ncRates.down + "%" : "") + " · 취등록세 " + (ncRates.acq || 0) + "% · 마진 월 " + Number(ncRates.margin || 0).toLocaleString() + "원"
     + (changed ? " · 저장 안 됨" : "") + (!_ncRatesSavedJson && !changed ? " · 예시 값" : "");
 }
 async function saveNewcarRates() {
@@ -2888,7 +2893,7 @@ function genNewcar() {
     + pair("정비서비스", maint, "탁송", delivery)
     + "</table></div>";
 
-  var html = hdrHtml("신차 견적서", gn("NQ"), date)
+  var html = hdrHtml("신차 렌트 견적서", gn("NQ"), date)
     + cust + car + cmp + cond
     + (note ? "<div style='margin-bottom:8px;'>" + secTitle("특약사항") + "<div style='background:#fff5f5;border:1px solid #fca5a5;border-radius:8px;padding:6px 12px;font-size:11px;color:#dc2626;font-weight:700;line-height:1.7;'>" + nl(note) + "</div></div>" : "")
     + "<div style='display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:10px;padding-top:10px;border-top:1px dashed #cbd5e1;'>"
@@ -2904,7 +2909,7 @@ function genNewcar() {
     + "</div>"
     + footHtml();
 
-  var fname = [name || "고객", model || "차량", (date || todayLocal()).replace(/-/g, "")].join("_") + "_신차견적서";
+  var fname = [name || "고객", model || "차량", (date || todayLocal()).replace(/-/g, "")].join("_") + "_신차렌트견적서";
   showDoc("newcarDoc", "newcarEmpty", html, fname);
 }
 
@@ -2913,7 +2918,7 @@ var DOC_TABS = {
   simple:    { prefix: "s",  label: "일반 견적서", doc: "simpleDoc",    gen: "genSimple" },
   statement: { prefix: "st", label: "거래명세서",  doc: "statementDoc", gen: "genStatement" },
   quote:     { prefix: "q",  label: "장기 견적서", doc: "quoteDoc",     gen: "genQuote" },
-  newcar:    { prefix: "n",  label: "신차 견적서", doc: "newcarDoc",    gen: "genNewcar" },
+  newcar:    { prefix: "n",  label: "신차 렌트 견적서", doc: "newcarDoc",    gen: "genNewcar" },
   contract:  { prefix: "c",  label: "계약서",      doc: "contractDoc",  gen: "genContract" },
   receipt:   { prefix: "r",  label: "영수증",      doc: "receiptDoc",   gen: "genReceipt" }
 };
