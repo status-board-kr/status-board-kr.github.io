@@ -863,7 +863,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
           <div class="afield"><label>연료</label><select id="n_fuel"><option value="">선택</option><option>가솔린</option><option>디젤</option><option>LPG</option><option>하이브리드</option><option>전기</option><option>수소</option></select></div>
           <div class="afield"><label>외장 색상</label><input type="text" id="n_color" placeholder="어비스 블랙 펄"/></div>
           <div class="afield"><label>내장 색상</label><input type="text" id="n_incolor" placeholder="블랙"/></div>
-          <div class="afield"><label>차량 가격 (옵션 포함, 원)</label><input type="text" id="n_carprice" placeholder="45,000,000" inputmode="numeric" oninput="fmtMon(this);calcNewcar()"/></div>
+          <div class="afield"><label>차량 가격 * (옵션 포함, 원)</label><input type="text" id="n_carprice" placeholder="45,000,000 — 넣으면 월 렌트료 자동 계산" inputmode="numeric" oninput="fmtMon(this);calcNewcar()"/></div>
           <div class="afield"><label>출고 예정</label><input type="text" id="n_eta" placeholder="계약 후 약 1개월"/></div>
           <div class="afield" style="grid-column:1/-1;"><label>선택 옵션</label><textarea id="n_options" placeholder="파노라마 선루프, 빌트인 캠 …"></textarea></div>
         </div>
@@ -2790,7 +2790,7 @@ function genNewcar() {
   var carprice = ncNum("n_carprice");
   var opts = ncOptions();
 
-  if (!name || !phone || !model) { alert("고객명, 연락처, 차량모델은 필수입니다."); return; }
+  if (!name || !phone || !model || !carprice) { alert("고객명, 연락처, 차량모델, 차량 가격은 필수입니다."); if (!carprice) { var cp = document.getElementById("n_carprice"); cp.focus(); } return; }
   var months = Number(g("n_period"));
   if (!months) { alert("계약기간을 선택해주세요."); return; }
   if (!opts.length) { alert("월 렌트료가 없어요. 차량 가격을 넣거나 월 렌트료를 직접 넣어주세요."); return; }
