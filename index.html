@@ -2289,69 +2289,40 @@ function ackAsExpireInModal(){
   setupDocsBadge(v, false);
   showToast('✅ A/S 만료 확인 처리됐어요 · 저장을 눌러야 반영됩니다');
 }
-// ── 우기소프트(렌터카 전산) 연동: 회수하면 우기소프트 계약 자동 종결 ─────────────────
-const WOOKY_FN_URL = 'https://wookysync-613571323567.asia-northeast3.run.app';
-async function wookyCall(path, payload){
-  const user = window.CURRENT_USER;
-  if(!user || !user.getIdToken) return { status: 0, data: { error: '로그인 정보 없음' } };
-  const idToken = await user.getIdToken();
-  const body = Object.assign({ companyId: window.COMPANY_ID }, payload || {});
-  const headers = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + idToken };
-  try{
-    if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorHttp){
-      const r = await window.Capacitor.Plugins.CapacitorHttp.request({ url: WOOKY_FN_URL + path, method: 'POST',
-        headers, data: body, connectTimeout: 15000, readTimeout: 60000 });
-      return { status: r.status, data: (typeof r.data === 'string' ? JSON.parse(r.data || '{}') : (r.data || {})) };
-    }
-    const r = await fetch(WOOKY_FN_URL + path, { method: 'POST', headers, body: JSON.stringify(body) });
-    return { status: r.status, data: await r.json().catch(()=>({})) };
-  }catch(e){ return { status: 0, data: { error: String((e && e.message) || e) } }; }
-}
+// ── 우기소프트(렌터카 전산) 연동: 사무실 PC 프로그램이 처리 ─────────
 async function updateWookyCard(){
   const card = document.getElementById('wookyCard');
   if(!card) return;
   card.style.display = (window.COMPANY_ROLE === 'owner') ? 'block' : 'none';
   if(window.COMPANY_ROLE !== 'owner') return;
   const st = document.getElementById('wookyState');
-  const r = await wookyCall('/status');
-  if(r.status === 200 && r.data.connected) st.textContent = `✅ 연결됨 · 아이디 ${r.data.id}`;
-  else if(r.status === 200) st.textContent = '연결 안 됨';
-  else st.textContent = '상태 확인 실패 — ' + (r.data.error || r.status);
+  try{
+    const { ref, get, db } = window._fb;
+    const snap = await get(ref(db, P('wookyJobs')));
+    const jobs = snap.exists() ? Object.values(snap.val()||{}) : [];
+    const waiting = jobs.filter(j=>j && (j.status==='pending' || j.status==='working')).length;
+    st.textContent = waiting>0 ? `처리 대기 ${waiting}건 (사무실 PC가 켜져 있어야 처리돼요)` : '사무실 PC 연동 프로그램으로 자동 종결';
+  }catch(e){ st.textContent = '사무실 PC 연동 프로그램 필요'; }
 }
 async function setupWooky(){
-  if(window.COMPANY_ROLE !== 'owner'){ showToast('관리자만 설정할 수 있어요'); return; }
-  const cur = await wookyCall('/status');
-  if(cur.status === 200 && cur.data.connected){
-    const what = await showAppDialog({ title: '우기소프트 연동', message: `지금 연결된 아이디: ${cur.data.id}`,
-      buttons: [ { text: '다시 입력', value: 'again', primary: true }, { text: '연결 끊기', value: 'off' }, { text: '닫기', value: null } ] });
-    if(what === null) return;
-    if(what === 'off'){
-      const r = await wookyCall('/cred', { remove: true });
-      showToast(r.status === 200 ? '우기소프트 연결을 끊었어요' : ('실패: ' + (r.data.error || r.status)));
-      updateWookyCard(); return;
-    }
-  }
-  const id = await appPrompt('우기소프트 연동', '우기소프트(팡팡렌트카 관리자페이지) 로그인 아이디', (cur.data && cur.data.id) || '', { placeholder: '아이디' });
-  if(!id) return;
-  const pr = await showAppDialog({ title: '우기소프트 연동', message: `아이디 ${id} 의 비밀번호`, input: true, value: '',
-    inputType: 'password', placeholder: '비밀번호',
-    buttons: [ { text: '연결 시험 후 저장', value: '__input__', primary: true }, { text: '취소', value: null } ] });
-  const pw = (pr && typeof pr === 'object') ? pr.input : null;
-  if(!pw) return;
-  showToast('우기소프트에 로그인해보는 중…');
-  const r = await wookyCall('/cred', { id: String(id).trim(), pw });
-  if(r.status === 200 && r.data.ok){ showToast('✅ 우기소프트 연결됨 — 이제 회수하면 자동 종결돼요'); }
-  else { await showAppDialog({ title: '연결 실패', message: (r.data && r.data.error) || ('오류 ' + r.status), buttons: [{ text: '확인', value: 1, primary: true }] }); }
-  updateWookyCard();
+  await showAppDialog({
+    title: '우기소프트 연동 (사무실 PC)',
+    message: '우기소프트는 외부 서버 접속을 막아두어, 사무실 PC에 작은 연동 프로그램을 한 번 설치해야 해요.\\n\\n설치하면: 현황판에서 회수 → 사무실 PC가 우기소프트에 자동 종결 → 메신저로 결과 알림.\\n\\n설치 파일과 방법은 따로 안내해드린 頼러미를 참고하세요. (PC가 켜져 있을 때만 동작)',
+    buttons: [{ text: '확인', value: 1, primary: true }]
+  });
 }
-// 회수했을 때 우기소프트 종결 요청 (결과는 서버가 메신저로 알려줌 — 실패해도 현황판 회수는 그대로)
 function requestWookyClose(plate, km){
+  // 구글 서버는 우기소프트에 직접 못 가므로, 할 일만 Firebase에 적어둠.
+  // 사무실 PC의 일꾼 프로그램이 이걸 가져가 우기소프트에 종결하고 결과를 메신저로 알림.
   try{
+    const { ref, push, db } = window._fb;
     const me = window.CURRENT_USER;
-    const staffName = (me && typeof memberLabel === 'function') ? memberLabel(me.uid, me.email) : '';
-    wookyCall('/close', { plate, km: (km == null ? null : Number(km)), endAt: new Date().toISOString(), staffName })
-      .then(r=>{ if(r.status !== 200) console.warn('우기소프트 종결 요청 실패:', r.status, r.data); });
-  }catch(e){ console.warn('우기소프트 종결 요청 실패:', e); }
+    push(ref(db, P('wookyJobs')), {
+      plate: plate, km: (km == null ? null : Number(km)),
+      endAt: new Date().toISOString(), status: 'pending',
+      at: new Date().toISOString(), by: (me && me.email) || ''
+    });
+  }catch(e){ console.warn('우기소프트 종결 요청 기록 실패:', e); }
 }
 
 async function setVehicleIdle(plate){
