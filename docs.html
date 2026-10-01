@@ -391,8 +391,8 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
   #docsToast, .edit-banner, .to-contract-btn, .saved-tab, .home-btn { display:none !important; }
   .doc-fit { height:auto !important; overflow:visible !important; }
   .doc-fit > .doc-wrap, .doc-wrap { transform:none !important; width:auto !important; }
-  /* 신차 견적서는 칸을 다 채워도 A4 한 장에 들어가게 살짝 줄여서 */
-  #newcarContent { zoom:0.94; }
+  /* 신차 렌트 견적서: A4 한 장을 꽉 채움 (공급자·도장은 맨 아래) */
+  #newcarContent .nc-sheet { zoom:var(--ncz, 1); min-height:calc(268mm / var(--ncz, 1)); }
 }
 
 /* ── 신차 견적서 ── */
@@ -415,6 +415,9 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
 .nc-cost { color:var(--soft); }
 .nc-warn { color:var(--coral); font-weight:700; }
 .nc-pick { width:100%; height:var(--touch); margin-bottom:10px; padding:0 12px; border-radius:var(--r); border:1px solid var(--blue); background:rgba(14,165,233,.1); color:var(--sky); font-size:14px; font-weight:700; }
+
+/* 신차 렌트 견적서: 화면·JPG에서도 A4 비율로 (아래 여백 없이 꽉 차게) */
+@media screen { #newcarContent .nc-sheet { min-height:1060px; } }
 
 </style>
 </head>
@@ -2886,81 +2889,134 @@ function genNewcar() {
   var maint = g("n_maint"), vat = g("n_vat") || "포함";
   var delivery = g("n_delivery"), note = g("n_special");
 
-  var secTitle = function (t) { return '<div style="font-size:11px;font-weight:700;color:#0369a1;letter-spacing:1px;padding:3px 10px;background:#e0f2fe;border-radius:6px;margin-bottom:6px;display:inline-block;">' + t + '</div>'; };
-  var TH_ = 'padding:5px 12px;font-size:12.5px;font-weight:700;color:#475569;text-align:left;background:#f8fafc;vertical-align:top;border-bottom:1px solid #f1f5f9;white-space:nowrap;';
-  var TD_ = 'padding:5px 12px;font-size:12.5px;color:#1a1a1a;vertical-align:top;line-height:1.5;border-bottom:1px solid #f1f5f9;';
+  // ── 디자인: A4 한 장을 꽉 채움 (위: 금액 카드 크게, 아래: 공급자·도장은 맨 밑에 붙음) ──
+  var C = { main: "#0369a1", dark: "#0f172a", soft: "#64748b", line: "#e2e8f0", tint: "#f0f9ff" };
+  var secTitle = function (t) { return '<div style="display:flex;align-items:center;gap:8px;margin:0 0 7px;"><span style="width:4px;height:15px;border-radius:2px;background:' + C.main + ';"></span><span style="font-size:14px;font-weight:800;color:' + C.dark + ';letter-spacing:.5px;">' + t + '</span></div>'; };
+  var TH_ = 'padding:7px 12px;font-size:13px;font-weight:700;color:#475569;text-align:left;background:#f8fafc;vertical-align:middle;border-bottom:1px solid ' + C.line + ';white-space:nowrap;';
+  var TD_ = 'padding:7px 12px;font-size:13.5px;color:#1a1a1a;vertical-align:middle;line-height:1.5;border-bottom:1px solid ' + C.line + ';';
   var COLS = "<colgroup><col style='width:15%;'/><col style='width:35%;'/><col style='width:15%;'/><col style='width:35%;'/></colgroup>";
-  var tbl = "<table style='width:100%;border-collapse:collapse;table-layout:fixed;'>";
+  var tbl = "<table style='width:100%;border-collapse:collapse;table-layout:fixed;border-top:2px solid " + C.dark + ";'>";
   var pair = function (a, av, b, bv) {
     return "<tr><th style='" + TH_ + "'>" + a + "</th><td style='" + TD_ + "'>" + (av || "-") + "</td>"
       + "<th style='" + TH_ + "'>" + b + "</th><td style='" + TD_ + "'>" + (bv || "-") + "</td></tr>";
   };
   var pairIf = function (a, av, b, bv) { return av || bv ? pair(a, av, b, bv) : ""; };   // 둘 다 비면 줄 생략
   var wide = function (a, av) { return "<tr><th style='" + TH_ + "'>" + a + "</th><td style='" + TD_ + "' colspan='3'>" + av + "</td></tr>"; };
+  var block = function (title, inner) { return "<div style='margin-bottom:12px;'>" + secTitle(title) + inner + "</div>"; };
 
-  // 고객 정보
-  var cust = "<div style='margin-bottom:8px;'>" + secTitle("고객 정보") + tbl + COLS
-    + pair("고객명", "<strong style='color:#0369a1;'>" + name + "</strong>", "연락처", phone)
-    + pair(birthLabel, birth, "주소", addr)
-    + "</table></div>";
-
-  // 신차 정보
-  var car = "<div style='margin-bottom:8px;'>" + secTitle("신차 정보") + tbl + COLS
-    + "<tr><th style='" + TH_ + "'>차량모델</th><td style='" + TD_ + "' colspan='3'><strong style='color:#0369a1;font-size:14px;'>" + [maker, model].filter(Boolean).join(" ") + "</strong>" + (trim ? " &nbsp;<span style='color:#475569;'>" + trim + "</span>" : "") + "</td></tr>"
-    + pairIf("색상", [color && "외장 " + color, incolor && "내장 " + incolor].filter(Boolean).join(" / "), "연료", fuel)
-    + pairIf("차량 가격", carprice ? "<strong>" + ncWon(carprice) + "</strong> <span style='font-size:11px;color:#64748b;'>(옵션 포함)</span>" : "", "출고 예정", eta)
-    + (options ? wide("선택 옵션", options.split(/\n+/).map(function (s) { return s.trim(); }).filter(Boolean).join(" · ")) : "")
-    + "</table></div>";
-
-  // 기간별 금액
   var n = opts.length;
   var showPrepay = opts.some(function (o) { return o.prepay; });
-  var hTH = 'padding:6px 10px;font-size:13px;font-weight:800;color:#fff;background:#0369a1;text-align:center;border:1px solid #0369a1;';
-  var cTH = 'padding:5px 12px;font-size:12.5px;font-weight:700;color:#475569;background:#f8fafc;text-align:left;border:1px solid #e2e8f0;white-space:nowrap;';
-  var cTD = 'padding:5px 10px;font-size:13px;color:#1a1a1a;text-align:center;border:1px solid #e2e8f0;line-height:1.35;';
-  var row = function (label, fn) {
-    return "<tr><th style='" + cTH + "'>" + label + "</th>" + opts.map(function (o) { return "<td style='" + cTD + "'>" + fn(o) + "</td>"; }).join("") + "</tr>";
-  };
-  // 비교표 머리: 보증금 없음 / 보증금 10% … (같은 보증금이 둘이면 선납금도 붙임)
   var heads = opts.map(function (o) {
     var t = o.deposit ? "보증금 " + o.deposit + "%" : "보증금 없음";
     var same = opts.filter(function (x) { return x.deposit === o.deposit; }).length > 1;
     return same && o.prepay ? t + " · 선납 " + o.prepay + "%" : t;
   });
-  var cmp = "<div style='margin-bottom:8px;'>" + secTitle((n > 1 ? "보증금별 견적 비교" : "견적 금액") + " · 계약기간 " + months + "개월 · 월 렌트료 부가세 " + vat)
-    + "<table style='width:100%;border-collapse:collapse;table-layout:fixed;'>"
-    + "<colgroup><col style='width:" + (n > 1 ? 19 : 25) + "%;'/>" + opts.map(function () { return "<col/>"; }).join("") + "</colgroup>"
-    + (n > 1 ? "<tr><th style='" + hTH + "background:#f8fafc;border-color:#e2e8f0;'></th>" + heads.map(function (t) { return "<th style='" + hTH + "'>" + t + "</th>"; }).join("") + "</tr>" : "")
-    + row("보증금", function (o) { return ncPctText(o.deposit); })
-    + row("월 렌트료", function (o) { return "<strong style='color:#0369a1;font-size:17px;'>" + o.price.toLocaleString() + "원</strong>"; })
-    + (showPrepay ? row("선납금", function (o) { return ncPctText(o.prepay); }) : "")
-    + "</table></div>";
+  var carName = [maker, model].filter(Boolean).join(" ");
+  var optList = options ? options.split(/\n+/).map(function (s) { return s.trim(); }).filter(Boolean) : [];
+  var noteLines = note ? note.split(/\n/).length : 0;
+  var heavy = optList.length > 4 || noteLines > 3 || (showPrepay && n > 2 && noteLines > 1);   // 내용이 많으면 안내 칸 하나를 빼서 한 장 유지
 
-  // 공통 조건
-  var cond = "<div style='margin-bottom:8px;'>" + secTitle("공통 조건") + tbl + COLS
-    + pair("운전자 조건", age + (drv ? " / <strong style='color:#0369a1;'>" + drv + "</strong>" : ""), "약정주행거리", "<strong>" + km + "</strong>")
-    + wide("보험조건", "대인 무한 · 대물 " + ins + " · 자기신체사고 1,500만원 · 자차 " + own + (own === "포함" && selfpay ? "(면책금 " + selfpay + ")" : "") + " · 긴급출동 40km")
-    + pair("정비서비스", maint, "탁송", delivery)
-    + "</table></div>";
+  // 1) 차량 요약 띠
+  var hero = "<div style='display:flex;align-items:stretch;gap:0;margin-bottom:12px;border-radius:12px;overflow:hidden;border:1px solid #bae6fd;'>"
+    + "<div style='flex:1;padding:11px 18px;background:linear-gradient(135deg,#0c4a6e,#0369a1);color:#fff;'>"
+    + "<div style='font-size:10.5px;opacity:.85;letter-spacing:1px;'>NEW CAR LONG-TERM RENT</div>"
+    + "<div style='font-size:22px;font-weight:900;margin-top:4px;line-height:1.25;'>" + carName + "</div>"
+    + "<div style='font-size:13.5px;margin-top:4px;opacity:.95;'>" + [trim, fuel].filter(Boolean).join(" · ") + "</div></div>"
+    + "<div style='width:34%;padding:11px 18px;background:" + C.tint + ";display:flex;flex-direction:column;justify-content:center;'>"
+    + "<div style='font-size:12px;color:" + C.soft + ";'>차량 가격 (옵션 포함)</div>"
+    + "<div style='font-size:21px;font-weight:900;color:" + C.dark + ";margin-top:2px;'>" + ncWon(carprice) + "</div>"
+    + "<div style='font-size:12px;color:" + C.soft + ";margin-top:4px;'>계약기간 <b style='color:" + C.main + ";'>" + months + "개월</b> · 부가세 " + vat + "</div></div></div>";
 
-  var html = hdrHtml("신차 렌트 견적서", gn("NQ"), date)
-    + cust + car + cmp + cond
-    + (note ? "<div style='margin-bottom:8px;'>" + secTitle("특약사항") + "<div style='background:#fff5f5;border:1px solid #fca5a5;border-radius:8px;padding:6px 12px;font-size:11px;color:#dc2626;font-weight:700;line-height:1.7;'>" + nl(note) + "</div></div>" : "")
-    + "<div style='display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:10px;padding-top:10px;border-top:1px dashed #cbd5e1;'>"
-    + "<div style='flex:1;font-size:11.5px;color:#64748b;line-height:1.65;'>"
+  // 2) 월 렌트료 카드 (보증금별)
+  var cards = "<div style='display:flex;gap:10px;'>" + opts.map(function (o, i) {
+    var best = n > 1 && i === 0;
+    return "<div style='flex:1;border:" + (best ? "2px solid " + C.main : "1px solid " + C.line) + ";border-radius:12px;overflow:hidden;text-align:center;background:#fff;'>"
+      + "<div style='padding:8px 6px;font-size:14px;font-weight:800;color:" + (best ? "#fff" : C.main) + ";background:" + (best ? C.main : C.tint) + ";'>" + (n > 1 ? heads[i] : "월 렌트료") + "</div>"
+      + "<div style='padding:10px 6px 4px;'><span style='font-size:27px;font-weight:900;color:" + C.main + ";letter-spacing:-.5px;'>" + o.price.toLocaleString() + "</span><span style='font-size:14px;font-weight:700;color:" + C.dark + ";'> 원</span>"
+      + "<div style='font-size:12px;color:" + C.soft + ";margin-top:2px;'>매월 · 부가세 " + vat + "</div></div>"
+      + "<div style='margin:6px 12px 10px;padding-top:6px;border-top:1px dashed " + C.line + ";font-size:12.5px;color:#334155;line-height:1.7;'>"
+      + "보증금 " + (o.deposit ? "<b>" + ncWon(ncPctAmt(o.deposit) || 0) + "</b>" : "<b>없음</b>")
+      + (showPrepay ? "<br>선납금 " + (o.prepay ? "<b>" + ncWon(ncPctAmt(o.prepay) || 0) + "</b>" : "없음") : "")
+      + "</div></div>";
+  }).join("") + "</div>";
+
+  // 3) 고객·차량·조건 표
+  var cust = tbl + COLS
+    + pair("고객명", "<strong style='color:" + C.main + ";'>" + name + "</strong>", "연락처", phone)
+    + pair(birthLabel, birth, "주소", addr) + "</table>";
+  var car = tbl + COLS
+    + pair("고객명", "<strong style='color:" + C.main + ";'>" + name + "</strong>", "연락처", phone)
+    + pair(birthLabel, birth, "주소", addr)
+    + pairIf("색상", [color && "외장 " + color, incolor && "내장 " + incolor].filter(Boolean).join(" / "), "출고 예정", eta)
+    + (optList.length ? wide("선택 옵션", optList.join(" · ")) : "")
+    + pair("운전자", age + (drv ? " · " + drv : ""), "약정주행거리", "<strong>" + km + "</strong>")
+    + "</table>";
+  var cond = tbl + COLS
+    + pair("계약기간", "<strong>" + months + "개월</strong>", "약정주행거리", "<strong>" + km + "</strong>")
+    + pair("운전자 연령", age, "운전자 범위", drv || "나이 조건 내 누구나")
+    + "</table>";
+
+  // 4) 포함 서비스
+  var chip = function (ic, t, sub) { return "<div style='flex:1 1 30%;min-width:0;display:flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid " + C.line + ";border-radius:9px;background:#fff;'><span style='font-size:15px;'>" + ic + "</span><div style='min-width:0;line-height:1.35;'><div style='font-size:12.5px;font-weight:800;color:" + C.dark + ";'>" + t + "</div><div style='font-size:10.5px;color:" + C.soft + ";'>" + sub + "</div></div></div>"; };
+  var services = "<div style='display:flex;flex-wrap:wrap;gap:6px;'>"
+    + chip("🛡️", "종합보험", "대인 무한 · 대물 " + ins + " · 자손 1,500만")
+    + chip("🚗", "자차 " + own, own === "포함" ? (selfpay ? "면책금 " + selfpay : "자기차량손해") : "필요하면 추가 가능")
+    + chip("🔧", "정비 포함", "소모품 교환")
+    + chip("🧾", "자동차세 포함", "세금·등록 걱정 없이")
+    + chip("🚨", "긴급출동", "기본 40km")
+    + chip("📦", "탁송", delivery || "상담 후 안내")
+    + "</div>";
+
+  // 5) 진행 절차 · 준비 서류
+  var step = function (no, t, sub) { return "<div style='flex:1;text-align:center;line-height:1.35;'><div style='width:22px;height:22px;margin:0 auto 3px;border-radius:50%;background:" + C.main + ";color:#fff;font-weight:800;font-size:11.5px;line-height:22px;'>" + no + "</div><div style='font-size:12.5px;font-weight:800;color:" + C.dark + ";'>" + t + "</div><div style='font-size:10.5px;color:" + C.soft + ";'>" + sub + "</div></div>"; };
+  var arrow = "<div style='align-self:center;color:#cbd5e1;font-size:16px;padding-bottom:18px;'>›</div>";
+  var flow = "<div style='display:flex;gap:4px;padding:9px 8px;border:1px solid " + C.line + ";border-radius:12px;background:#fafcff;'>"
+    + step(1, "상담·견적", "조건 확정") + arrow + step(2, "계약·서류", "심사 진행") + arrow
+    + step(3, "차량 출고", eta || "출고 일정 안내") + arrow + step(4, "인도", delivery || "탁송 또는 방문 수령") + "</div>";
+  var docsNeed = "<div style='padding:9px 12px;border:1px solid " + C.line + ";border-radius:12px;font-size:12px;color:#334155;line-height:1.7;'>"
+    + "<b style='color:" + C.dark + ";'>개인</b> 운전면허증 · 신분증<br><b style='color:" + C.dark + ";'>법인</b> 사업자등록증 · 법인 인감증명서 · 대표자 신분증</div>";
+
+  var notes = "<div style='font-size:11.5px;color:" + C.soft + ";line-height:1.75;'>"
     + "※ 월 렌트료는 부가세(VAT) " + (vat === "별도" ? "별도" : "포함") + " 금액입니다.<br>"
     + "※ 차량 가격·출고 시기에 따라 실제 금액과 다를 수 있습니다.<br>"
     + (opts.some(function (o) { return o.deposit; }) ? "※ 보증금은 계약이 끝나면 돌려드립니다.<br>" : "")
     + (showPrepay ? "※ 선납금은 이용료에서 차감되는 방식입니다.<br>" : "")
     + "※ 은행 : 농협 &nbsp;|&nbsp; 예금주 : (유)팡팡렌트카 &nbsp;|&nbsp; 입금계좌 : 301-0215-4589-81<br>"
-    + "<span style='color:#e11d48;font-weight:700;'>※ 본 견적서는 영수증으로 사용할 수 없습니다.</span>"
-    + "</div>"
-    + supHtmlInner()
-    + "</div>"
-    + footHtml();
+    + "<span style='color:#e11d48;font-weight:700;'>※ 본 견적서는 영수증으로 사용할 수 없습니다.</span></div>";
 
+  var html = "<div class='nc-sheet' style='display:flex;flex-direction:column;'>"
+    + hdrHtml("신차 렌트 견적서", gn("NQ"), date)
+    + hero
+    + block(n > 1 ? "보증금별 월 렌트료" : "월 렌트료", cards)
+    + block("고객 · 차량 정보", car)
+    + block("포함 서비스", services)
+    + (heavy ? "" : "<div style='display:flex;gap:12px;margin-bottom:12px;'><div style='flex:1.6;min-width:0;'>" + secTitle("진행 절차") + flow + "</div><div style='flex:1;min-width:0;'>" + secTitle("준비 서류") + docsNeed + "</div></div>")
+    + (note ? block("특약사항", "<div style='background:#fff5f5;border:1px solid #fca5a5;border-radius:10px;padding:9px 14px;font-size:12.5px;color:#dc2626;font-weight:700;line-height:1.7;'>" + nl(note) + "</div>") : "")
+    + "<div style='flex:1;'></div>"
+    + "<div style='display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding-top:12px;border-top:1px dashed #cbd5e1;'>"
+    + "<div style='flex:1;'>" + notes + "</div>" + supHtmlInner() + "</div>"
+    + footHtml()
+    + "</div>";
+
+  setTimeout(ncFitPrint, 0);
   var fname = [name || "고객", model || "차량", (date || todayLocal()).replace(/-/g, "")].join("_") + "_신차렌트견적서";
   showDoc("newcarDoc", "newcarEmpty", html, fname);
+}
+
+// 인쇄 한 장 맞춤: A4 인쇄 폭(약 703px)에서 높이를 재서, 넘치면 그만큼만 줄이고 남으면 아래를 채움
+function ncFitPrint() {
+  var el = document.getElementById("newcarContent"), sheet = el && el.querySelector(".nc-sheet");
+  if (!sheet) return;
+  var probe = document.createElement("div");
+  probe.className = "doc-inner";
+  probe.style.cssText = "position:absolute;left:-10000px;top:0;width:703px;padding:0;visibility:hidden;";
+  probe.innerHTML = sheet.outerHTML;
+  document.body.appendChild(probe);
+  var s = probe.firstChild; s.style.minHeight = "0";
+  var hgt = s.scrollHeight;
+  document.body.removeChild(probe);
+  var z = Math.max(0.8, Math.min(1, 1005 / hgt));
+  el.style.setProperty("--ncz", z.toFixed(3));
 }
 
 // ══════ 현황판 추가: 문서 저장 · 불러오기 · 견적서 → 계약서 · 휴대폰 화면 맞춤 · 주민번호 가리기 ══════
