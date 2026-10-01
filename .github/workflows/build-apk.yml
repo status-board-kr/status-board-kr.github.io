@@ -62,7 +62,7 @@ jobs:
 
       - name: 권한·뒤로가기·설정 적용
         working-directory: status-board-app/status-board-app
-        run: node scripts/setup-android.js
+        run: node scripts/setup-android.js && node scripts/setup-widget.js
 
       - name: 앱 아이콘 생성
         working-directory: status-board-app/status-board-app
