@@ -2042,8 +2042,26 @@ function renderStats(){
 }
 
 // ── 홈 화면 위젯에 요약 자료 넘기기 (앱에서만) ─────────────────
-// 대기·운행·준비중 대수, 안 읽은 메시지, 오늘·내일 반납, 이번 달 달력(일정 있는 날)
+// 대기·준비·운행·장기 대수, 안 읽은 메시지, 오늘·내일 일정(반납 포함), 이번 달 날짜별 일정 수
 let _widgetTimer = null;
+function widgetLineOf(s){
+  if(s.auto && s.plate){
+    const v = vehicles.find(x=>x.plate===s.plate);
+    const who = v && v.customerName ? ` · ${v.customerName}` : '';
+    return `🚗 ${String(s.plate).slice(-4)} 반납${who}`;
+  }
+  return `📅 ${String(s.title || '일정').slice(0, 18)}`;
+}
+function widgetItemsOn(dateStr){
+  // 같은 차량 반납·같은 제목 일정이 여러 개 있어도 한 번만
+  const seen = new Set();
+  return Object.values(schedules || {}).filter(s=>{
+    if(!s || s.done || !matchesDate(s, dateStr)) return false;
+    const k = (s.auto && s.plate) ? 'r:' + s.plate : 't:' + (s.title || '');
+    if(seen.has(k)) return false;
+    seen.add(k); return true;
+  });
+}
 function pushWidgetData(){
   if(!(window.AndroidSettings && window.AndroidSettings.saveWidget)) return;
   clearTimeout(_widgetTimer);
@@ -2059,30 +2077,37 @@ function pushWidgetData(){
         const t = new Date(m.at).getTime();
         return !isNaN(t) && t > _chatLastRead;
       }).length : 0;
+      const today = todayStr(), tomorrow = tomorrowStr();
+      const todayLines = widgetItemsOn(today).map(widgetLineOf);
+      const soon = todayLines.map(l=>'오늘 ' + l).concat(widgetItemsOn(tomorrow).map(s=>'내일 ' + widgetLineOf(s)));
+      // 이번 달 날짜별 일정 수 (달력 칸에 표시)
       const now = new Date();
-      const ymd = (d)=> `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-      const today = ymd(now);
-      const tmr = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1);
-      const tomorrow = ymd(tmr);
-      const returns = vehicles
-        .filter(v=>v.returnDate===today || v.returnDate===tomorrow)
-        .sort((a,b)=> String(a.returnDate).localeCompare(String(b.returnDate)))
-        .map(v=>({ when: v.returnDate===today ? '오늘' : '내일', plate: v.plate || '', name: v.customerName || '' }));
-      // 달력: 이번 달 일정·반납이 있는 날
-      const y = now.getFullYear(), m = now.getMonth()+1, ym = `${y}-${String(m).padStart(2,'0')}`;
-      const marked = new Set();
-      Object.values(schedules || {}).forEach(s=>{
-        if(s && typeof s.date === 'string' && s.date.slice(0,7) === ym) marked.add(Number(s.date.slice(8,10)));
-      });
-      vehicles.forEach(v=>{ if(v.returnDate && String(v.returnDate).slice(0,7) === ym) marked.add(Number(String(v.returnDate).slice(8,10))); });
+      const y = now.getFullYear(), m = now.getMonth()+1, days = new Date(y, m, 0).getDate();
+      const count = {};
+      for(let d = 1; d <= days; d++){
+        const ds = `${y}-${pad2(m)}-${pad2(d)}`;
+        const n = widgetItemsOn(ds).length;
+        if(n) count[d] = n;
+      }
       const data = {
-        idle, prep, run, unread, returns,
-        updated: `${m}/${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`,
-        cal: { y, m, today: now.getDate(), firstDow: new Date(y, m-1, 1).getDay(), days: new Date(y, m, 0).getDate(), marked: [...marked] }
+        idle, prep, run, long: longCount, unread, todayStr: today,
+        today: todayLines, soon,
+        updated: `${m}/${now.getDate()} ${pad2(now.getHours())}:${pad2(now.getMinutes())} 업데이트`,
+        cal: { y, m, today: now.getDate(), firstDow: new Date(y, m-1, 1).getDay(), days, count }
       };
       window.AndroidSettings.saveWidget(JSON.stringify(data));
     }catch(e){ console.warn('위젯 자료 전달 실패:', e); }
   }, 1500);
+}
+// 위젯에서 날짜·메시지를 눌러 앱이 열렸으면 그 화면으로 바로 이동
+function checkWidgetOpen(){
+  try{
+    if(!(window.AndroidSettings && window.AndroidSettings.consumeOpen)) return;
+    const v = window.AndroidSettings.consumeOpen();
+    if(!v) return;
+    if(v === 'chat'){ if(typeof openChatModal === 'function') openChatModal(); return; }
+    if(v.startsWith('date:')){ openSchedModalOnDate(v.slice(5)); }
+  }catch(e){ console.warn('위젯 열기 처리 실패:', e); }
 }
 function render(){
   pushWidgetData();
@@ -5636,6 +5661,9 @@ function resumeLocationShareIfNeeded(){
   const App = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
   if(App && App.addListener) App.addListener('resume', ()=> checkLocSchedule());
   else document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) checkLocSchedule(); });
+  // 위젯에서 누르고 들어온 경우 해당 화면 열기 (앱이 앞으로 올 때 + 처음 켤 때)
+  if(App && App.addListener) App.addListener('resume', ()=> setTimeout(checkWidgetOpen, 300));
+  setTimeout(checkWidgetOpen, 2500);
 }
 
 async function startApp(){
