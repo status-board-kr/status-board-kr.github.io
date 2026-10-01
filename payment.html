@@ -1258,10 +1258,8 @@
       ? "대여 기간을 날짜별로 나눠, 이 달에 해당하는 날만큼만 잡아요 (달을 걸친 대여용). 기록을 누르면 고칠 수 있어요."
       : "출고일(연장분은 연장 시작일)이 이 달인 매출이에요. 기록을 누르면 금액·입금 여부를 고치거나 지울 수 있어요.";
     const list = salesOfMonth(ym);
-    $("salesSummary").innerHTML =
-      box(`합계 · ${list.length}건`, salesSum(list), "var(--text)") +
-      box("입금완료", salesSum(list, x => x.depositPaid), "var(--green)") +
-      box("미입금", salesSum(list, x => !x.depositPaid), "var(--red)");
+    $("salesSummary").innerHTML = "";   // 세부내역만 보여줌 (합계 칸은 바깥 카드에 있음)
+    $("salesSummary").style.display = "none";
     $("salesList").innerHTML = list.length ? list.map(([k, x, its, inMonth]) => {
       const total = its.reduce((t, it) => t + (Number(it.amount) || 0), 0);
       const parts = its.length > 1
