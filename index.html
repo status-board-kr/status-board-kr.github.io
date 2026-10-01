@@ -2041,7 +2041,51 @@ function renderStats(){
   `;
 }
 
+// ── 홈 화면 위젯에 요약 자료 넘기기 (앱에서만) ─────────────────
+// 대기·운행·준비중 대수, 안 읽은 메시지, 오늘·내일 반납, 이번 달 달력(일정 있는 날)
+let _widgetTimer = null;
+function pushWidgetData(){
+  if(!(window.AndroidSettings && window.AndroidSettings.saveWidget)) return;
+  clearTimeout(_widgetTimer);
+  _widgetTimer = setTimeout(()=>{
+    try{
+      const idle = vehicles.filter(v=>v.status==='대기').length;
+      const prep = vehicles.filter(v=>v.status==='준비중').length;
+      const longCount = vehicles.filter(v=>v.type===LONG_BRANCH).length;
+      const run = vehicles.length - idle - prep - longCount;
+      const myUid = window.CURRENT_USER && window.CURRENT_USER.uid;
+      const unread = (typeof chatSortedList === 'function') ? chatSortedList().filter(([,m])=>{
+        if(m.uid === myUid) return false;
+        const t = new Date(m.at).getTime();
+        return !isNaN(t) && t > _chatLastRead;
+      }).length : 0;
+      const now = new Date();
+      const ymd = (d)=> `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const today = ymd(now);
+      const tmr = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1);
+      const tomorrow = ymd(tmr);
+      const returns = vehicles
+        .filter(v=>v.returnDate===today || v.returnDate===tomorrow)
+        .sort((a,b)=> String(a.returnDate).localeCompare(String(b.returnDate)))
+        .map(v=>({ when: v.returnDate===today ? '오늘' : '내일', plate: v.plate || '', name: v.customerName || '' }));
+      // 달력: 이번 달 일정·반납이 있는 날
+      const y = now.getFullYear(), m = now.getMonth()+1, ym = `${y}-${String(m).padStart(2,'0')}`;
+      const marked = new Set();
+      Object.values(schedules || {}).forEach(s=>{
+        if(s && typeof s.date === 'string' && s.date.slice(0,7) === ym) marked.add(Number(s.date.slice(8,10)));
+      });
+      vehicles.forEach(v=>{ if(v.returnDate && String(v.returnDate).slice(0,7) === ym) marked.add(Number(String(v.returnDate).slice(8,10))); });
+      const data = {
+        idle, prep, run, unread, returns,
+        updated: `${m}/${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`,
+        cal: { y, m, today: now.getDate(), firstDow: new Date(y, m-1, 1).getDay(), days: new Date(y, m, 0).getDate(), marked: [...marked] }
+      };
+      window.AndroidSettings.saveWidget(JSON.stringify(data));
+    }catch(e){ console.warn('위젯 자료 전달 실패:', e); }
+  }, 1500);
+}
 function render(){
+  pushWidgetData();
   scheduleFleetAlarms();   // 자료가 바뀔 때마다 알림 예약 갱신
   renderStats();
   renderSchedBanner();
@@ -3481,6 +3525,7 @@ function scrollChatToBottom(){
   if(sc) sc.scrollTop = sc.scrollHeight;
 }
 function updateChatBadge(){
+  pushWidgetData();
   const badge = document.getElementById('chatBadge');
   if(!badge) return;
   const myUid = window.CURRENT_USER && window.CURRENT_USER.uid;
