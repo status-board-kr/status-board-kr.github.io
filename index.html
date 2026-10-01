@@ -1044,6 +1044,19 @@
         여기 한 번 넣으면 모든 직원 폰의 사진 자동 인식과 홈페이지 AI 상담에 같이 쓰여요.
       </div>
     </div>
+    <div id="wookyCard" style="display:none;margin-top:16px;padding:14px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:40px;height:40px;border-radius:10px;background:rgba(96,165,250,.15);border:1px solid rgba(96,165,250,.45);display:flex;align-items:center;justify-content:center;font-size:19px;">🔗</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:700;color:var(--text);">우키 연동 (회수하면 자동 종결)</div>
+          <div id="wookyState" style="font-size:11px;color:var(--sub);margin-top:2px;">확인 중…</div>
+        </div>
+        <button class="btn-save" style="flex:none;padding:8px 12px;font-size:12px;" onclick="setupWooky()">설정</button>
+      </div>
+      <div style="font-size:11px;color:var(--sub);margin-top:8px;line-height:1.5;">
+        현황판에서 차를 회수하면 우키 운행중 계약을 찾아 도착시간·주행거리를 넣고 대여종결합니다. 결과는 메신저로 알려드려요. 비밀번호는 암호화돼서 서버에만 저장되고 앱에서는 다시 볼 수 없어요.
+      </div>
+    </div>
     <div id="quickAppCard" style="display:none;margin-top:16px;padding:14px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;">
       <div style="display:flex;align-items:center;gap:10px;">
         <div style="width:40px;height:40px;border-radius:10px;background:rgba(251,191,36,.15);border:1px solid rgba(251,191,36,.45);display:flex;align-items:center;justify-content:center;font-size:19px;">⭐</div>
@@ -2276,9 +2289,75 @@ function ackAsExpireInModal(){
   setupDocsBadge(v, false);
   showToast('✅ A/S 만료 확인 처리됐어요 · 저장을 눌러야 반영됩니다');
 }
+// ── 우키(렌터카 전산) 연동: 회수하면 우키 계약 자동 종결 ─────────────────
+const WOOKY_FN_URL = 'https://wookysync-613571323567.asia-northeast3.run.app';
+async function wookyCall(path, payload){
+  const user = window.CURRENT_USER;
+  if(!user || !user.getIdToken) return { status: 0, data: { error: '로그인 정보 없음' } };
+  const idToken = await user.getIdToken();
+  const body = Object.assign({ companyId: window.COMPANY_ID }, payload || {});
+  const headers = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + idToken };
+  try{
+    if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorHttp){
+      const r = await window.Capacitor.Plugins.CapacitorHttp.request({ url: WOOKY_FN_URL + path, method: 'POST',
+        headers, data: body, connectTimeout: 15000, readTimeout: 60000 });
+      return { status: r.status, data: (typeof r.data === 'string' ? JSON.parse(r.data || '{}') : (r.data || {})) };
+    }
+    const r = await fetch(WOOKY_FN_URL + path, { method: 'POST', headers, body: JSON.stringify(body) });
+    return { status: r.status, data: await r.json().catch(()=>({})) };
+  }catch(e){ return { status: 0, data: { error: String((e && e.message) || e) } }; }
+}
+async function updateWookyCard(){
+  const card = document.getElementById('wookyCard');
+  if(!card) return;
+  card.style.display = (window.COMPANY_ROLE === 'owner') ? 'block' : 'none';
+  if(window.COMPANY_ROLE !== 'owner') return;
+  const st = document.getElementById('wookyState');
+  const r = await wookyCall('/status');
+  if(r.status === 200 && r.data.connected) st.textContent = `✅ 연결됨 · 아이디 ${r.data.id}`;
+  else if(r.status === 200) st.textContent = '연결 안 됨';
+  else st.textContent = '상태 확인 실패 — ' + (r.data.error || r.status);
+}
+async function setupWooky(){
+  if(window.COMPANY_ROLE !== 'owner'){ showToast('관리자만 설정할 수 있어요'); return; }
+  const cur = await wookyCall('/status');
+  if(cur.status === 200 && cur.data.connected){
+    const what = await showAppDialog({ title: '우키 연동', message: `지금 연결된 아이디: ${cur.data.id}`,
+      buttons: [ { text: '다시 입력', value: 'again', primary: true }, { text: '연결 끊기', value: 'off' }, { text: '닫기', value: null } ] });
+    if(what === null) return;
+    if(what === 'off'){
+      const r = await wookyCall('/cred', { remove: true });
+      showToast(r.status === 200 ? '우키 연결을 끊었어요' : ('실패: ' + (r.data.error || r.status)));
+      updateWookyCard(); return;
+    }
+  }
+  const id = await appPrompt('우키 연동', '우키(렌터카 전산) 로그인 아이디', (cur.data && cur.data.id) || '', { placeholder: '아이디' });
+  if(!id) return;
+  const pr = await showAppDialog({ title: '우키 연동', message: `아이디 ${id} 의 비밀번호`, input: true, value: '',
+    inputType: 'password', placeholder: '비밀번호',
+    buttons: [ { text: '연결 시험 후 저장', value: '__input__', primary: true }, { text: '취소', value: null } ] });
+  const pw = (pr && typeof pr === 'object') ? pr.input : null;
+  if(!pw) return;
+  showToast('우키에 로그인해보는 중…');
+  const r = await wookyCall('/cred', { id: String(id).trim(), pw });
+  if(r.status === 200 && r.data.ok){ showToast('✅ 우키 연결됨 — 이제 회수하면 자동 종결돼요'); }
+  else { await showAppDialog({ title: '연결 실패', message: (r.data && r.data.error) || ('오류 ' + r.status), buttons: [{ text: '확인', value: 1, primary: true }] }); }
+  updateWookyCard();
+}
+// 회수했을 때 우키 종결 요청 (결과는 서버가 메신저로 알려줌 — 실패해도 현황판 회수는 그대로)
+function requestWookyClose(plate, km){
+  try{
+    const me = window.CURRENT_USER;
+    const staffName = (me && typeof memberLabel === 'function') ? memberLabel(me.uid, me.email) : '';
+    wookyCall('/close', { plate, km: (km == null ? null : Number(km)), endAt: new Date().toISOString(), staffName })
+      .then(r=>{ if(r.status !== 200) console.warn('우키 종결 요청 실패:', r.status, r.data); });
+  }catch(e){ console.warn('우키 종결 요청 실패:', e); }
+}
+
 async function setVehicleIdle(plate){
   const v = vehicles.find(x=>x.plate===plate);
   if(!v) return;
+  const wasRenting = !!v.type || v.status === '운행중';   // 대여 중이던 차만 우키 종결
   v.status = '대기';
   v.startDate = null;
   v.note = '차고지';
@@ -2290,6 +2369,7 @@ async function setVehicleIdle(plate){
   render();
   await persist();
   showToast(`${plate} 대기 · 차고지로 변경되었습니다`);
+  if(wasRenting) requestWookyClose(plate, null);
 }
 
 function openModal(plate){
@@ -3121,7 +3201,7 @@ async function openStaffModal(){
   // 초대코드 영역은 관리자에게만 보여줌
   const inviteBox = document.getElementById('staffInviteBox');
   if(inviteBox) inviteBox.style.display = (window.COMPANY_ROLE==='owner') ? 'block' : 'none';
-  updateQuickAppCard();
+  updateQuickAppCard(); updateWookyCard();
   updateAiKeyLabel();
 
   const { ref, get, db } = window._fb;
@@ -3311,7 +3391,7 @@ function refreshQuickAppUI(){
   const list = allQuickApps();
   const b = document.getElementById('quickAppBtn');
   if(b) b.textContent = (list.length === 1) ? ('⭐ ' + list[0].label) : '⭐ 자주 쓰는 앱';
-  updateQuickAppCard();
+  updateQuickAppCard(); updateWookyCard();
 }
 function playPackage(url){
   const m = String(url || '').match(/[?&]id=([A-Za-z0-9_.]+)/);
@@ -4165,6 +4245,8 @@ async function applyChatCommand(cmd){
         }, extra));
       }
     }catch(e){ console.warn('회수 기록 실패:', e && e.code); }
+    // 대여 중이던 차면 우키 계약도 자동 종결 (계기판 km 있으면 같이)
+    if(typeBefore) requestWookyClose(v.plate, cmd.returnKm);
   }
 
   // 차량별 이력 기록 ("이력 9585" 로 조회할 수 있게)
