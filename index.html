@@ -2083,17 +2083,17 @@ function pushWidgetData(){
       // 이번 달 날짜별 일정 수 (달력 칸에 표시)
       const now = new Date();
       const y = now.getFullYear(), m = now.getMonth()+1, days = new Date(y, m, 0).getDate();
-      const count = {};
+      const count = {}, items = {};
       for(let d = 1; d <= days; d++){
         const ds = `${y}-${pad2(m)}-${pad2(d)}`;
-        const n = widgetItemsOn(ds).length;
-        if(n) count[d] = n;
+        const list = widgetItemsOn(ds);
+        if(list.length){ count[d] = list.length; items[d] = list.slice(0, 8).map(widgetLineOf); }
       }
       const data = {
         idle, prep, run, long: longCount, unread, todayStr: today,
         today: todayLines, soon,
         updated: `${m}/${now.getDate()} ${pad2(now.getHours())}:${pad2(now.getMinutes())} 업데이트`,
-        cal: { y, m, today: now.getDate(), firstDow: new Date(y, m-1, 1).getDay(), days, count }
+        cal: { y, m, today: now.getDate(), firstDow: new Date(y, m-1, 1).getDay(), days, count, items }
       };
       window.AndroidSettings.saveWidget(JSON.stringify(data));
     }catch(e){ console.warn('위젯 자료 전달 실패:', e); }
