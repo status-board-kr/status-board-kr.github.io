@@ -2324,6 +2324,32 @@ function requestWookyClose(plate, km){
     });
   }catch(e){ console.warn('우기소프트 종결 요청 기록 실패:', e); }
 }
+// 사무실 PC가 처리를 끝내면 결과(resultMsg)를 할 일에 적어둠. 현황판(로그인됨)이 그걸 보고 메신저에 한 번 띄우고 오래된 건 정리.
+let _wookyWatchStarted = false;
+function startWookyResultWatch(){
+  if(_wookyWatchStarted) return;
+  if(!(window._fb && window.COMPANY_ID)) return;
+  _wookyWatchStarted = true;
+  try{
+    const { ref, onValue, update, remove, push, db } = window._fb;
+    onValue(ref(db, P('wookyJobs')), async (snap)=>{
+      if(!snap.exists()) return;
+      const jobs = snap.val() || {};
+      for(const [jid, job] of Object.entries(jobs)){
+        if(!job || job.status !== 'done' || job.announced) continue;
+        try{
+          await update(ref(db, P('wookyJobs/' + jid)), { announced: true });
+          if(job.resultMsg){
+            await push(ref(db, P('chat')), { text: job.resultMsg, uid: 'system', email: '우기소프트 연동', at: new Date().toISOString(), type: 'text' });
+          }
+          const tt = new Date(job.at || job.endAt || Date.now()).getTime();
+          if(Date.now() - tt > 24*3600*1000) await remove(ref(db, P('wookyJobs/' + jid)));
+        }catch(e){ console.warn('우기소프트 결과 알림 실패:', e); }
+      }
+    });
+  }catch(e){ console.warn('우기소프트 결과 감시 시작 실패:', e); }
+}
+
 
 async function setVehicleIdle(plate){
   const v = vehicles.find(x=>x.plate===plate);
@@ -5740,6 +5766,7 @@ async function startApp(){
   initAppBackButton();   // 앱 뒤로가기 버튼 연결
   setTimeout(()=> openPhoneSetup(false), 2500);   // 앱 첫 실행이면 설정 안내
   startMembersSync();
+  startWookyResultWatch();
   startInquirySync();
   startQuickAppSync();
   startAiKeySync();
