@@ -113,6 +113,18 @@ public class FleetWidgetUtil {
         return PendingIntent.getActivity(ctx, code, it, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
+    // 날짜를 누르면 앱을 열지 않고 위젯 안에서 그 날 일정으로 바꿈
+    static PendingIntent selector(Context ctx, String ds, int code) {
+        Intent it = new Intent(ctx, FleetWidgetLarge.class);
+        it.setAction("fleet.widget.SELECT");
+        it.putExtra("sel", ds);
+        return PendingIntent.getBroadcast(ctx, code, it, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    }
+
+    static String ymd(int y, int m, int d) {
+        return y + "-" + (m < 10 ? "0" : "") + m + "-" + (d < 10 ? "0" : "") + d;
+    }
+
     static int id(Context ctx, String name) {
         return ctx.getResources().getIdentifier(name, "id", ctx.getPackageName());
     }
@@ -160,7 +172,22 @@ public class FleetWidgetUtil {
                 int y = cal.optInt("y"), m = cal.optInt("m"), today = cal.optInt("today");
                 int first = cal.optInt("firstDow"), days = cal.optInt("days");
                 JSONObject cnt = cal.optJSONObject("count");
+                JSONObject items = cal.optJSONObject("items");
+                // 선택한 날짜 (이번 달이 아니면 오늘로)
+                String sel = ctx.getSharedPreferences("fleet_widget", Context.MODE_PRIVATE).getString("sel", "");
+                String monthKey = ymd(y, m, 1).substring(0, 8);
+                int selDay = today;
+                if (sel.startsWith(monthKey)) {
+                    try { selDay = Integer.parseInt(sel.substring(8)); } catch (Exception ignored) { }
+                    if (selDay < 1 || selDay > days) selDay = today;
+                }
                 v.setTextViewText(R.id.w_month, y + "년 " + m + "월");
+                // 이번 달에 필요한 주(줄) 수만 보이기
+                int rows = (first + days + 6) / 7;
+                for (int r = 0; r < 6; r++) {
+                    int rid = id(ctx, "w_r" + r);
+                    if (rid != 0) v.setViewVisibility(rid, r < rows ? android.view.View.VISIBLE : android.view.View.GONE);
+                }
                 for (int i = 0; i < 42; i++) {
                     int cid = id(ctx, "w_c" + i);
                     if (cid == 0) continue;
@@ -176,14 +203,18 @@ public class FleetWidgetUtil {
                     int color = day == today ? Color.parseColor("#1A1A1A")
                         : (col == 0 ? Color.parseColor("#F87171") : (col == 6 ? Color.parseColor("#60A5FA") : Color.parseColor("#E2E8F0")));
                     v.setTextColor(cid, color);
-                    v.setInt(cid, "setBackgroundResource", day == today ? R.drawable.wcell_today : (n > 0 ? R.drawable.wcell_mark : 0));
-                    String ds = y + "-" + (m < 10 ? "0" : "") + m + "-" + (day < 10 ? "0" : "") + day;
-                    v.setOnClickPendingIntent(cid, opener(ctx, "date:" + ds, 100 + i));
+                    int bg = day == today ? R.drawable.wcell_today : (day == selDay ? R.drawable.wcell_sel : (n > 0 ? R.drawable.wcell_mark : 0));
+                    v.setInt(cid, "setBackgroundResource", bg);
+                    v.setOnClickPendingIntent(cid, selector(ctx, ymd(y, m, day), 100 + i));
                 }
+                String selDs = ymd(y, m, selDay);
+                v.setTextViewText(R.id.w_seltitle, m + "월 " + selDay + "일" + (selDay == today ? " (오늘)" : "") + " 일정");
+                JSONArray dayItems = items == null ? null : items.optJSONArray(String.valueOf(selDay));
+                v.setTextViewText(R.id.w_list, lines(dayItems, 4, "일정 없음"));
+                v.setOnClickPendingIntent(R.id.w_openapp, opener(ctx, "date:" + selDs, 3));
+                v.setOnClickPendingIntent(R.id.w_list, opener(ctx, "date:" + selDs, 4));
             }
-            v.setTextViewText(R.id.w_list, lines(d.optJSONArray("today"), 3, "오늘 일정 없음"));
             v.setTextViewText(R.id.w_updated, d.optString("updated"));
-            v.setOnClickPendingIntent(R.id.w_list, opener(ctx, "date:" + d.optString("todayStr"), 3));
         }
         return v;
     }
@@ -191,6 +222,19 @@ public class FleetWidgetUtil {
 `;
 fs.writeFileSync(path.join(javaDir, 'FleetWidgetUtil.java'), util);
 for (const [name, size] of [['FleetWidgetSmall','SMALL'],['FleetWidgetMedium','MEDIUM'],['FleetWidgetLarge','LARGE']]) {
+  const onReceive = size !== 'LARGE' ? '' : `
+
+    // 위젯 안에서 날짜를 눌렀을 때: 고른 날짜를 저장하고 다시 그림
+    @Override
+    public void onReceive(Context ctx, android.content.Intent intent) {
+        super.onReceive(ctx, intent);
+        if ("fleet.widget.SELECT".equals(intent.getAction())) {
+            String s = intent.getStringExtra("sel");
+            ctx.getSharedPreferences("fleet_widget", Context.MODE_PRIVATE).edit().putString("sel", s == null ? "" : s).apply();
+            AppWidgetManager m = AppWidgetManager.getInstance(ctx);
+            FleetWidgetUtil.update(ctx, m, m.getAppWidgetIds(new android.content.ComponentName(ctx, ${name}.class)), FleetWidgetUtil.${size});
+        }
+    }`;
   fs.writeFileSync(path.join(javaDir, name + '.java'),
 `package ${pkg};
 
@@ -202,7 +246,7 @@ public class ${name} extends AppWidgetProvider {
     @Override
     public void onUpdate(Context ctx, AppWidgetManager m, int[] ids) {
         FleetWidgetUtil.update(ctx, m, ids, FleetWidgetUtil.${size});
-    }
+    }${onReceive}
 }
 `);
 }
@@ -228,6 +272,7 @@ const D = {
   wchip_red:   shape('#E6EF4444', 10, null),
   wcell_today: shape('#FFF5A623', 8, null),
   wcell_mark:  shape('#2634D399', 8, '#8034D399'),
+  wcell_sel:   shape('#00000000', 8, '#FFF5A623'),
   wlist_bg:    shape('#661E293B', 12, null)
 };
 for (const [n, x] of Object.entries(D)) fs.writeFileSync(path.join(res, 'drawable', n + '.xml'), x);
@@ -280,7 +325,7 @@ cal += `
   </LinearLayout>`;
 for (let r = 0; r < 6; r++) {
   cal += `
-  <LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">`;
+  <LinearLayout android:id="@+id/w_r${r}" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal">`;
   for (let c = 0; c < 7; c++) {
     cal += `
     <TextView android:id="@+id/w_c${r * 7 + c}" android:layout_width="0dp" android:layout_weight="1" android:layout_height="match_parent"
@@ -291,8 +336,17 @@ for (let r = 0; r < 6; r++) {
 }
 fs.writeFileSync(path.join(res, 'layout', 'widget_small.xml'), root(header + chips));
 fs.writeFileSync(path.join(res, 'layout', 'widget_medium.xml'), root(header + chips + list('0dp') + updated));
-fs.writeFileSync(path.join(res, 'layout', 'widget_large.xml'), root(header + chips + cal +
-  list('wrap_content').replace('android:layout_marginTop="8dp"', 'android:layout_marginTop="6dp" android:maxLines="4"') + updated));
+const selRow = `
+  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal"
+    android:gravity="center_vertical" android:layout_marginTop="8dp">
+    <TextView android:id="@+id/w_seltitle" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+      android:text="" android:textColor="#F5A623" android:textSize="13sp" android:textStyle="bold"/>
+    <TextView android:id="@+id/w_openapp" android:layout_width="wrap_content" android:layout_height="wrap_content"
+      android:paddingStart="10dp" android:paddingEnd="10dp" android:paddingTop="4dp" android:paddingBottom="4dp"
+      android:background="@drawable/wchip_gray" android:text="앱에서 보기 ›" android:textColor="#CBD5E1" android:textSize="11sp"/>
+  </LinearLayout>`;
+fs.writeFileSync(path.join(res, 'layout', 'widget_large.xml'), root(header + chips + cal + selRow +
+  list('wrap_content').replace('android:layout_marginTop="8dp"', 'android:layout_marginTop="4dp" android:minHeight="64dp" android:maxLines="5"') + updated));
 
 const info = (layout, w, h, cells) => `<?xml version="1.0" encoding="utf-8"?>
 <appwidget-provider ${A}
