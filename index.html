@@ -2464,6 +2464,8 @@ async function syncAllReturnSchedules(){
 async function saveModal(){
   const v = vehicles.find(x=>x.plate===window._editingPlate);
   const oldReturnDate = v.returnDate || null;
+  const oldAmount = (v.amount === null || v.amount === undefined) ? null : Number(v.amount);
+  const oldType = v.type;
   v.type = document.getElementById('mType').value;
   v.startDate = document.getElementById('mStartDate').value || null;
   v.status = document.getElementById('mStatus').value.trim();
@@ -2492,6 +2494,24 @@ async function saveModal(){
   }
   // 일반 매출 기록: 일반 + 금액이 있으면 이 대여 건을 매출로 남김 (회수해도 기록은 남음)
   let saleToRemove = null;
+  let saleChange = null;
+  const amountChanged = oldAmount !== null && v.amount !== null && Number(v.amount) !== oldAmount;
+  if(v.type==='일반' && oldType==='일반' && v.saleKey && amountChanged && Number(v.amount) > oldAmount){
+    const diff = Number(v.amount) - oldAmount;
+    const later = v.returnDate && oldReturnDate && v.returnDate > oldReturnDate;
+    const r = await showAppDialog({
+      title: '연장으로 기록할까요?',
+      message: `금액이 ${oldAmount}만 → ${v.amount}만원으로 바뀌었어요.` +
+               (later ? `\n반납일: ${oldReturnDate} → ${v.returnDate}` : '') +
+               `\n\n· 연장: 원래 ${oldAmount}만은 그대로 두고 연장분 ${diff}만을 따로 기록\n· 금액 고치기: 원래 기록의 금액을 ${v.amount}만으로 바꿈`,
+      buttons: [
+        { text: `연장으로 기록 (+${diff}만)`, value: 'extend', primary: true },
+        { text: '금액만 고치기', value: 'fix' },
+        { text: '취소', value: null }
+      ]});
+    if(r === null){ v.amount = oldAmount; v.returnDate = oldReturnDate; render(); return; }
+    if(r === 'extend') saleChange = { kind:'extend', amount: diff, from: oldReturnDate || todayStr(), to: v.returnDate || null };
+  }
   if(v.type==='일반' && v.amount){
     if(!v.saleKey) v.saleKey = makeSaleKey(v);
   }else if(v.saleKey){
@@ -2502,20 +2522,37 @@ async function saveModal(){
   render();
   await persist({type:'upsert', vehicle: v});
   await syncReturnSchedule(v.plate, oldReturnDate, v.returnDate, v.type, v.depositPaid);
-  await syncGeneralSale(v, saleToRemove);
+  await syncGeneralSale(v, saleToRemove, saleChange);
 }
 function makeSaleKey(v){
   return (String(v.plate) + '_' + (v.startDate || todayStr()) + '_' + Date.now().toString(36)).replace(/[.#$\[\]\/\s]/g, '_');
 }
-async function syncGeneralSale(v, removeKey){
+async function syncGeneralSale(v, removeKey, change){
   try{
-    const { ref, set, remove, db } = window._fb;
+    const { ref, set, get, remove, db } = window._fb;
     if(removeKey) await remove(ref(db, P('generalSales/' + removeKey)));
     if(v.type==='일반' && v.amount && v.saleKey){
+      const snap = await get(ref(db, P('generalSales/' + v.saleKey)));
+      const prev = snap.exists() ? (snap.val() || {}) : null;
+      const items = (prev && Array.isArray(prev.items) && prev.items.length)
+        ? prev.items.slice()
+        : [{ kind:'최초', amount: prev ? (Number(prev.amount) || 0) : (Number(v.amount) || 0),
+             date: (prev && prev.date) || v.startDate || todayStr(), to: (prev && prev.returnDate) || v.returnDate || null }];
+      if(change && change.kind === 'extend'){
+        items.push({ kind:'연장', amount: Number(change.amount) || 0, date: change.from, to: change.to, at: new Date().toISOString() });
+      }else{
+        const others = items.slice(0, -1).reduce((t, x) => t + (Number(x.amount) || 0), 0);
+        const last = items[items.length - 1];
+        last.amount = Math.max(0, (Number(v.amount) || 0) - others);
+        last.to = v.returnDate || last.to || null;
+        if(items.length === 1) last.date = v.startDate || last.date;
+      }
+      const total = items.reduce((t, x) => t + (Number(x.amount) || 0), 0);
       await set(ref(db, P('generalSales/' + v.saleKey)), {
         plate: v.plate, model: v.model || '', customerName: v.customerName || '',
-        amount: Number(v.amount) || 0, depositPaid: !!v.depositPaid,
-        date: v.startDate || todayStr(), startDate: v.startDate || null, returnDate: v.returnDate || null,
+        amount: total, items, depositPaid: !!v.depositPaid,
+        date: items[0].date || v.startDate || todayStr(),
+        startDate: v.startDate || null, returnDate: v.returnDate || null,
         updatedAt: new Date().toISOString(),
         by: (window.CURRENT_USER && window.CURRENT_USER.email) || ''
       });
