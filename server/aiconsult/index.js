@@ -67,6 +67,12 @@ function systemPrompt(companyName, phone){
     '[대략 가격 (만원, 자차 미포함)] 경형 캐스퍼 월40~/일4~, 소형 아반떼·베뉴 월50~/일5~, 중형 쏘나타 월60~/일6~, 소형 SUV 투싼·스포티지 월60~/일6~. 그 외 차종(카니발, 그랜저, 수입차 등)은 상담 후 안내.',
     '가격을 말할 때는 꼭 "자차(자기차량손해) 미포함 기준이고, 연식·옵션에 따라 금액이 달라요"라고 함께 말하세요. 정확한 금액은 담당자가 안내한다고 하세요.',
     '',
+    '[장기렌트 (가지고 있는 차, 중고 장기렌트 포함)]',
+    '고객이 장기렌트를 원하면 차급(경형·소형·중형·SUV), 운전자 나이(만 21세 이상/26세 이상), 월 주행거리(2,000·3,000·4,000·5,000km), 자차 포함 여부를 하나씩 물어보세요. 정비는 항상 포함이에요.',
+    '차급을 알게 되면 (나머지는 몰라도) 답의 맨 끝에 아래 한 줄을 붙이세요. 서버가 예상 월 렌트료를 계산해서 보여줍니다:',
+    '<<LONGTERM {"grade":"SUV","age":26,"km":2000,"own":0}>>',
+    'grade는 경형/소형/중형/SUV 중 하나(캐스퍼·모닝·레이=경형, 아반떼·K3·베뉴=소형, 쏘나타·K5=중형, 투싼·스포티지·셀토스=SUV), age 21 또는 26(모르면 26), km 2000~5000(모르면 2000), own 자차 포함 1/미포함 0(모르면 0). 금액은 직접 말하지 마세요.',
+    '',
     '[신차 장기렌트]',
     '고객이 신차 장기렌트를 원하면 원하는 차종·트림, 차량 가격(옵션 포함, 대략이라도), 기간(12·24·36·48·60개월), 운전자 나이(만 21세 이상인지 26세 이상인지), 원하는 보증금 비율을 하나씩 물어보세요.',
     '차종(트림까지 알면 좋음)과 기간을 알게 되면, 차량 가격을 몰라도 답의 맨 끝에 아래 한 줄을 붙이세요 (고객에게는 안 보이고, 서버가 찻값을 검색하고 예상 월 렌트료를 계산해서 붙여 보여줍니다):',
@@ -157,9 +163,9 @@ function extractInquiry(text){
 }
 
 // ── 신차 장기렌트 예상 금액 (현황판 문서 발행 → 신차 렌트 견적서의 ⚙️ 계산 기준과 같은 계산) ──
-// 원가 = 내 할부금(할부 금리·기간·내 선수금) + (내 선수금 + 취등록세 + 등록 부대비용) ÷ 계약기간 + 보험료 + 지입료 + 기타
+// 원가 = 내 할부금(할부 금리·기간·내 선수금) + (내 선수금 + 취등록세 + 등록 부대비용) ÷ 계약기간 + 보험료 + 정비비 + 지입료 + 기타
 // 월 렌트료 = 원가 + 마진 − 고객 보증금 × 월 금리 (+21세 추가), 천원 단위 반올림
-const NEWCAR_RATES_DEFAULT = { rate: 6, months: 60, down: 0, acq: 4, reg: 0, ins: 100000, fee: 50000, etc: 0, margin: 50000, age21: 30000, d2: 10, d3: 30 };
+const NEWCAR_RATES_DEFAULT = { rate: 6, months: 60, down: 0, acq: 4, reg: 0, ins: 100000, maint: 50000, fee: 50000, etc: 0, margin: 50000, age21: 30000, d2: 10, d3: 30 };
 // 현대·기아 차종 가격표 (기본값 — 현황판 문서 발행 → 신차 렌트 견적서 ⚙️ 계산 기준에서 고쳐 저장하면 그 표를 씀)
 const NEWCAR_CARS_DEFAULT = "현대 캐스퍼 가솔린 스마트 1546\n현대 캐스퍼 가솔린 디에센셜 1792\n현대 캐스퍼 가솔린 인스퍼레이션 2035\n현대 아반떼 가솔린 모던 2398\n현대 아반떼 가솔린 프리미엄 2771\n현대 아반떼 가솔린 인스퍼레이션 3152\n현대 아반떼 하이브리드 모던 3042\n현대 아반떼 하이브리드 프리미엄 3361\n현대 아반떼 하이브리드 인스퍼레이션 3699\n현대 쏘나타 가솔린 프리미엄 2826\n현대 쏘나타 가솔린 익스클루시브 3260\n현대 쏘나타 가솔린 인스퍼레이션 3549\n현대 쏘나타 하이브리드 프리미엄 3270\n현대 쏘나타 하이브리드 익스클루시브 3674\n현대 쏘나타 하이브리드 인스퍼레이션 3979\n현대 그랜저 가솔린 프리미엄 4245\n현대 그랜저 가솔린 익스클루시브 4694\n현대 그랜저 가솔린 캘리그래피 5310\n현대 그랜저 하이브리드 프리미엄 4833\n현대 그랜저 하이브리드 익스클루시브 5282\n현대 그랜저 하이브리드 캘리그래피 5899\n현대 코나 가솔린 모던 2429\n현대 코나 가솔린 프리미엄 2875\n현대 코나 가솔린 인스퍼레이션 3102\n현대 코나 하이브리드 모던 2896\n현대 코나 하이브리드 프리미엄 3318\n현대 코나 하이브리드 인스퍼레이션 3512\n현대 투싼 가솔린 모던 2844\n현대 투싼 가솔린 프리미엄 3069\n현대 투싼 가솔린 인스퍼레이션 3407\n현대 투싼 하이브리드 모던 3270\n현대 투싼 하이브리드 프리미엄 3514\n현대 투싼 하이브리드 인스퍼레이션 3861\n현대 싼타페 가솔린 익스클루시브 3657\n현대 싼타페 하이브리드 익스클루시브 4022\n현대 팰리세이드 가솔린 익스클루시브 4478\n현대 팰리세이드 가솔린 H-Pick 5040\n현대 팰리세이드 가솔린 XRT 5211\n현대 팰리세이드 가솔린 캘리그래피 5606\n현대 팰리세이드 가솔린 블랙잉크 5767\n현대 팰리세이드 하이브리드 익스클루시브 5077\n현대 팰리세이드 하이브리드 H-Pick 5640\n현대 팰리세이드 하이브리드 캘리그래피 6206\n현대 팰리세이드 하이브리드 블랙잉크 6367\n현대 스타리아 LPG 투어러스마트 3502\n기아 모닝 가솔린 트렌디 1421\n기아 모닝 가솔린 프레스티지 1601\n기아 모닝 가솔린 시그니처 1816\n기아 모닝 가솔린 GT라인 1911\n기아 레이 가솔린 트렌디 1555\n기아 레이 가솔린 프레스티지 1815\n기아 레이 가솔린 시그니처 1955\n기아 K5 가솔린 프레스티지 2892\n기아 K5 가솔린 노블레스 3244\n기아 K5 가솔린 시그니처 3558\n기아 K5 하이브리드 프레스티지 3334\n기아 K5 하이브리드 노블레스 3670\n기아 K5 하이브리드 시그니처 3964\n기아 K8 가솔린 노블레스라이트 3679\n기아 K8 가솔린 노블레스 4085\n기아 K8 가솔린 시그니처 4440\n기아 K8 하이브리드 노블레스라이트 4206\n기아 K8 하이브리드 노블레스 4611\n기아 K8 하이브리드 시그니처 4966\n기아 셀토스 가솔린 트렌디 2477\n기아 셀토스 가솔린 프레스티지 2840\n기아 셀토스 가솔린 시그니처 3101\n기아 셀토스 가솔린 X-라인 3217\n기아 셀토스 하이브리드 트렌디 2898\n기아 셀토스 하이브리드 프레스티지 3208\n기아 셀토스 하이브리드 시그니처 3469\n기아 셀토스 하이브리드 X-라인 3584\n기아 스포티지 가솔린 프레스티지 2944\n기아 스포티지 가솔린 X-Line 3622\n기아 스포티지 하이브리드 프레스티지 3436\n기아 스포티지 하이브리드 X-Line 4103\n기아 쏘렌토 가솔린 프레스티지 3641\n기아 쏘렌토 가솔린 노블레스 3966\n기아 쏘렌토 가솔린 시그니처 4247\n기아 쏘렌토 가솔린 X-Line 4341\n기아 쏘렌토 하이브리드 프레스티지 3963\n기아 쏘렌토 하이브리드 노블레스 4299\n기아 쏘렌토 하이브리드 시그니처 4576\n기아 쏘렌토 하이브리드 X-Line 4670\n기아 카니발 가솔린 프레스티지 3686\n기아 카니발 가솔린 X-Line 4532\n기아 카니발 하이브리드 프레스티지 4141\n기아 카니발 하이브리드 X-Line 4987\n현대 캐스퍼 전기 프리미엄 2847\n현대 캐스퍼 전기 인스퍼레이션 3212\n현대 캐스퍼 전기 크로스 3412\n현대 코나 전기 모던 4152\n현대 코나 전기 프리미엄 4899\n현대 아이오닉5 전기 E-Value+ 4735\n현대 아이오닉5 전기 E-Lite 5064\n현대 아이오닉5 전기 모던 5290\n현대 아이오닉5 전기 프리미엄 5825\n현대 아이오닉5 전기 인스퍼레이션 6150\n현대 아이오닉6 전기 스탠다드 4856\n현대 아이오닉6 전기 익스클루시브 5095\n기아 레이 전기 에어 3062\n기아 EV3 전기 에어 3995\n기아 EV3 전기 GT라인 4475\n기아 EV4 전기 에어 4042\n기아 EV4 전기 어스 4501\n기아 EV4 전기 GT라인 4611\n기아 EV5 전기 에어 4155\n기아 EV6 전기 에어 5260\n기아 EV9 전기 에어 6857\n기아 EV9 전기 어스 7336\n기아 EV9 전기 GT라인 7917";
 // ── 차종 가격표: 한 줄에 "제조사 모델 연료 트림 가격(만원)" ──
@@ -271,7 +277,7 @@ function newcarMonthly(R, price, months, age, depositPct){
   const P = price * (1 - (Number(R.down) || 0) / 100);
   const inst = r ? P * r / (1 - Math.pow(1 + r, -H)) : P / H;
   const upfront = price * ((Number(R.down) || 0) + (Number(R.acq) || 0)) / 100 + (Number(R.reg) || 0);
-  const cost = inst + upfront / months + (Number(R.ins) || 0) + (Number(R.fee) || 0) + (Number(R.etc) || 0)
+  const cost = inst + upfront / months + (Number(R.ins) || 0) + (Number(R.maint) || 0) + (Number(R.fee) || 0) + (Number(R.etc) || 0)
     - price * depositPct / 100 * r + (age === 21 ? (Number(R.age21) || 0) : 0);
   return Math.max(0, Math.round((Math.max(0, cost) + (Number(R.margin) || 0)) / 1000) * 1000);
 }
@@ -287,6 +293,34 @@ function newcarEstimateText(R, q){
     : '차량 가격 ' + man(q.price);
   return '📋 신차 장기렌트 예상 월 렌트료\n' + (q.car ? q.car + '\n' : '') + priceLine + ' · ' + q.months + '개월 · 만 ' + q.age + '세 이상\n' + lines.join('\n')
     + '\n(부가세·보험 포함 예상 금액이에요. ' + (q.searched || q.listed ? '옵션을 넣으면 올라가요. ' : '') + '보증금은 계약이 끝나면 돌려드려요. 정확한 견적은 담당자가 안내드려요)';
+}
+
+// ── 장기렌트(보유 차량) 예상 금액: 현황판 문서 발행 → 장기 견적서 자동 계산과 같은 요금표 ──
+// 26세 기본(자차 미포함) + 21세 +5만 + 월 주행거리 1천km마다 +5만 + 자차 +5만 + 정비 5만(필수)
+const LONG_TABLE = { '경형': { 21: 450000, 26: 400000 }, '소형': { 21: 550000, 26: 500000 }, '중형': { 21: 650000, 26: 600000 }, 'SUV': { 21: 650000, 26: 600000 } };
+const LONG_MAINT = 50000;
+function extractLongterm(text){
+  const m = String(text).match(/<<LONGTERM\s*(\{[\s\S]*?\})\s*>>/);
+  const reply = String(text).replace(/<<LONGTERM[\s\S]*?>>/g, '').trim();
+  if(!m) return { reply, req: null };
+  try{
+    const j = JSON.parse(m[1]);
+    const g = String(j.grade || '').toUpperCase().replace('SUV', 'SUV');
+    const grade = ['경형', '소형', '중형', 'SUV'].find(x => g.indexOf(x) >= 0);
+    if(!grade) return { reply, req: null };
+    const age = Number(j.age) === 21 ? 21 : 26;
+    const km = [2000, 3000, 4000, 5000].indexOf(Number(j.km)) >= 0 ? Number(j.km) : 2000;
+    const own = Number(j.own) === 1 || j.own === true ? 1 : 0;
+    return { reply, req: { grade, age, km, own } };
+  }catch(e){ return { reply, req: null }; }
+}
+function longtermMonthly(q){ return LONG_TABLE[q.grade][q.age] + (q.km - 2000) / 1000 * 50000 + (q.own ? 50000 : 0) + LONG_MAINT; }
+function longtermEstimateText(q){
+  const won = n => n.toLocaleString('ko-KR') + '원';
+  const base = longtermMonthly(Object.assign({}, q, { own: 0 })), withOwn = longtermMonthly(Object.assign({}, q, { own: 1 }));
+  return '📋 장기렌트 예상 월 렌트료\n' + q.grade + ' · 만 ' + q.age + '세 이상 · 월 ' + q.km.toLocaleString('ko-KR') + 'km · 정비 포함\n'
+    + '· 자차 미포함: 월 ' + won(base) + '\n· 자차 포함: 월 ' + won(withOwn)
+    + '\n(연식·차종·옵션에 따라 달라요. 지금 바로 탈 수 있는 차는 담당자가 확인해서 안내드려요)';
 }
 
 // ── 상담 신청 저장 + 직원 메신저 + 푸시 ──
@@ -365,8 +399,10 @@ async function handle(req, res){
     const phone = String(prof.phone || '010-5145-8990').slice(0, 20);
 
     const raw = await callAi(keys, systemPrompt(companyName, phone), messages);
-    const nc = extractNewcar(raw);
+    const lt = extractLongterm(raw);
+    const nc = extractNewcar(lt.reply);
     let { reply, inquiry } = extractInquiry(nc.reply);
+    if(lt.req) reply = (reply ? reply + '\n\n' : '') + longtermEstimateText(lt.req);
     let saved = null;
     if(nc.req) saved = (await db().ref('companyDocs/' + companyId + '/_newcarRates').once('value')).val() || {};
     if(nc.req && !nc.req.price){
@@ -400,4 +436,4 @@ async function handle(req, res){
 }
 
 functions.http('aiconsult', handle);
-module.exports = { _search, ncParseCars, ncMatchCar, NEWCAR_CARS_DEFAULT, handle, extractInquiry, extractNewcar, searchCarPrice, parsePriceKr, _priceCache, newcarMonthly, newcarEstimateText, NEWCAR_RATES_DEFAULT, systemPrompt, deps, _hits };
+module.exports = { extractLongterm, longtermMonthly, longtermEstimateText, _search, ncParseCars, ncMatchCar, NEWCAR_CARS_DEFAULT, handle, extractInquiry, extractNewcar, searchCarPrice, parsePriceKr, _priceCache, newcarMonthly, newcarEstimateText, NEWCAR_RATES_DEFAULT, systemPrompt, deps, _hits };
