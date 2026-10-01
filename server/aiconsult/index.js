@@ -160,6 +160,31 @@ function extractInquiry(text){
 // 원가 = 내 할부금(할부 금리·기간·내 선수금) + (내 선수금 + 취등록세 + 등록 부대비용) ÷ 계약기간 + 보험료 + 지입료 + 기타
 // 월 렌트료 = 원가 + 마진 − 고객 보증금 × 월 금리 (+21세 추가), 천원 단위 반올림
 const NEWCAR_RATES_DEFAULT = { rate: 6, months: 60, down: 0, acq: 4, reg: 0, ins: 100000, fee: 50000, etc: 0, margin: 50000, age21: 30000, d2: 10, d3: 30 };
+// 현대·기아 차종 가격표 (기본값 — 현황판 문서 발행 → 신차 렌트 견적서 ⚙️ 계산 기준에서 고쳐 저장하면 그 표를 씀)
+const NEWCAR_CARS_DEFAULT = "현대 캐스퍼 가솔린 스마트 1493\n현대 캐스퍼 가솔린 디에센셜 1771\n현대 캐스퍼 가솔린 인스퍼레이션 2017\n현대 아반떼 가솔린 모던 2398\n현대 아반떼 하이브리드 모던 3042\n현대 쏘나타 가솔린 프리미엄 2826\n현대 쏘나타 가솔린 익스클루시브 3260\n현대 쏘나타 가솔린 인스퍼레이션 3549\n현대 쏘나타 하이브리드 프리미엄 3270\n현대 쏘나타 하이브리드 익스클루시브 3674\n현대 쏘나타 하이브리드 인스퍼레이션 3979\n현대 그랜저 가솔린 프리미엄 3798\n현대 그랜저 가솔린 익스클루시브 4287\n현대 그랜저 가솔린 아너스 4513\n현대 그랜저 가솔린 캘리그래피 4710\n현대 그랜저 하이브리드 프리미엄 4354\n현대 그랜저 하이브리드 익스클루시브 4843\n현대 그랜저 하이브리드 아너스 5069\n현대 그랜저 하이브리드 캘리그래피 5266\n현대 코나 가솔린 모던 2463\n현대 투싼 가솔린 모던 2844\n현대 투싼 가솔린 프리미엄 3069\n현대 투싼 가솔린 인스퍼레이션 3407\n현대 투싼 하이브리드 모던 3270\n현대 투싼 하이브리드 프리미엄 3514\n현대 투싼 하이브리드 인스퍼레이션 3861\n현대 싼타페 가솔린 익스클루시브 3657\n현대 싼타페 가솔린 프레스티지 3889\n현대 싼타페 가솔린 캘리그래피 4484\n현대 싼타페 하이브리드 익스클루시브 3964\n현대 싼타페 하이브리드 프레스티지 4247\n현대 싼타페 하이브리드 캘리그래피 4807\n현대 팰리세이드 가솔린 익스클루시브 4383\n현대 팰리세이드 가솔린 프레스티지 4936\n현대 팰리세이드 가솔린 캘리그래피 5586\n현대 팰리세이드 하이브리드 익스클루시브 4982\n현대 팰리세이드 하이브리드 프레스티지 5536\n현대 팰리세이드 하이브리드 캘리그래피 6186\n현대 스타리아 LPG 투어러스마트 3502\n현대 스타리아 LPG 투어러모던 3659\n현대 스타리아 하이브리드 투어러스마트 3870\n기아 모닝 가솔린 트렌디 1421\n기아 레이 가솔린 트렌디 1490\n기아 레이 가솔린 프레스티지 1760\n기아 레이 가솔린 시그니처 1903\n기아 K5 가솔린 프레스티지 2808\n기아 K5 가솔린 노블레스 3154\n기아 K5 가솔린 시그니처 3469\n기아 K5 하이브리드 프레스티지 3241\n기아 K5 하이브리드 노블레스 3573\n기아 K5 하이브리드 시그니처 3868\n기아 K8 가솔린 노블레스라이트 3679\n기아 K8 가솔린 노블레스 4026\n기아 K8 가솔린 시그니처 4390\n기아 K8 하이브리드 노블레스라이트 4206\n기아 K8 하이브리드 노블레스 4552\n기아 K8 하이브리드 시그니처 4917\n기아 셀토스 가솔린 트렌디 2512\n기아 스포티지 가솔린 프레스티지 2863\n기아 스포티지 가솔린 노블레스 3197\n기아 스포티지 가솔린 시그니처 3458\n기아 스포티지 하이브리드 프레스티지 3346\n기아 스포티지 하이브리드 노블레스 3670\n기아 스포티지 하이브리드 시그니처 3931\n기아 쏘렌토 가솔린 프레스티지 3580\n기아 쏘렌토 가솔린 노블레스 3891\n기아 쏘렌토 가솔린 시그니처 4168\n기아 쏘렌토 하이브리드 프레스티지 3953\n기아 쏘렌토 하이브리드 노블레스 4279\n기아 쏘렌토 하이브리드 시그니처 4531\n기아 카니발 가솔린 프레스티지 3636\n기아 카니발 가솔린 노블레스 4071\n기아 카니발 가솔린 시그니처 4426\n기아 카니발 하이브리드 프레스티지 4091\n기아 카니발 하이브리드 노블레스 4526\n기아 카니발 하이브리드 시그니처 4881";
+// ── 차종 가격표: 한 줄에 "제조사 모델 연료 트림 가격(만원)" ──
+function ncParseCars(text) {
+  return String(text || "").split(/\n/).map(function (l) {
+    var p = l.trim().split(/\s+/);
+    if (p.length < 5) return null;
+    var price = Math.round(Number(p[p.length - 1].replace(/,/g, "")) * 10000);
+    return { maker: p[0], model: p[1], fuel: p[2], trim: p.slice(3, -1).join(" "), price: price };
+  }).filter(function (e) { return e && e.price >= 5000000 && e.price <= 300000000; });
+}
+// "기아 쏘렌토 하이브리드 1.6 시그니처" → 표에서 모델·연료·트림이 맞는 줄 (트림을 모르면 그 연료의 가장 싼 트림)
+function ncMatchCar(list, car) {
+  var n = function (s) { return String(s || "").toLowerCase().replace(/\s+/g, ""); };
+  var c = n(car).replace(/케이파이브|케이5/g, "k5").replace(/케이에이트|케이8/g, "k8");
+  var cands = list.filter(function (e) { return c.indexOf(n(e.model)) >= 0; });
+  if (!cands.length) return null;
+  var want = /하이브리드|hev|hybrid/.test(c) ? "하이브리드" : /lpg/.test(c) ? "lpg" : "";
+  var f = cands.filter(function (e) { var x = n(e.fuel); return want ? x === want : x !== "하이브리드"; });
+  if (!f.length) f = cands;
+  var t = f.filter(function (e) { return e.trim && c.indexOf(n(e.trim)) >= 0; }).sort(function (a, b) { return n(b.trim).length - n(a.trim).length; });
+  if (t.length) return Object.assign({ base: false }, t[0]);
+  return Object.assign({ base: true }, f.slice().sort(function (a, b) { return a.price - b.price; })[0]);
+}
+
 function extractNewcar(text){
   const m = String(text).match(/<<NEWCAR\s*(\{[\s\S]*?\})\s*>>/);
   const reply = String(text).replace(/<<NEWCAR[\s\S]*?>>/g, '').trim();
@@ -180,6 +205,10 @@ function extractNewcar(text){
 // 검색이 되는 모델을 먼저 (lite 모델은 검색을 못 하는 경우가 있음)
 const SEARCH_MODELS = ['gemini-flash-latest', 'gemini-3.6-flash', 'gemini-3.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-flash-lite-latest'];
 const _priceCache = new Map();
+// 무료 한도 보호: 검색은 하루 최대 SEARCH_DAILY_MAX번, 한도 초과(429)가 나면 30분 동안 검색 안 함
+//  → 같은 Gemini 키를 쓰는 현황판(번호판 인식 등)이 막히지 않게
+const SEARCH_DAILY_MAX = 30;
+const _search = { day: '', count: 0, blockedUntil: 0 };
 // "47,390,000" / 47390000 / "4,739만원" / "약 4,739만 원" → 원 단위 숫자
 function parsePriceKr(v){
   if(typeof v === 'number') return Math.round(v);
@@ -194,6 +223,10 @@ async function searchCarPrice(key, car){
   const ck = car.replace(/\s+/g, ' ').toLowerCase();
   const hit = _priceCache.get(ck);
   if(hit && deps.now() - hit.at < (hit.v ? 86400000 : 600000)) return hit.v;
+  const today = new Date(deps.now() + 9 * 3600000).toISOString().slice(0, 10);
+  if(_search.day !== today){ _search.day = today; _search.count = 0; }
+  if(deps.now() < _search.blockedUntil || _search.count >= SEARCH_DAILY_MAX){ console.warn('car price search skipped (limit)', car); return null; }
+  _search.count++;
   const prompt = '구글 검색으로 대한민국에서 판매 중인 "' + car + '" 신차 가격을 찾아주세요. '
     + '부가세 포함 제조사 공식 판매가(선택 옵션 제외)이고, 트림이 없으면 가장 많이 팔리는 트림 기준입니다. '
     + '답은 아래 JSON 한 줄만. price는 원 단위 숫자(예: 47390000). 못 찾으면 price를 0으로.\n'
@@ -206,6 +239,7 @@ async function searchCarPrice(key, car){
         headers: { 'x-goog-api-key': key, 'content-type': 'application/json' },
         body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }], tools: [{ google_search: {} }] })
       });
+      if(r.status === 429){ _search.blockedUntil = deps.now() + 30 * 60000; last = model + ' status 429 (한도 초과, 30분 쉼)'; break; }
       if(r.status < 200 || r.status >= 300){ last = model + ' status ' + r.status; continue; }
       const d = await r.json();
       const cand = d && d.candidates && d.candidates[0];
@@ -246,11 +280,13 @@ function newcarEstimateText(R, q){
   const man = n => (n % 10000 === 0 ? (n / 10000).toLocaleString('ko-KR') + '만원' : won(n));
   const pcts = [0, Number(R.d2) || 0, Number(R.d3) || 0, q.deposit].filter((v, i, a) => i === 0 || (v > 0 && a.indexOf(v) === i)).sort((a, b) => a - b).slice(0, 4);
   const lines = pcts.map(d => '· ' + (d ? '보증금 ' + d + '%(' + man(Math.round(q.price * d / 100)) + ')' : '보증금 없음') + ': 월 ' + won(newcarMonthly(R, q.price, q.months, q.age, d)));
-  const priceLine = q.searched
+  const priceLine = q.listed
+    ? '차량 가격 ' + man(q.price) + ' (' + q.listed + ', 옵션 제외)'
+    : q.searched
     ? '차량 가격 약 ' + (Math.round(q.price / 10000)).toLocaleString('ko-KR') + '만원 (인터넷 검색: ' + q.searched + ', 옵션 제외)'
     : '차량 가격 ' + man(q.price);
   return '📋 신차 장기렌트 예상 월 렌트료\n' + (q.car ? q.car + '\n' : '') + priceLine + ' · ' + q.months + '개월 · 만 ' + q.age + '세 이상\n' + lines.join('\n')
-    + '\n(부가세·보험 포함 예상 금액이에요. ' + (q.searched ? '옵션을 넣으면 올라가요. ' : '') + '보증금은 계약이 끝나면 돌려드려요. 정확한 견적은 담당자가 안내드려요)';
+    + '\n(부가세·보험 포함 예상 금액이에요. ' + (q.searched || q.listed ? '옵션을 넣으면 올라가요. ' : '') + '보증금은 계약이 끝나면 돌려드려요. 정확한 견적은 담당자가 안내드려요)';
 }
 
 // ── 상담 신청 저장 + 직원 메신저 + 푸시 ──
@@ -331,6 +367,16 @@ async function handle(req, res){
     const raw = await callAi(keys, systemPrompt(companyName, phone), messages);
     const nc = extractNewcar(raw);
     let { reply, inquiry } = extractInquiry(nc.reply);
+    let saved = null;
+    if(nc.req) saved = (await db().ref('companyDocs/' + companyId + '/_newcarRates').once('value')).val() || {};
+    if(nc.req && !nc.req.price){
+      const carsText = (saved && typeof saved.cars === 'string' && saved.cars.trim()) ? saved.cars : NEWCAR_CARS_DEFAULT;
+      const hitCar = ncMatchCar(ncParseCars(carsText), nc.req.car);
+      if(hitCar){
+        nc.req.price = hitCar.price;
+        nc.req.listed = [hitCar.maker, hitCar.model, hitCar.fuel, hitCar.trim].join(' ') + (hitCar.base ? ' 기본 트림 기준' : ' 기준');
+      }
+    }
     if(nc.req && !nc.req.price){
       const found = keys.gemini ? await searchCarPrice(keys.gemini, nc.req.car) : null;
       if(found){ nc.req.price = found.price; nc.req.searched = [found.name, found.year].filter(Boolean).join(' '); }
@@ -340,7 +386,6 @@ async function handle(req, res){
       }
     }
     if(nc.req){
-      const saved = (await db().ref('companyDocs/' + companyId + '/_newcarRates').once('value')).val() || {};
       const R = Object.assign({}, NEWCAR_RATES_DEFAULT);
       Object.keys(NEWCAR_RATES_DEFAULT).forEach(k => { if(saved[k] != null && isFinite(Number(saved[k]))) R[k] = Number(saved[k]); });
       reply = (reply ? reply + '\n\n' : '') + newcarEstimateText(R, nc.req);
@@ -355,4 +400,4 @@ async function handle(req, res){
 }
 
 functions.http('aiconsult', handle);
-module.exports = { handle, extractInquiry, extractNewcar, searchCarPrice, parsePriceKr, _priceCache, newcarMonthly, newcarEstimateText, NEWCAR_RATES_DEFAULT, systemPrompt, deps, _hits };
+module.exports = { _search, ncParseCars, ncMatchCar, NEWCAR_CARS_DEFAULT, handle, extractInquiry, extractNewcar, searchCarPrice, parsePriceKr, _priceCache, newcarMonthly, newcarEstimateText, NEWCAR_RATES_DEFAULT, systemPrompt, deps, _hits };

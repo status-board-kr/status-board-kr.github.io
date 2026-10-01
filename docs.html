@@ -414,6 +414,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
 .nc-manual a { color:var(--sky); }
 .nc-cost { color:var(--soft); }
 .nc-warn { color:var(--coral); font-weight:700; }
+.nc-pick { width:100%; height:var(--touch); margin-bottom:10px; padding:0 12px; border-radius:var(--r); border:1px solid var(--blue); background:rgba(14,165,233,.1); color:var(--sky); font-size:14px; font-weight:700; }
 
 </style>
 </head>
@@ -858,6 +859,7 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
 
       <div class="acard">
         <div class="acard-title">신차 정보</div>
+        <select id="nr_pick" class="nc-pick" onchange="ncPickCar(this)"></select>
         <div class="form-grid">
           <div class="afield"><label>제조사</label><input type="text" id="n_maker" placeholder="현대"/></div>
           <div class="afield"><label>차량모델 *</label><input type="text" id="n_model" placeholder="디 올 뉴 그랜저"/></div>
@@ -894,6 +896,8 @@ body { font-family: 'Noto Sans KR', sans-serif; background: var(--navy); color: 
               <div class="afield"><label>2안 기본 보증금 (%)</label><input type="text" id="nr_d2" inputmode="decimal" oninput="ncRateInput(this)"/></div>
               <div class="afield"><label>3안 기본 보증금 (%)</label><input type="text" id="nr_d3" inputmode="decimal" oninput="ncRateInput(this)"/></div>
             </div>
+            <div class="afield" style="margin-top:8px;"><label>차종 가격표 (한 줄에 하나: 제조사 모델 연료 트림 가격(만원)) — AI 상담도 이 표를 씀</label>
+              <textarea id="nr_cars" rows="8" style="font-size:13px;line-height:1.5;" oninput="ncRateInput(this)"></textarea></div>
             <button type="button" class="nc-rates-save" onclick="saveNewcarRates()">💾 계산 기준 저장</button>
           </div>
         </details>
@@ -2609,7 +2613,31 @@ var NC_OPTS = 3;
 var NC_PERIODS = [12, 24, 36, 48, 60];
 // 계산 기준 (금리·보험료는 예시 값 — 화면의 ⚙️ 계산 기준에서 실제 숫자로 바꾸고 저장)
 //  rate/months/down: 내가 차 살 때 할부 금리(연 %)·기간·선수금 % · ins/fee/etc/margin: 월 보험료·지입료·기타·마진 · d2/d3: 2·3안 기본 보증금 %
-var NC_RATES_DEFAULT = { rate: 6, months: 60, down: 0, acq: 4, reg: 0, ins: 100000, fee: 50000, etc: 0, margin: 50000, age21: 30000, d2: 10, d3: 30 };
+var NC_CARS_DEFAULT = "현대 캐스퍼 가솔린 스마트 1493\n현대 캐스퍼 가솔린 디에센셜 1771\n현대 캐스퍼 가솔린 인스퍼레이션 2017\n현대 아반떼 가솔린 모던 2398\n현대 아반떼 하이브리드 모던 3042\n현대 쏘나타 가솔린 프리미엄 2826\n현대 쏘나타 가솔린 익스클루시브 3260\n현대 쏘나타 가솔린 인스퍼레이션 3549\n현대 쏘나타 하이브리드 프리미엄 3270\n현대 쏘나타 하이브리드 익스클루시브 3674\n현대 쏘나타 하이브리드 인스퍼레이션 3979\n현대 그랜저 가솔린 프리미엄 3798\n현대 그랜저 가솔린 익스클루시브 4287\n현대 그랜저 가솔린 아너스 4513\n현대 그랜저 가솔린 캘리그래피 4710\n현대 그랜저 하이브리드 프리미엄 4354\n현대 그랜저 하이브리드 익스클루시브 4843\n현대 그랜저 하이브리드 아너스 5069\n현대 그랜저 하이브리드 캘리그래피 5266\n현대 코나 가솔린 모던 2463\n현대 투싼 가솔린 모던 2844\n현대 투싼 가솔린 프리미엄 3069\n현대 투싼 가솔린 인스퍼레이션 3407\n현대 투싼 하이브리드 모던 3270\n현대 투싼 하이브리드 프리미엄 3514\n현대 투싼 하이브리드 인스퍼레이션 3861\n현대 싼타페 가솔린 익스클루시브 3657\n현대 싼타페 가솔린 프레스티지 3889\n현대 싼타페 가솔린 캘리그래피 4484\n현대 싼타페 하이브리드 익스클루시브 3964\n현대 싼타페 하이브리드 프레스티지 4247\n현대 싼타페 하이브리드 캘리그래피 4807\n현대 팰리세이드 가솔린 익스클루시브 4383\n현대 팰리세이드 가솔린 프레스티지 4936\n현대 팰리세이드 가솔린 캘리그래피 5586\n현대 팰리세이드 하이브리드 익스클루시브 4982\n현대 팰리세이드 하이브리드 프레스티지 5536\n현대 팰리세이드 하이브리드 캘리그래피 6186\n현대 스타리아 LPG 투어러스마트 3502\n현대 스타리아 LPG 투어러모던 3659\n현대 스타리아 하이브리드 투어러스마트 3870\n기아 모닝 가솔린 트렌디 1421\n기아 레이 가솔린 트렌디 1490\n기아 레이 가솔린 프레스티지 1760\n기아 레이 가솔린 시그니처 1903\n기아 K5 가솔린 프레스티지 2808\n기아 K5 가솔린 노블레스 3154\n기아 K5 가솔린 시그니처 3469\n기아 K5 하이브리드 프레스티지 3241\n기아 K5 하이브리드 노블레스 3573\n기아 K5 하이브리드 시그니처 3868\n기아 K8 가솔린 노블레스라이트 3679\n기아 K8 가솔린 노블레스 4026\n기아 K8 가솔린 시그니처 4390\n기아 K8 하이브리드 노블레스라이트 4206\n기아 K8 하이브리드 노블레스 4552\n기아 K8 하이브리드 시그니처 4917\n기아 셀토스 가솔린 트렌디 2512\n기아 스포티지 가솔린 프레스티지 2863\n기아 스포티지 가솔린 노블레스 3197\n기아 스포티지 가솔린 시그니처 3458\n기아 스포티지 하이브리드 프레스티지 3346\n기아 스포티지 하이브리드 노블레스 3670\n기아 스포티지 하이브리드 시그니처 3931\n기아 쏘렌토 가솔린 프레스티지 3580\n기아 쏘렌토 가솔린 노블레스 3891\n기아 쏘렌토 가솔린 시그니처 4168\n기아 쏘렌토 하이브리드 프레스티지 3953\n기아 쏘렌토 하이브리드 노블레스 4279\n기아 쏘렌토 하이브리드 시그니처 4531\n기아 카니발 가솔린 프레스티지 3636\n기아 카니발 가솔린 노블레스 4071\n기아 카니발 가솔린 시그니처 4426\n기아 카니발 하이브리드 프레스티지 4091\n기아 카니발 하이브리드 노블레스 4526\n기아 카니발 하이브리드 시그니처 4881";   // 2026년 9~10월 검색 기준, ⚙️ 계산 기준에서 고칠 수 있음
+var NC_RATES_DEFAULT = { rate: 6, months: 60, down: 0, acq: 4, reg: 0, ins: 100000, fee: 50000, etc: 0, margin: 50000, age21: 30000, d2: 10, d3: 30, cars: NC_CARS_DEFAULT };
+// ── 차종 가격표: 한 줄에 "제조사 모델 연료 트림 가격(만원)" ──
+function ncParseCars(text) {
+  return String(text || "").split(/\n/).map(function (l) {
+    var p = l.trim().split(/\s+/);
+    if (p.length < 5) return null;
+    var price = Math.round(Number(p[p.length - 1].replace(/,/g, "")) * 10000);
+    return { maker: p[0], model: p[1], fuel: p[2], trim: p.slice(3, -1).join(" "), price: price };
+  }).filter(function (e) { return e && e.price >= 5000000 && e.price <= 300000000; });
+}
+// "기아 쏘렌토 하이브리드 1.6 시그니처" → 표에서 모델·연료·트림이 맞는 줄 (트림을 모르면 그 연료의 가장 싼 트림)
+function ncMatchCar(list, car) {
+  var n = function (s) { return String(s || "").toLowerCase().replace(/\s+/g, ""); };
+  var c = n(car).replace(/케이파이브|케이5/g, "k5").replace(/케이에이트|케이8/g, "k8");
+  var cands = list.filter(function (e) { return c.indexOf(n(e.model)) >= 0; });
+  if (!cands.length) return null;
+  var want = /하이브리드|hev|hybrid/.test(c) ? "하이브리드" : /lpg/.test(c) ? "lpg" : "";
+  var f = cands.filter(function (e) { var x = n(e.fuel); return want ? x === want : x !== "하이브리드"; });
+  if (!f.length) f = cands;
+  var t = f.filter(function (e) { return e.trim && c.indexOf(n(e.trim)) >= 0; }).sort(function (a, b) { return n(b.trim).length - n(a.trim).length; });
+  if (t.length) return Object.assign({ base: false }, t[0]);
+  return Object.assign({ base: true }, f.slice().sort(function (a, b) { return a.price - b.price; })[0]);
+}
+
 var NC_WON_KEYS = ["ins", "fee", "etc", "margin", "age21", "reg"];
 var NC_PCT_KEYS = ["rate", "months", "down", "acq", "d2", "d3"];   // acq: 취등록세 % (영업용 렌터카 4% 예시), reg: 공채·번호판 등 원
 var ncRates = Object.assign({}, NC_RATES_DEFAULT);
@@ -2744,11 +2772,34 @@ function ncPctText(pct) {
 }
 
 // ── 계산 기준 (요율) ──
+// 신차 정보 칸의 "가격표에서 고르기" 목록
+function ncFillPick() {
+  var sel = document.getElementById("nr_pick");
+  if (!sel) return;
+  var list = ncParseCars(ncRates.cars);
+  sel.innerHTML = '<option value="">📋 가격표에서 고르기 (고르면 찻값까지 자동)</option>' + list.map(function (e, i) {
+    return '<option value="' + i + '">' + escapeHtmlD([e.maker, e.model, e.fuel, e.trim].join(" ")) + " — " + (e.price / 10000).toLocaleString() + "만원</option>";
+  }).join("");
+}
+function ncPickCar(sel) {
+  var e = ncParseCars(ncRates.cars)[Number(sel.value)];
+  if (!e) return;
+  var s = function (id, v) { var el = document.getElementById(id); if (el) el.value = v; };
+  s("n_maker", e.maker); s("n_model", e.model + (e.fuel === "하이브리드" ? " 하이브리드" : "")); s("n_trim", e.trim);
+  var fuelSel = document.getElementById("n_fuel");
+  if (fuelSel) { var want = e.fuel === "LPG" ? "LPG" : e.fuel; if (Array.from(fuelSel.options).some(function (o) { return o.value === want; })) fuelSel.value = want; }
+  s("n_carprice", e.price.toLocaleString());
+  calcNewcar();
+  docsToast("🚘 " + e.model + " " + e.trim + " · " + (e.price / 10000).toLocaleString() + "만원 (옵션은 더해서 고쳐주세요)");
+}
 function ncFillRates() {
+  var ct = document.getElementById("nr_cars"); if (ct) ct.value = ncRates.cars || "";
+  ncFillPick();
   NC_PCT_KEYS.forEach(function (key) { var e = document.getElementById("nr_" + key); if (e) e.value = ncRates[key] == null ? "" : ncRates[key]; });
   NC_WON_KEYS.forEach(function (key) { var e = document.getElementById("nr_" + key); if (e) e.value = Number(ncRates[key] || 0).toLocaleString(); });
 }
 function ncRateInput(el) {
+  if (el.id === "nr_cars") { ncRates.cars = el.value; ncFillPick(); ncRatesSummary(); return; }
   var key = el.id.slice(3);
   if (NC_PCT_KEYS.indexOf(key) >= 0 && el.tagName !== "SELECT") el.value = el.value.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1");
   NC_PCT_KEYS.concat(NC_WON_KEYS).forEach(function (key) { ncRates[key] = ncNum("nr_" + key); });
@@ -2776,6 +2827,7 @@ function applyNewcarRates(obj) {
   if (!obj) return;
   var next = Object.assign({}, NC_RATES_DEFAULT);
   NC_PCT_KEYS.concat(NC_WON_KEYS).forEach(function (key) { if (obj[key] != null) next[key] = obj[key]; });   // 예전 요율 방식 값은 무시
+  if (typeof obj.cars === "string" && obj.cars.trim()) next.cars = obj.cars;
   var js = JSON.stringify(next);
   if (js === _ncRatesSavedJson) return;
   _ncRatesSavedJson = js;
@@ -2807,6 +2859,7 @@ function clearNewcar() {
   var rb = document.querySelector("input[name='n_birth_type'][value='birth']");
   if (rb) { rb.checked = true; toggleBirthType("n"); }
   var dt = document.getElementById("n_date"); if (dt) dt.value = todayLocal();
+  var pk = document.getElementById("nr_pick"); if (pk) pk.selectedIndex = 0;
   ncPrefillDeposits();
   calcNewcar();
   document.getElementById("newcarDoc").style.display = "none";
