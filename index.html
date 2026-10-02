@@ -4198,8 +4198,8 @@ async function applyChatCommand(cmd){
     }catch(e){ console.error(e); return { ok:false, msg:'⚠️ 주행거리 수정 실패 - 다시 시도해주세요' }; }
   }
 
-  // 번호만 입력 → 조회만 (저장 안 함)
-  if(cmd.isQueryOnly){
+  // 사진의 상대 번호가 있으면 번호만 적었어도 메모에 반영합니다.
+  if(cmd.isQueryOnly && !(cmd.extraPlates && cmd.extraPlates.length)){
     return { ok:true, query:true,
       msg:`📋 ${v.plate} (${v.model||'-'})\n- 구분: ${v.type||'-'}\n- 상태: ${v.status||'-'}\n- 메모: ${v.note||'-'}` };
   }
@@ -4227,12 +4227,12 @@ async function applyChatCommand(cmd){
     if(!cmd.newStatus && !cmd.typeToken && cmd.note && /차고지|입고|들어옴/.test(cmd.note)){
       v.status = '대기'; v.startDate = null;
     }
-    // 사진에 같이 찍힌 '우리 차량이 아닌 번호판'(피해차량 등)은 메모 맨 뒤에 붙입니다
-    if(cmd.extraPlates && cmd.extraPlates.length){
-      const base = (v.note || '').trim();
-      const add = cmd.extraPlates.filter(pl => base.indexOf(pl) === -1);
-      if(add.length) v.note = (base ? base + ' ' : '') + add.join(' ');
-    }
+  }
+  // 회수·조완 모두 상대 차량번호를 메모에 남깁니다.
+  if(cmd.extraPlates && cmd.extraPlates.length){
+    const base = (v.note || '').trim();
+    const add = cmd.extraPlates.filter(pl => base.indexOf(pl) === -1);
+    if(add.length) v.note = (base ? base + ' ' : '') + add.join(' ');
   }
 
   vehicles[idx]=v;
@@ -4657,11 +4657,23 @@ async function callVisionAi(prompt, b64s, timeoutMs){
   return { text: null, reason: lastReason || '자동 인식 실패' };
 }
 async function readPhotoWithAI(dataUrls){
-  const list = Array.isArray(dataUrls) ? dataUrls.slice(0, 4) : [dataUrls];  // 앞의 4장까지 같이 보고 판단
-  const b64s = list.map(d => d.split(',')[1]);
-  const { text, reason } = await callVisionAi(AI_PHOTO_PROMPT, b64s, 25000);
-  if(!text) return { plates: [], plate: null, km: null, reason: reason || 'nokey' };
-  return normalizeAiResult(parseAiJson(text));
+  const list = Array.isArray(dataUrls) ? dataUrls : [dataUrls];
+  const combined = { plates: [], plate: null, km: null, confidence: '', reason: '' };
+  for(let i=0; i<list.length; i+=4){
+    const b64s = list.slice(i,i+4).map(d => d.split(',')[1]);
+    const { text, reason } = await callVisionAi(AI_PHOTO_PROMPT, b64s, 25000);
+    const result = text ? normalizeAiResult(parseAiJson(text)) : { plates: [], km: null, reason: reason || 'nokey' };
+    for(const plate of result.plates) if(!combined.plates.includes(plate)) combined.plates.push(plate);
+    if(combined.km == null && result.km != null){
+      combined.km = result.km;
+      if(combined.confidence !== 'low') combined.confidence = result.confidence;
+    }
+    if(result.confidence === 'low') combined.confidence = 'low';
+    if(result.reason) combined.reason = result.reason;
+  }
+  combined.plate = combined.plates[0] || null;
+  if(combined.plates.length || combined.km != null) combined.reason = '';
+  return combined;
 }
 // 옛 이름 호환 (다른 곳에서 부르던 이름)
 async function readOdometerWithClaude(dataUrl){ return readPhotoWithAI(dataUrl); }
@@ -4672,8 +4684,9 @@ function matchVehicleByPlate(plate){
   const all = vehicles.filter(v => v && v.plate);
   const exact = all.find(v => v.plate.replace(/\s+/g, '') === p);
   if(exact) return exact;
-  const tail = (p.match(/(\d{4})\D*$/) || [])[1];
-  if(!tail) return null;
+  // 전체 번호판이 다르면 뒷자리만 같은 상대 차량을 우리 차량으로 분류하지 않습니다.
+  if(!/^\d{4}$/.test(p)) return null;
+  const tail = p;
   const hits = all.filter(v => v.plate.endsWith(tail));
   return hits.length === 1 ? hits[0] : null;
 }
