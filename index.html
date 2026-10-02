@@ -2344,10 +2344,11 @@ function startWookyResultWatch(){
   _wookyWatchStarted = true;
   try{
     const { ref, onValue, update, remove, push, db } = window._fb;
-    onValue(ref(db, P('wookyAgent')), snap=>{wookyHealth=snap.val();renderWookyHealth();});
     setInterval(renderWookyHealth,5000);
     onValue(ref(db, P('wookyJobs')), async (snap)=>{
-      wookyRetryJobs=snap.val()||{};renderWookyHealth();
+      wookyRetryJobs=snap.val()||{};
+      wookyHealth=Object.values(wookyRetryJobs).map(j=>j && j.agentHealth).filter(Boolean).sort((a,b)=>String(b.lastSeen).localeCompare(String(a.lastSeen)))[0] || null;
+      renderWookyHealth();
       if(!snap.exists()) return;
       const jobs = snap.val() || {};
       for(const [jid, job] of Object.entries(jobs)){
