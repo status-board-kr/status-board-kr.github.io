@@ -44,6 +44,11 @@ if (!act.includes('saveWidget')) {
     '',
     '    public static volatile String pendingOpen = null;',
     '',
+    '    private void dispatchWidgetOpen() {',
+    '        if (pendingOpen == null || getBridge() == null || getBridge().getWebView() == null) return;',
+    '        getBridge().getWebView().post(() -> getBridge().getWebView().evaluateJavascript("if(typeof checkWidgetOpen === \'function\') checkWidgetOpen();", null));',
+    '    }',
+    '',
     '    private void captureOpen(android.content.Intent it) {',
     '        if (it == null) return;',
     '        String v = it.getStringExtra("fleetOpen");',
@@ -55,12 +60,14 @@ if (!act.includes('saveWidget')) {
     '        super.onNewIntent(intent);',
     '        setIntent(intent);',
     '        captureOpen(intent);',
+    '        dispatchWidgetOpen();',
     '    }',
     '',
     '    @Override',
     '    public void onResume() {',
     '        super.onResume();',
     '        captureOpen(getIntent());',
+    '        dispatchWidgetOpen();',
     '    }',
     ''
   ].join('\n');
@@ -208,11 +215,26 @@ public class FleetWidgetUtil {
                 continue;
             }
             int n = count == null ? 0 : count.optInt(String.valueOf(day));
-            v.setTextViewText(cell, String.valueOf(day) + (n > 0 ? "\\n•" : ""));
+            JSONArray dayEvents = events == null ? null : events.optJSONArray(String.valueOf(day));
+            JSONObject firstEvent = dayEvents == null ? null : dayEvents.optJSONObject(0);
+            String label = "";
+            if (firstEvent != null) {
+                String title = firstEvent.optString("title");
+                if ("회수".equals(firstEvent.optString("kind")) && title.length() >= 4) label = title.substring(title.length()-4) + "회수";
+                else label = title.length() > 5 ? title.substring(0,4) + "…" : title;
+            } else if (n > 0) label = "일정 " + n + "건";
+            String dayText = String.valueOf(day);
+            android.text.SpannableString cellText = new android.text.SpannableString(dayText + (label.isEmpty() ? "" : "\\n" + label));
+            if (!label.isEmpty()) {
+                int start = dayText.length()+1;
+                cellText.setSpan(new android.text.style.AbsoluteSizeSpan(9, true), start, cellText.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+                cellText.setSpan(new android.text.style.ForegroundColorSpan(Color.parseColor(day == selDay ? "#FFFFFF" : "#008F54")), start, cellText.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            }
+            v.setTextViewText(cell, cellText);
             int color = day == selDay ? Color.parseColor("#FFFFFF") : Color.parseColor(i%7 == 0 ? "#C76C6C" : i%7 == 6 ? "#5987AD" : "#334339");
             v.setTextColor(cell, color);
             v.setInt(cell, "setBackgroundResource", day == selDay ? R.drawable.wcell_sel : day == today ? R.drawable.wcell_today : 0);
-            v.setOnClickPendingIntent(cell, selector(ctx, ymd(year, month, day), 100+i));
+            v.setOnClickPendingIntent(cell, n > 0 ? opener(ctx, "date:" + ymd(year, month, day), 300+i) : selector(ctx, ymd(year, month, day), 100+i));
         }
         String date = ymd(year, month, selDay);
         v.setTextViewText(R.id.w_seltitle, month + "월 " + selDay + "일" + (today == selDay ? " · 오늘" : ""));
@@ -415,7 +437,7 @@ const fleetCounts='<LinearLayout android:layout_width="match_parent" android:lay
 const lightRoot=inner=>'<?xml version="1.0" encoding="utf-8"?><LinearLayout '+A+' android:id="@+id/w_root" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="14dp" android:background="@drawable/widget_bg">'+inner+'</LinearLayout>';
 const monthRow='<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:layout_marginTop="10dp" android:orientation="horizontal">'+text('w_month','',19,'#293C32','android:textStyle="bold" android:layout_weight="1"')+text('w_prev','‹',24,'#758178','android:paddingStart="9dp" android:paddingEnd="9dp"')+text('w_next','›',24,'#758178','android:paddingStart="9dp" android:paddingEnd="9dp"')+text('w_today','오늘',10,'#758178','android:padding="6dp" android:background="@drawable/wchip_gray"')+'</LinearLayout>';
 let lightCal='<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="8dp" android:layout_marginBottom="4dp">'+['일','월','화','수','목','금','토'].map((day,i)=>text('',day,10,i===0?'#C76C6C':i===6?'#5987AD':'#849087','android:layout_weight="1" android:gravity="center"')).join('')+'</LinearLayout>';
-for(let row=0;row<6;row++){lightCal+='<LinearLayout android:id="@+id/w_r'+row+'" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal" android:baselineAligned="false">';for(let col=0;col<7;col++)lightCal+=text('w_c'+(row*7+col),'',14,'#334339','android:layout_weight="1" android:gravity="center" android:layout_margin="1dp" android:lineSpacingMultiplier="0.8"').replace('android:layout_width="wrap_content" android:layout_height="wrap_content"','android:layout_width="0dp" android:layout_height="match_parent"');lightCal+='</LinearLayout>';}
+for(let row=0;row<6;row++){lightCal+='<LinearLayout android:id="@+id/w_r'+row+'" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal" android:baselineAligned="false">';for(let col=0;col<7;col++)lightCal+=text('w_c'+(row*7+col),'',14,'#334339','android:layout_weight="1" android:gravity="center" android:layout_margin="1dp" android:lineSpacingMultiplier="1.0" android:maxLines="2" android:ellipsize="end"').replace('android:layout_width="wrap_content" android:layout_height="wrap_content"','android:layout_width="0dp" android:layout_height="match_parent"');lightCal+='</LinearLayout>';}
 const separator='<TextView android:layout_width="match_parent" android:layout_height="1dp" android:background="#E9EDEA" android:layout_marginTop="8dp" android:layout_marginBottom="8dp"/>';
 const selectedRow='<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">'+text('w_seltitle','오늘 일정',12,'#293C32','android:textStyle="bold" android:layout_weight="1"')+text('w_count','',9,'#849087')+'</LinearLayout>';
 let agenda=text('w_empty','등록된 일정이 없습니다',11,'#849087','android:paddingTop="8dp" android:paddingBottom="8dp"');

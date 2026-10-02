@@ -1756,7 +1756,11 @@ function renderSchedBanner(){
 
 // 오늘/내일 일정 배너를 눌렀을 때 그 날짜가 선택된 상태로 일정 화면을 엽니다.
 function openSchedModalOnDate(dateStr){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return;
   openSchedModal();
+  const [year,month] = dateStr.split('-').map(Number);
+  calYear = year;
+  calMonth = month-1;
   calSelectDate(dateStr);
 }
 
@@ -2135,6 +2139,7 @@ function pushWidgetData(){
 function checkWidgetOpen(){
   try{
     if(!(window.AndroidSettings && window.AndroidSettings.consumeOpen)) return;
+    if(!window.COMPANY_ID || !window._fb) return; // Keep the request until login/company loading finishes.
     const v = window.AndroidSettings.consumeOpen();
     if(!v) return;
     if(v === 'chat'){ if(typeof openChatModal === 'function') openChatModal(); return; }
