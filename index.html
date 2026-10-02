@@ -681,6 +681,11 @@
     <a class="link-btn" id="docsBtn" style="display:none;color:#38bdf8;border:1px solid rgba(56,189,248,.5);" href="https://status-board-kr.github.io/docs.html" target="_blank" rel="noopener" onclick="if(window.AndroidSettings&&window.AndroidSettings.openUrl){event.preventDefault();openExternalUrl(this.href);}">📄 견적·계약서</a>
   </div>
   <div class="stats" id="statsRow"></div>
+  <div id="wookyHealthBar" style="margin:8px 0;color:var(--sub);font-size:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;" role="status">
+    <span id="wookyHealthText">자동 종결 · 연결 확인 중…</span>
+    <button type="button" id="wookyRetryBtn" style="display:none;" onclick="retryWookyFailures()">실패 건 재시도</button>
+  </div>
+
   <div class="sched-banner" id="schedBanner"></div>
   <div class="search-row">
     <input id="searchInput" placeholder="차량번호 / 담당자 / 메모 검색" oninput="render()">
@@ -2294,6 +2299,44 @@ async function requestWookyClose(plate, km){
   }
 }
 // 사무실 PC가 처리를 끝내면 결과(resultMsg)를 할 일에 적어둠. 현황판(로그인됨)이 그걸 보고 메신저에 한 번 띄우고 오래된 건 정리.
+
+let wookyHealth = null;
+let wookyRetryJobs = {};
+function renderWookyHealth(){
+  const text = document.getElementById('wookyHealthText');
+  if(!text) return;
+  const fresh = wookyHealth && Date.now()-new Date(wookyHealth.lastSeen).getTime()<45000;
+  text.textContent = !fresh ? '⚪ 자동 종결 · 일꾼 연결 안 됨' :
+    wookyHealth.loginState==='ok' ? '🟢 자동 종결 · 연결됨' : '🔴 자동 종결 · 우기소프트 로그인 실패';
+  const failed = Object.values(wookyRetryJobs).filter(j=>j && j.status==='done' && ['fail','error'].includes(j.result)).length;
+  const button = document.getElementById('wookyRetryBtn');
+  button.style.display = failed && window.COMPANY_ROLE==='owner' ? '' : 'none';
+  button.textContent = '실패 '+failed+'건 재시도';
+}
+async function retryWookyFailures(){
+  if(window.COMPANY_ROLE!=='owner') return;
+  const {ref,db,get,runTransaction} = window._fb;
+  const button=document.getElementById('wookyRetryBtn');
+  button.disabled=true;
+  try{
+    const snap=await get(ref(db,P('wookyJobs')));
+    const jobs=snap.val()||{};
+    const busyPlates=new Set(Object.values(jobs).filter(j=>j && ['pending','working'].includes(j.status)).map(j=>j.plate));
+    let count=0;
+    for(const [id,job] of Object.entries(jobs)){
+      if(!job || job.status!=='done' || !['fail','error'].includes(job.result) || busyPlates.has(job.plate)) continue;
+      const result=await runTransaction(ref(db,P('wookyJobs/'+id)),current=>{
+        if(!current || current.status!=='done' || !['fail','error'].includes(current.result)) return;
+        return {...current,status:'pending',result:null,resultMsg:null,announced:false,hint:null,diag:null,
+          retryCount:(current.retryCount||0)+1,retriedAt:new Date().toISOString()};
+      });
+      if(result.committed){count++;busyPlates.add(job.plate);}
+    }
+    showToast(count ? '✅ '+count+'건 재시도 요청했어요. 일꾼이 연결되면 처리합니다.' : '재시도할 실패 건이 없거나 이미 처리 대기 중이에요.');
+  }catch(e){showToast('⚠️ 재시도 요청에 실패했어요. 다시 눌러주세요.');}
+  finally{button.disabled=false;}
+}
+
 let _wookyWatchStarted = false;
 function startWookyResultWatch(){
   if(_wookyWatchStarted) return;
@@ -2301,7 +2344,10 @@ function startWookyResultWatch(){
   _wookyWatchStarted = true;
   try{
     const { ref, onValue, update, remove, push, db } = window._fb;
+    onValue(ref(db, P('wookyAgent')), snap=>{wookyHealth=snap.val();renderWookyHealth();});
+    setInterval(renderWookyHealth,5000);
     onValue(ref(db, P('wookyJobs')), async (snap)=>{
+      wookyRetryJobs=snap.val()||{};renderWookyHealth();
       if(!snap.exists()) return;
       const jobs = snap.val() || {};
       for(const [jid, job] of Object.entries(jobs)){
