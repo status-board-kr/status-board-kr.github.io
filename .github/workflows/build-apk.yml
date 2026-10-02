@@ -2,14 +2,6 @@ name: APK 만들기
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - index.html
-      - payment.html
-      - fleet-auth.js
-      - status-board-app/**
-      - .github/workflows/build-apk.yml
 
 concurrency:
   group: apk-build-main
