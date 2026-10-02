@@ -555,6 +555,31 @@
     background:none; border:none; color:var(--blue); font-size:12px; cursor:pointer; padding:2px 4px;
   }
 
+
+/* Approved compact board design: original card actions, sorting and alerts stay active. */
+header{background:#101b2e;border-bottom-color:#30415d;padding-bottom:10px}
+.header-actions{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+.header-actions .link-btn{font-size:11px;min-height:36px;padding:7px 3px;border-radius:7px;gap:5px;background:#1b2a43}
+.nav-icon{width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;border-radius:5px;flex-shrink:0}
+.nav-icon svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.nav-icon.messenger{background:#244b74;color:#a0d5ff}.nav-icon.kakao{background:#fee500;color:#3b241b}
+.nav-icon.calendar{background:#62437e;color:#efe0ff;width:22px;height:22px}.nav-icon.calendar svg{width:17px;height:17px}
+.header-actions .schedule-nav{font-size:12px;background:#3d2e51;min-height:38px}
+.stats{grid-template-columns:repeat(6,minmax(0,1fr));gap:4px}.stat{padding:7px 1px;border-radius:7px}.stat b{font-size:16px;margin-top:4px}.stat span{font-size:11px}
+.board-bot{font-size:10px;display:flex;align-items:center;justify-content:flex-end;gap:4px;color:var(--sub);margin-top:4px}.board-bot b{font-size:10px;font-weight:500}
+.card{border-radius:9px;margin-bottom:6px;padding:10px 11px;border-left-width:3px}
+.card.st-idle{background:#173c30;border-color:#356b53;border-left-color:#54ba87}.card.st-prep{background:#433c2c;border-color:#786c46;border-left-color:#c8b078}
+.card.st-dispatch,.card.st-running{background:#1c3553;border-color:#3b5b80;border-left-color:#6da3dd}
+.card[data-service="true"]{background:#362a4b;border-color:#695187;border-left-color:#a586cf}
+.card.return-alert{border-left-color:var(--red)}.card.return-soon-alert{border-left-color:var(--amber)}
+.plate-tag{font-size:19px;letter-spacing:.2px}.badge{font-size:10px;padding:2px 5px}.badge.st-idle{color:#9be1b6;background:#23543e}.badge.st-dispatch,.badge.st-running{color:#b4d6fc;background:#294a70}
+.model,.note{font-size:12px}.extra{font-size:10.5px}.section-title{margin:12px 2px 7px;font-size:12px}
+.sched-banner{margin-top:6px}.sched-item{padding:6px 9px;margin-bottom:4px;border-radius:7px}.sched-title{font-size:12px}.sched-tag{font-size:10px}
+#schedModalBg .modal{max-width:740px}#schedModalBg .cal-head .cal-title{font-size:20px}#schedModalBg .cal-head button{width:36px;height:36px;font-size:20px}
+#schedModalBg .cal-grid{gap:5px}#schedModalBg .cal-cell{height:49px;font-size:17px}#schedModalBg .cal-dow{font-size:12px}
+@media(min-width:700px){.header-actions{grid-template-columns:repeat(8,minmax(0,1fr))}.header-actions .link-btn{font-size:12px;padding:8px 5px}.card{padding:11px 13px}.plate-tag{font-size:21px}#schedModalBg .cal-cell{height:61px;font-size:20px}}
+@media(max-width:360px){.header-actions{grid-template-columns:repeat(4,minmax(0,1fr))}.header-actions .link-btn{font-size:10px}.nav-icon{width:16px;height:16px}.stat span{font-size:10px}.plate-tag{font-size:18px}}
+
 </style>
 </head>
 <body>
@@ -671,16 +696,16 @@
     </div>
   </div>
   <div class="header-actions">
-    <button class="link-btn telegram" onclick="openChatModal()" style="position:relative;">💬 메신저<span class="chat-badge" id="chatBadge" style="display:none;top:-6px;right:-6px;">0</span></button>
-    <button class="link-btn" style="color:#f472b6;border:1px solid rgba(244,114,182,.5);position:relative;" onclick="openLocModal()">📍 위치보기<span class="chat-badge" id="locBadge" style="display:none;top:-6px;right:-6px;">0</span></button>
-    <button class="link-btn" style="color:#34d399;border:1px solid rgba(52,211,153,.5);position:relative;" onclick="openInquiryModal()">📞 상담<span class="chat-badge" id="inqBadge" style="display:none;top:-6px;right:-6px;">0</span></button>
-    <button class="link-btn kakao" style="color:#fde047;border:1px solid rgba(253,224,71,.45);" onclick="openKakaoTalk()">💬 카카오톡</button>
-    <button class="link-btn" id="quickAppBtn" style="color:#fbbf24;border:1px solid rgba(251,191,36,.5);" onclick="openQuickApp()" oncontextmenu="if(window.COMPANY_ROLE==='owner'){event.preventDefault();setupQuickApp();}">⭐ 자주 쓰는 앱</button>
-    <button class="link-btn" style="color:var(--purple);border:1px solid rgba(167,139,250,.5);" onclick="openSchedModal()">📅 일정</button>
-    <a class="link-btn" style="color:var(--amber);border:1px solid rgba(245,166,35,.5);" href="payment.html">💳 결제일 알림</a>
-    <a class="link-btn" id="docsBtn" style="display:none;color:#38bdf8;border:1px solid rgba(56,189,248,.5);" href="https://status-board-kr.github.io/docs.html" target="_blank" rel="noopener" onclick="if(window.AndroidSettings&&window.AndroidSettings.openUrl){event.preventDefault();openExternalUrl(this.href);}">📄 견적·계약서</a>
+    <button class="link-btn telegram" onclick="openChatModal()" style="position:relative;"><span class="nav-icon messenger" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 1-8 8H6l-4 3 1-6A8 8 0 1 1 20 11Z"/><path d="M6 10h10M6 14h7"/></svg></span><span>메신저</span><span class="chat-badge" id="chatBadge" style="display:none;top:-6px;right:-6px;">0</span></button>
+    <button class="link-btn" style="color:#f472b6;border:1px solid rgba(244,114,182,.5);position:relative;" onclick="openLocModal()"><span class="nav-icon location" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg></span><span>위치보기</span><span class="chat-badge" id="locBadge" style="display:none;top:-6px;right:-6px;">0</span></button>
+    <button class="link-btn" style="color:#34d399;border:1px solid rgba(52,211,153,.5);position:relative;" onclick="openInquiryModal()"><span class="nav-icon call" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m8 3 3 5-3 3c1 3 2 4 5 5l3-3 5 3c0 3-2 5-4 5C10 20 4 14 3 7c0-2 2-4 5-4Z"/></svg></span><span>상담</span><span class="chat-badge" id="inqBadge" style="display:none;top:-6px;right:-6px;">0</span></button>
+    <button class="link-btn kakao" style="color:#fde047;border:1px solid rgba(253,224,71,.45);" onclick="openKakaoTalk()"><span class="nav-icon kakao" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3C6 3 2 6 2 11c0 3 2 5 5 6l-1 4 5-3c6 0 11-3 11-7S18 3 12 3Z" fill="currentColor" stroke="none"/><text x="12" y="13" text-anchor="middle" font-family="Arial" font-size="6" font-weight="bold" fill="#fee500" stroke="none">TALK</text></svg></span><span>카카오톡</span></button>
+    <button class="link-btn" id="quickAppBtn" style="color:#fbbf24;border:1px solid rgba(251,191,36,.5);" onclick="openQuickApp()" oncontextmenu="if(window.COMPANY_ROLE==='owner'){event.preventDefault();setupQuickApp();}"><span class="nav-icon favorite" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m12 2 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1Z"/></svg></span><span>자주 쓰는 앱</span></button>
+    <button class="link-btn schedule-nav" style="color:var(--purple);border:1px solid rgba(167,139,250,.5);" onclick="openSchedModal()"><span class="nav-icon calendar" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M7 2v6M17 2v6M3 11h18M7 15h3M14 15h3"/></svg></span><span>일정</span></button>
+    <a class="link-btn" style="color:var(--amber);border:1px solid rgba(245,166,35,.5);" href="payment.html"><span class="nav-icon payment" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 9h20M6 15h4"/></svg></span><span>결제일 알림</span></a>
+    <a class="link-btn" id="docsBtn" style="display:none;color:#38bdf8;border:1px solid rgba(56,189,248,.5);" href="https://status-board-kr.github.io/docs.html" target="_blank" rel="noopener" onclick="if(window.AndroidSettings&&window.AndroidSettings.openUrl){event.preventDefault();openExternalUrl(this.href);}"><span class="nav-icon document" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 12h8M8 16h6"/></svg></span><span>견적·계약서</span></a>
   </div>
-  <div class="stats" id="statsRow"></div>
+  <div class="stats" id="statsRow"></div><div class="board-bot" role="status">● 종결 봇 <b id="wookyHealthText">확인 중</b></div>
   <div id="wookyHealthBar" style="margin:8px 0;color:var(--sub);font-size:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;" role="status">
     <button type="button" id="wookyRetryBtn" style="display:none;" onclick="retryWookyFailures()">실패 건 재시도</button>
   </div>
@@ -1662,6 +1687,7 @@ function startScheduleSync(){
   onValue(ref(db, P('schedules')), (snap)=>{
     schedules = snap.exists() ? snap.val() : {};
     renderSchedBanner();
+    pushWidgetData();
     if(document.getElementById('schedModalBg').classList.contains('open')){
       renderCalendar();
       renderSchedList();
@@ -2034,14 +2060,9 @@ function renderStats(){
   // ▼ 수정: 운행중 카운트에서 장기렌트 차량은 제외 (장기는 별도 통계로만 표시)
   const running = total - idle - prep - longCount;
   const el = document.getElementById('statsRow');
-  el.innerHTML = `
-    <div class="stat ${statusFilter===null?'active':''}" onclick="toggleStatusFilter(null)"><b>${total}</b><span>총 차량</span></div>
-    <div class="stat amber ${statusFilter==='대기'?'active':''}" onclick="toggleStatusFilter('대기')"><b>${idle}</b><span>대기</span></div>
-    <div class="stat blue ${statusFilter==='준비중'?'active':''}" onclick="toggleStatusFilter('준비중')"><b>${prep}</b><span>준비중</span></div>
-    <div class="stat green ${statusFilter==='운행중'?'active':''}" onclick="toggleStatusFilter('운행중')"><b>${running}</b><span>운행중</span></div>
-    <div class="stat purple ${statusFilter===LONG_BRANCH?'active':''}" onclick="toggleStatusFilter('${LONG_BRANCH}')"><b>${longCount}대</b><span>${escapeHtml(LONG_BRANCH)}</span></div>
-    <div class="stat" id="wookyHealthStat" role="status"><b id="wookyHealthText">확인 중</b><span>봇 연결</span></div>
-  `;
+  const filters = [[null,'전체',total,''],['대기','대기',idle,'green'],['준비중','준비중',prep,'amber'],['보험','보험',vehicles.filter(v=>v.type==='보험').length,'blue'],['일반','일반',vehicles.filter(v=>v.type==='일반').length,'amber'],[LONG_BRANCH,'장기',longCount,'purple']];
+  el.innerHTML = filters.map(([value,label,count,color])=>'<div class="stat '+color+' '+(statusFilter===value?'active':'')+'" role="button" tabindex="0" data-filter="'+escapeHtml(value||'')+'"><span>'+label+'</span><b>'+count+'</b></div>').join('');
+  el.querySelectorAll('[data-filter]').forEach(button=>{const select=()=>toggleStatusFilter(button.dataset.filter||null);button.onclick=select;button.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();select();}};});
   renderWookyHealth();
 }
 
@@ -2060,7 +2081,7 @@ function widgetItemsOn(dateStr){
   // 같은 차량 반납·같은 제목 일정이 여러 개 있어도 한 번만
   const seen = new Set();
   return Object.values(schedules || {}).filter(s=>{
-    if(!s || s.done || !matchesDate(s, dateStr)) return false;
+    if(!s || isScheduleDone(s, dateStr) || !matchesDate({...s,date:String(s.date||'').slice(0,10)}, dateStr)) return false;
     const k = (s.auto && s.plate) ? 'r:' + s.plate : 't:' + (s.title || '');
     if(seen.has(k)) return false;
     seen.add(k); return true;
@@ -2084,20 +2105,27 @@ function pushWidgetData(){
       const today = todayStr(), tomorrow = tomorrowStr();
       const todayLines = widgetItemsOn(today).map(widgetLineOf);
       const soon = todayLines.map(l=>'오늘 ' + l).concat(widgetItemsOn(tomorrow).map(s=>'내일 ' + widgetLineOf(s)));
-      // 이번 달 날짜별 일정 수 (달력 칸에 표시)
       const now = new Date();
-      const y = now.getFullYear(), m = now.getMonth()+1, days = new Date(y, m, 0).getDate();
-      const count = {}, items = {};
-      for(let d = 1; d <= days; d++){
-        const ds = `${y}-${pad2(m)}-${pad2(d)}`;
-        const list = widgetItemsOn(ds);
-        if(list.length){ count[d] = list.length; items[d] = list.slice(0, 8).map(widgetLineOf); }
+      const y = now.getFullYear(), m = now.getMonth()+1;
+      const months = {};
+      for(let offset=-12;offset<=12;offset++){
+        const date=new Date(y,m-1+offset,1),cy=date.getFullYear(),cm=date.getMonth()+1,days=new Date(cy,cm,0).getDate();
+        const count={},items={},events={};
+        for(let day=1;day<=days;day++){
+          const ds=cy+'-'+pad2(cm)+'-'+pad2(day),list=widgetItemsOn(ds);
+          if(list.length){count[day]=list.length;items[day]=list.slice(0,8).map(widgetLineOf);events[day]=list.slice(0,8).map(s=>{
+            const vehicle=s.plate?vehicles.find(v=>v.plate===s.plate):null;
+            const dateTime=String(s.date||''),time=s.time||(dateTime.includes('T')?dateTime.slice(11,16):'');
+            return {time:/^\d{2}:\d{2}$/.test(time)?time:'',title:s.auto&&s.plate?s.plate:String(s.title||'일정'),note:s.memo||(vehicle?vehicle.note||vehicle.customerName||'':''),kind:s.auto?'회수':'일정'};
+          });}
+        }
+        months[cy+'-'+pad2(cm)]={y:cy,m:cm,today:cy===y&&cm===m?now.getDate():0,firstDow:date.getDay(),days,count,items,events};
       }
       const data = {
-        idle, prep, run, long: longCount, unread, todayStr: today,
-        today: todayLines, soon,
-        updated: `${m}/${now.getDate()} ${pad2(now.getHours())}:${pad2(now.getMinutes())} 업데이트`,
-        cal: { y, m, today: now.getDate(), firstDow: new Date(y, m-1, 1).getDay(), days, count, items }
+        total:vehicles.length,idle,prep,run,insurance:vehicles.filter(v=>v.type==='보험').length,general:vehicles.filter(v=>v.type==='일반').length,long:longCount,unread,todayStr:today,
+        today:todayLines,soon,updated:m+'/'+now.getDate()+' '+pad2(now.getHours())+':'+pad2(now.getMinutes())+' 갱신',updatedAt:now.toISOString(),
+        agentHealth:wookyHealth?{lastSeen:wookyHealth.lastSeen,loginState:wookyHealth.loginState}:null,
+        cal:months[y+'-'+pad2(m)],months
       };
       window.AndroidSettings.saveWidget(JSON.stringify(data));
     }catch(e){ console.warn('위젯 자료 전달 실패:', e); }
@@ -2125,7 +2153,7 @@ function render(){
       if(!hay.includes(q)) return false;
     }
     if(statusFilter){
-      if(statusFilter===LONG_BRANCH){ if(v.type !== LONG_BRANCH) return false; }
+      if([LONG_BRANCH,'보험','일반'].includes(statusFilter)){ if(v.type !== statusFilter) return false; }
       else{
         const isRunning = v.status !== '대기' && v.status !== '준비중' && v.type !== LONG_BRANCH;
         if(statusFilter==='운행중'){ if(!isRunning) return false; }
@@ -2174,7 +2202,7 @@ function render(){
       const soon = (!due && v.returnDate) ? isReturnSoon(v.returnDate, 1) : false;
       const cardExtraClass = due ? ' return-alert' : (soon ? ' return-soon-alert' : '');
       return `
-        <div class="card ${sc}${cardExtraClass}" data-plate="${escapeHtml(v.plate)}">
+        <div class="card ${sc}${cardExtraClass}" data-service="${/정비|수리/.test(v.status||'')}" data-plate="${escapeHtml(v.plate)}">
           <span class="press-fill"></span>
           <div class="cbody">
             <div class="row1">
@@ -2349,6 +2377,7 @@ function startWookyResultWatch(){
       wookyRetryJobs=snap.val()||{};
       wookyHealth=Object.values(wookyRetryJobs).map(j=>j && j.agentHealth).filter(Boolean).sort((a,b)=>String(b.lastSeen).localeCompare(String(a.lastSeen)))[0] || null;
       renderWookyHealth();
+      pushWidgetData();
       if(!snap.exists()) return;
       const jobs = snap.val() || {};
       for(const [jid, job] of Object.entries(jobs)){
@@ -3408,7 +3437,7 @@ function allQuickApps(){
 function refreshQuickAppUI(){
   const list = allQuickApps();
   const b = document.getElementById('quickAppBtn');
-  if(b) b.textContent = (list.length === 1) ? ('⭐ ' + list[0].label) : '⭐ 자주 쓰는 앱';
+  if(b){const label=b.querySelector('span:last-child');if(label)label.textContent=list.length===1?list[0].label:'자주 쓰는 앱';}
   updateQuickAppCard();
 }
 function playPackage(url){
