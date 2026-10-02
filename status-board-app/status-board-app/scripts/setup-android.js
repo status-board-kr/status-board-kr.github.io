@@ -84,27 +84,31 @@ if (fs.existsSync(gsSrc)) {
   }
 }
 
-// 서명키 위치를 앱 설정에 못 박기 (안 하면 빌드마다 키가 새로 만들어져 덮어쓰기 설치가 안 됨)
+// 배포 키는 CI의 임시 파일과 환경 변수에서만 읽습니다.
 const gradlePath = path.join(__dirname, '..', 'android', 'app', 'build.gradle');
 if (fs.existsSync(gradlePath)) {
   let g = fs.readFileSync(gradlePath, 'utf8');
-  if (!g.includes('debug.keystore')) {
-    const block = [
-      '    signingConfigs {',
-      '        debug {',
-      "            storeFile file('debug.keystore')",
-      "            storePassword 'android'",
-      "            keyAlias 'androiddebugkey'",
-      "            keyPassword 'android'",
-      '        }',
-      '    }',
-      ''
-    ].join('\n');
+  if (!g.includes('ANDROID_KEYSTORE_PATH')) {
+    const block = `
+    signingConfigs {
+        release {
+            if (System.getenv('ANDROID_KEYSTORE_PATH')) {
+                storeFile file(System.getenv('ANDROID_KEYSTORE_PATH'))
+                storePassword System.getenv('ANDROID_STORE_PASSWORD')
+                keyAlias System.getenv('ANDROID_KEY_ALIAS')
+                keyPassword System.getenv('ANDROID_KEY_PASSWORD')
+            }
+        }
+    }
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+        }
+    }
+`;
     g = g.replace(/android\s*\{/, (m) => m + '\n' + block);
     fs.writeFileSync(gradlePath, g);
-    console.log('signing config fixed');
-  } else {
-    console.log('signing config already fixed');
+    console.log('release signing configured');
   }
   // 위치 공유 서비스가 쓰는 구글 위치 라이브러리 (플러그인과 같은 버전)
   g = fs.readFileSync(gradlePath, 'utf8');

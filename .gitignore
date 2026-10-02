@@ -1,0 +1,4 @@
+node_modules/
+*.keystore
+*.jks
+status-board-app/status-board-app/android/

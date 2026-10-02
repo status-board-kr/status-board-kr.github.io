@@ -28,18 +28,19 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: 서명키 준비 (항상 같은 키로 서명해야 덮어쓰기 설치가 됨)
+      - name: 기존 앱과 같은 서명키 준비
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          mkdir -p ~/.android
-          if [ -f apk/debug.keystore ]; then
-            cp apk/debug.keystore ~/.android/debug.keystore
-            echo '기존 서명키 사용'
-          else
-            keytool -genkeypair -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname 'CN=Android Debug,O=Android,C=US'
-            mkdir -p apk
-            cp ~/.android/debug.keystore apk/debug.keystore
-            echo '서명키 새로 만들어 저장'
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ] || [ -z "$ANDROID_STORE_PASSWORD" ] || [ -z "$ANDROID_KEY_ALIAS" ] || [ -z "$ANDROID_KEY_PASSWORD" ]; then
+            echo '배포 서명 Secrets 4개를 먼저 설정해주세요. 기존 키를 Secrets에 옮겨야 합니다. 새 키를 만들지 않습니다.'
+            exit 1
           fi
+          umask 077
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/fleet-release.keystore"
 
       - name: 사이트 화면 파일을 앱 폴더로 자동 복사
         run: |
@@ -51,14 +52,11 @@ jobs:
 
       - name: 패키지 설치
         working-directory: status-board-app/status-board-app
-        run: npm install
+        run: npm ci
 
       - name: 안드로이드 프로젝트 만들기
         working-directory: status-board-app/status-board-app
         run: npx cap add android
-
-      - name: 서명키를 앱 폴더로 복사
-        run: cp apk/debug.keystore status-board-app/status-board-app/android/app/debug.keystore
 
       - name: 권한·뒤로가기·설정 적용
         working-directory: status-board-app/status-board-app
@@ -73,22 +71,36 @@ jobs:
         run: npx cap sync android
 
       - name: APK 빌드
+        env:
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/fleet-release.keystore
+          ANDROID_STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         working-directory: status-board-app/status-board-app/android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleRelease --no-daemon
+          # 기존 APK와 인증서가 다르면 배포를 중단해 설정 초기화를 방지합니다.
+          APK_SIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -n 1)
+          if [ -z "$APK_SIGNER" ]; then echo 'apksigner를 찾을 수 없습니다.'; exit 1; fi
+          PREVIOUS_CERT=$("$APK_SIGNER" verify --print-certs "$GITHUB_WORKSPACE/apk/status-board.apk" | awk '/Signer #1 certificate SHA-256 digest:/ {print $NF}')
+          RELEASE_CERT=$("$APK_SIGNER" verify --print-certs app/build/outputs/apk/release/app-release.apk | awk '/Signer #1 certificate SHA-256 digest:/ {print $NF}')
+          if [ -z "$PREVIOUS_CERT" ] || [ "$PREVIOUS_CERT" != "$RELEASE_CERT" ]; then
+            echo '기존 APK와 서명 인증서가 다릅니다. 기존 앱 설정 유지를 위해 배포를 중단합니다.'
+            exit 1
+          fi
 
       - name: 폰에서 바로 받도록 사이트에 올리기
         run: |
           mkdir -p apk
-          cp status-board-app/status-board-app/android/app/build/outputs/apk/debug/app-debug.apk apk/status-board.apk
+          cp status-board-app/status-board-app/android/app/build/outputs/apk/release/app-release.apk apk/status-board.apk
           # 버전이 붙은 파일도 같이 (이전 버전 파일은 지워서 최신 하나만 남김)
           git rm -q --ignore-unmatch 'apk/status-board-v*.apk'
           cp apk/status-board.apk "apk/status-board-v$APP_VERSION_NAME.apk"
           echo "v$APP_VERSION_NAME · $(TZ=Asia/Seoul date '+%Y-%m-%d %H:%M') 빌드" > apk/version.txt
           git config user.name 'github-actions'
           git config user.email 'actions@github.com'
-          git add apk/status-board.apk "apk/status-board-v$APP_VERSION_NAME.apk" apk/version.txt apk/debug.keystore
+          git add apk/status-board.apk "apk/status-board-v$APP_VERSION_NAME.apk" apk/version.txt
           git commit -m "APK 업데이트 v$APP_VERSION_NAME" || echo '변경 없음'
           git push
 
@@ -96,5 +108,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: status-board-apk-v${{ env.APP_VERSION_NAME }}
-          path: status-board-app/status-board-app/android/app/build/outputs/apk/debug/*.apk
+          path: status-board-app/status-board-app/android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
+
+      - name: 임시 서명키 삭제
+        if: always()
+        run: rm -f "$RUNNER_TEMP/fleet-release.keystore"

@@ -4,6 +4,7 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>팡팡렌트카 문서 발행</title>
+<script src="vendor/purify.min.js"></script>
 <meta name="robots" content="noindex,nofollow"/>
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800;900&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet"/>
 <script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js" defer></script>
@@ -1777,7 +1778,12 @@ function carInfoHtml(model, carnum, year, color, mileage, fuel) {
 
 function showDoc(docId, emptyId, html, filename) {
   var el = document.getElementById(docId.replace("Doc","Content"));
-  if (el) el.innerHTML = html;
+  if (!window.DOMPurify) throw new Error('문서 보안 모듈을 불러오지 못했어요. 새로고침해주세요.');
+  if (el) el.innerHTML = DOMPurify.sanitize(html, {
+    USE_PROFILES: { html: true },
+    FORBID_TAGS: ['style', 'form', 'input', 'button', 'iframe', 'object', 'embed'],
+    FORBID_ATTR: ['srcset']
+  });
   document.getElementById(emptyId).style.display = "none";
   var docEl = document.getElementById(docId);
   docEl.style.display = "block";
@@ -3011,7 +3017,7 @@ function ncFitPrint() {
   var probe = document.createElement("div");
   probe.className = "doc-inner";
   probe.style.cssText = "position:absolute;left:-10000px;top:0;width:703px;padding:0;visibility:hidden;";
-  probe.innerHTML = sheet.outerHTML;
+  probe.innerHTML = DOMPurify.sanitize(sheet.outerHTML, { USE_PROFILES: { html: true } });
   document.body.appendChild(probe);
   var s = probe.firstChild; s.style.minHeight = "0";
   var hgt = s.scrollHeight;
