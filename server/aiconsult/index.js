@@ -9,6 +9,7 @@
 
 const functions = require('@google-cloud/functions-framework');
 const admin = require('firebase-admin');
+const { consumeQuota, getKeys, handleStaff } = require('./ai-service');
 
 // ── 설정 ──
 const ALLOWED_ORIGINS = [
@@ -28,7 +29,7 @@ const SESSION_RE = /^[A-Za-z0-9_-]{8,64}$/;
 const deps = {
   db: null,
   messaging: null,
-  fetch: (...a) => fetch(...a),
+  fetch: (url, options = {}) => fetch(url, { ...options, signal: options.signal || AbortSignal.timeout(15000) }),
   now: () => Date.now()
 };
 function db(){
@@ -360,15 +361,21 @@ async function saveInquiry(companyId, sessionId, inquiry, messages){
 // ── 요청 처리 ──
 async function handle(req, res){
   const origin = req.get ? req.get('origin') : (req.headers && req.headers.origin);
-  if(origin && ALLOWED_ORIGINS.includes(origin)){
+  if(origin && (ALLOWED_ORIGINS.includes(origin) || origin === 'https://localhost')){
     res.set('Access-Control-Allow-Origin', origin);
     res.set('Vary', 'Origin');
   }
   res.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.set('Access-Control-Allow-Headers', 'Content-Type');
+  res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if(req.method === 'OPTIONS') return res.status(204).send('');
   if(req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
-  if(origin && !ALLOWED_ORIGINS.includes(origin)) return res.status(403).json({ error: 'origin' });
+  const staffOperation = req.body && ['ai-status', 'ai-config', 'ai-vision'].includes(req.body.operation);
+  // Native app requests may omit Origin; they must still authenticate below.
+  if((origin && !ALLOWED_ORIGINS.includes(origin) && !(staffOperation && origin === 'https://localhost')) || (!origin && !staffOperation)) return res.status(403).json({ error: 'origin' });
+  if(staffOperation){
+    try { return await handleStaff(req, res, { db, deps, admin, geminiModels: GEMINI_MODELS, grokModels: GROK_MODELS }); }
+    catch { return res.status(503).json({ reply: 'AI 서버에 연결하지 못했어요. 잠시 후 다시 시도해주세요.' }); }
+  }
 
   const ip = String((req.headers && (req.headers['x-forwarded-for'] || '')) || req.ip || '').split(',')[0].trim() || 'unknown';
   if(rateLimited(ip)) return res.status(429).json({ error: 'too many', reply: '잠시 후 다시 말씀해주세요. 급하시면 전화 주세요.' });
@@ -378,26 +385,30 @@ async function handle(req, res){
   const sessionId = String(body.sessionId || '');
   if(!COMPANY_RE.test(companyId) || !SESSION_RE.test(sessionId)) return res.status(400).json({ error: 'bad request' });
   let messages = Array.isArray(body.messages) ? body.messages : [];
+  if(messages.length > 81) return res.status(400).json({ error: 'too many messages' });
+  const userTurns = messages.filter(m => m && m.role === 'user').length;
   messages = messages
     .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.text === 'string' && m.text.trim())
     .map(m => ({ role: m.role, text: m.text.trim().slice(0, m.role === 'user' ? MAX_MSG_LEN : 2000) }))
     .slice(-60);
   while(messages.length && messages[0].role !== 'user') messages.shift();   // AI 대화는 고객 말로 시작해야 함
   if(!messages.length || messages[messages.length - 1].role !== 'user') return res.status(400).json({ error: 'no message' });
-  if(messages.filter(m => m.role === 'user').length > MAX_TURNS){
+  if(userTurns > MAX_TURNS){
     return res.json({ reply: '대화가 길어졌네요. 자세한 건 전화로 바로 안내해드릴게요 😊', done: true });
   }
 
   try{
     const base = db().ref('companies/' + companyId);
-    const [aiSnap, profSnap] = await Promise.all([base.child('aiSettings').once('value'), base.child('profile').once('value')]);
-    const ai = aiSnap.val() || {};
+    const [ai, profSnap] = await Promise.all([getKeys(db(), companyId), base.child('profile').once('value')]);
     const keys = { gemini: ai.geminiKey || (ai.provider === 'gemini' ? ai.key : ''), grok: ai.grokKey || '' };
     if(!keys.gemini && !keys.grok) return res.status(503).json({ error: 'no ai key' });
     const prof = profSnap.val() || {};
-    const companyName = '팡팡렌트카';
+    const companyName = String(prof.name || '팡팡렌트카').slice(0, 80);
     const phone = String(prof.phone || '010-5145-8990').slice(0, 20);
 
+    if(!await consumeQuota(db(), companyId, 'ip:' + ip, deps.now(), { publicChat: true, sessionId })){
+      return res.status(429).json({ reply: '대화 또는 AI 사용량 한도에 도달했어요. 자세한 안내는 전화로 문의해주세요.', done: true });
+    }
     const raw = await callAi(keys, systemPrompt(companyName, phone), messages);
     const lt = extractLongterm(raw);
     const nc = extractNewcar(lt.reply);
@@ -430,7 +441,7 @@ async function handle(req, res){
     if(inquiry) submitted = await saveInquiry(companyId, sessionId, inquiry, messages.concat([{ role: 'assistant', text: reply }]));
     return res.json({ reply: reply || '잠시만요, 다시 한 번 말씀해주시겠어요?', submitted: !!inquiry, firstSubmit: submitted });
   }catch(e){
-    console.error(e);
+    console.error('AI request failed');
     return res.status(502).json({ error: 'ai failed' });
   }
 }
