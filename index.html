@@ -598,6 +598,14 @@ header{background:#101b2e;border-bottom-color:#30415d;padding-bottom:10px}
 .stat[data-filter="장기"].active{border-color:#5f5275}
 .badge.st-idle{color:#8dc7a3}
 .badge.st-prep{color:#9da3aa;background:#333940}
+
+/* Approved full-card type colors; return warnings keep their priority. */
+.card.st-prep{background:#30353d;border-color:#505966;border-left-color:#9da3aa}
+.card.st-running[data-type="보험"],.card.st-dispatch[data-type="보험"]{background:#1c3553;border-color:#3b5b80;border-left-color:#80adeb}
+.card.st-running[data-type="일반"],.card.st-dispatch[data-type="일반"]{background:#383026;border-color:#65533e;border-left-color:#d1a06b}
+.card.st-running[data-type="장기"],.card.st-dispatch[data-type="장기"]{background:#30273f;border-color:#57466e;border-left-color:#a78bce}
+.card.return-alert{border-left-color:var(--red)}
+.card.return-soon-alert{border-left-color:var(--amber)}
 </style>
 </head>
 <body>
@@ -2225,7 +2233,7 @@ function render(){
       const soon = (!due && v.returnDate) ? isReturnSoon(v.returnDate, 1) : false;
       const cardExtraClass = due ? ' return-alert' : (soon ? ' return-soon-alert' : '');
       return `
-        <div class="card ${sc}${cardExtraClass}" data-service="${/정비|수리/.test(v.status||'')}" data-plate="${escapeHtml(v.plate)}">
+        <div class="card ${sc}${cardExtraClass}" data-type="${escapeHtml(v.type||'')}" data-service="${/정비|수리/.test(v.status||'')}" data-plate="${escapeHtml(v.plate)}">
           <span class="press-fill"></span>
           <div class="cbody">
             <div class="row1">
