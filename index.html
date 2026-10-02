@@ -580,6 +580,24 @@ header{background:#101b2e;border-bottom-color:#30415d;padding-bottom:10px}
 @media(min-width:700px){.header-actions{grid-template-columns:repeat(8,minmax(0,1fr))}.header-actions .link-btn{font-size:12px;padding:8px 5px}.card{padding:11px 13px}.plate-tag{font-size:21px}#schedModalBg .cal-cell{height:61px;font-size:20px}}
 @media(max-width:360px){.header-actions{grid-template-columns:repeat(4,minmax(0,1fr))}.header-actions .link-btn{font-size:10px}.nav-icon{width:16px;height:16px}.stat span{font-size:10px}.plate-tag{font-size:18px}}
 
+/* Approved summary and badge colors: fleet order and warning behavior are unchanged. */
+.type-badge.tp-보험{background:#27394f;color:#80adeb;border:1px solid #465a72}
+.type-badge.tp-일반{background:#40382e;color:#d1a06b;border:1px solid #685941}
+.type-badge.tp-장기{background:#373146;color:#a78bce;border:1px solid #5f5275}
+.type-badge{padding:3px 7px;font-size:11px;border-radius:5px;display:inline-flex;align-items:center;gap:4px}
+.type-badge:before{content:'';width:4px;height:4px;background:currentColor;border-radius:50%}
+.stat[data-filter="대기"],.stat[data-filter="대기"].active{color:#8dc7a3}
+.stat[data-filter="준비중"],.stat[data-filter="준비중"].active{color:#9da3aa}
+.stat[data-filter="보험"],.stat[data-filter="보험"].active{color:#80adeb}
+.stat[data-filter="일반"],.stat[data-filter="일반"].active{color:#d1a06b}
+.stat[data-filter="장기"],.stat[data-filter="장기"].active{color:#a78bce}
+.stat[data-filter] b,.stat[data-filter] span{color:inherit}
+.stat[data-filter="준비중"].active{border-color:#718397}
+.stat[data-filter="보험"].active{border-color:#465a72}
+.stat[data-filter="일반"].active{border-color:#685941}
+.stat[data-filter="장기"].active{border-color:#5f5275}
+.badge.st-idle{color:#8dc7a3}
+.badge.st-prep{color:#9da3aa;background:#333940}
 </style>
 </head>
 <body>
