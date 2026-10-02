@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>면허증으로 계약서 쓰기</title>
+<meta name="robots" content="noindex">
+<style>
+  :root{--bg:#f4f5f7;--card:#fff;--text:#1d1f23;--sub:#6b7280;--line:#e5e7eb;--accent:#ff7e36;--green:#16a34a;--red:#dc2626;--hl:#fff7cc;}
+  @media (prefers-color-scheme: dark){ :root{--bg:#111316;--card:#1c1f24;--text:#eceef1;--sub:#9aa1ab;--line:#2c3037;--hl:#3a3413;} }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;font-size:15px;}
+  main{max-width:560px;margin:0 auto;padding:16px;}
+  h1{font-size:20px;margin:8px 0 12px;}
+  h2{font-size:16px;margin:0 0 10px;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px;}
+  label{display:block;font-weight:600;margin:10px 0 4px;font-size:14px;}
+  .hint{color:var(--sub);font-size:13px;font-weight:400;}
+  input,select,textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:inherit;background:var(--bg);color:var(--text);}
+  input.unclear{background:var(--hl);border-color:#e0b000;}
+  button{border:0;border-radius:10px;padding:12px 16px;background:var(--accent);color:#fff;font:inherit;font-weight:700;cursor:pointer;width:100%;}
+  button.ghost{background:transparent;color:var(--text);border:1px solid var(--line);}
+  button:disabled{opacity:.5;}
+  .row{display:flex;gap:8px;}
+  .row > *{flex:1;min-width:0;}
+  .ok{color:var(--green);} .bad{color:var(--red);}
+  .pick{display:block;text-align:left;font-weight:600;background:var(--bg);color:var(--text);border:1px solid var(--line);margin-bottom:6px;}
+  .pick.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent) inset;}
+  .pick small{display:block;font-weight:400;color:var(--sub);}
+  #preview{max-width:100%;max-height:220px;border-radius:10px;margin-top:10px;display:none;}
+  #jobBox{font-size:16px;line-height:1.6;white-space:pre-line;}
+  .job{border-top:1px solid var(--line);padding:8px 0;font-size:13px;}
+  .job:first-child{border-top:0;}
+  #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#111;color:#fff;padding:10px 16px;border-radius:10px;display:none;z-index:9;}
+  .hidden{display:none;}
+</style>
+</head>
+<body>
+<main>
+  <h1>🪪 면허증으로 계약서 쓰기</h1>
+
+  <!-- 화면이 안 뜰 때 이유를 보여줌 (프로그램이 돌면 사라짐) -->
+  <p id="boot" class="hint">화면을 불러오는 중이에요... 이 글만 계속 보이면 폰 크롬 주소창에 사이트 주소(…/contract.html)를 직접 넣어서 열어 주세요.</p>
+  <script>
+    window.addEventListener('error', function(e){ var b = document.getElementById('boot'); if(b){ b.style.display = 'block'; b.className = 'bad'; b.textContent = e.message ? '⚠ 화면 오류: ' + e.message + ' (이 화면을 찍어서 보내 주세요)' : '⚠ 필요한 파일을 받아오지 못했어요. 인터넷을 확인하고 새로고침해 주세요.'; } }, true);
+  </script>
+
+  <!-- 로그인 (현황판과 같은 계정) -->
+  <div id="loginBox" class="card hidden">
+    <h2>현황판 계정으로 로그인</h2>
+    <div id="emailLogin">
+      <label>이메일</label><input id="email" type="email" autocomplete="username">
+      <label>비밀번호</label><input id="pw" type="password" autocomplete="current-password">
+      <button id="loginBtn" style="margin-top:12px">로그인</button>
+    </div>
+    <button id="googleBtn" class="hidden">구글 계정으로 로그인</button>
+    <p id="loginErr" class="bad"></p>
+  </div>
+
+  <div id="app" class="hidden">
+    <p id="agentStatus" class="hint"></p>
+
+    <div id="keyCard" class="card hidden">
+      <h2>AI 키 넣기 (한 번만)</h2>
+      <p class="hint">면허증 글자를 읽을 구글 Gemini 키를 넣어 주세요. 현황판 🤖 AI 설정에 넣은 키와 같은 거예요. 이 폰에만 저장돼요.</p>
+      <input id="keyInput" type="password" autocomplete="off" placeholder="Gemini 키 붙여넣기">
+      <button id="keySave" style="margin-top:10px">저장</button>
+    </div>
+
+    <div class="card">
+      <h2>① 면허증 찍기</h2>
+      <p class="hint">손님 면허증 앞면을 밝은 곳에서 글자가 잘 보이게 찍어주세요. 이미 찍어 둔 사진이면 [사진 파일에서]로 고르세요. 사진은 저장하지 않고 글자만 읽어요.</p>
+      <input id="photo" type="file" accept="image/*" capture="environment" class="hidden">
+      <input id="photoFile" type="file" accept="image/*" class="hidden">
+      <div class="row">
+        <button id="photoBtn">📷 면허증 찍기</button>
+        <button id="fileBtn" class="ghost">🖼 사진 파일에서</button>
+      </div>
+      <img id="preview" alt="">
+      <p id="readStatus" class="hint"></p>
+    </div>
+
+    <div class="card">
+      <h2>② 손님 정보 확인</h2>
+      <p class="hint">노란 칸은 AI가 확실히 못 읽은 곳이에요. 면허증과 한 번 비교해 주세요.</p>
+      <label>이름</label><input id="name" maxlength="30">
+      <div class="row">
+        <div><label>주민등록번호</label><input id="rrn" inputmode="numeric" maxlength="14" placeholder="900101-1234567" autocomplete="off"></div>
+        <div><label>휴대폰</label><input id="hp" type="tel" maxlength="20" placeholder="010-0000-0000"></div>
+      </div>
+      <label>주소</label><input id="addr" maxlength="120">
+      <label>면허번호</label><input id="lic" maxlength="20" placeholder="25-12-345678-90">
+      <div class="row">
+        <div><label>면허 종류</label>
+          <select id="lictype">
+            <option value="">모름</option>
+            <option>1종보통</option><option>2종보통</option><option>1종대형</option>
+            <option>1종소형</option><option>1종특수</option><option>2종소형</option><option>2종원동기</option>
+          </select>
+        </div>
+        <div><label>유효기간(갱신 마감)</label><input id="licexp" type="date"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>③ 차량과 기간</h2>
+      <div id="bookings"></div>
+      <label>차량번호 <span class="hint">(목록에서 고르거나 직접 입력)</span></label>
+      <input id="car" list="carList" maxlength="12" placeholder="예: 105허9596" autocomplete="off">
+      <datalist id="carList"></datalist>
+      <div class="row">
+        <div><label>출발</label><input id="start" type="datetime-local"></div>
+        <div><label>반납 예정</label><input id="end" type="datetime-local"></div>
+      </div>
+      <label>배차 장소 <span class="hint">(비우면 우기 기본값)</span></label><input id="place" maxlength="40">
+      <label>메모 <span class="hint">(계약서 비고란)</span></label><input id="memo" maxlength="200">
+    </div>
+
+    <div class="card">
+      <h2>④ 보험대차 <span class="hint">(보험 손님만)</span></h2>
+      <div class="row">
+        <button type="button" id="rtNormal" class="pick on">일반 손님</button>
+        <button type="button" id="rtIns" class="pick">보험대차</button>
+      </div>
+      <div id="insBox" class="hidden">
+        <div class="row">
+          <div><label>공업사명</label><input id="insShop" list="insShopList" maxlength="40" autocomplete="off"></div>
+          <div><label>조력자</label><input id="insHelper" list="insHelperList" maxlength="40" autocomplete="off"></div>
+        </div>
+        <div class="row">
+          <div><label>피해차량번호</label><input id="insCar" maxlength="12" placeholder="예: 18보2223" autocomplete="off"></div>
+          <div><label>피해차종</label><input id="insModel" maxlength="30" placeholder="예: 스포티지" autocomplete="off"></div>
+        </div>
+        <div class="row">
+          <div><label>보험사</label><input id="insCo" list="insCoList" maxlength="30" placeholder="예: 렌터카공제" autocomplete="off"></div>
+          <div><label>접수번호</label><input id="insNo" maxlength="40" autocomplete="off"></div>
+        </div>
+        <div class="row">
+          <div><label>보험 연락처</label><input id="insTel" type="tel" maxlength="20"></div>
+          <div><label>팩스</label><input id="insFax" type="tel" maxlength="20"></div>
+        </div>
+        <p class="hint">쓴 글자 그대로 우기에 들어가요. 사용기간은 [동일]에 체크해서 대여 기간과 같게 해요.</p>
+        <datalist id="insShopList"></datalist><datalist id="insHelperList"></datalist><datalist id="insCoList"></datalist>
+      </div>
+    </div>
+
+    <div class="card">
+      <button id="sendBtn">🖨 우기에 계약서 쓰기</button>
+      <p class="hint">사무실 PC가 우기 임대차계약서를 열어 채워요.</p>
+      <div id="jobBox"></div>
+      <button id="nextBtn" class="ghost hidden" style="margin-top:10px">다음 손님</button>
+    </div>
+
+    <div class="card">
+      <h2>최근 작업</h2>
+      <div id="recent" class="hint">아직 없어요.</div>
+    </div>
+    <button id="logoutBtn" class="ghost">로그아웃</button>
+  </div>
+</main>
+<div id="toast"></div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+  import { getDatabase, ref, get, push, onValue, query, orderByChild, limitToLast } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+  import { getAuth, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+
+  // 현황판 종류: 새 현황판(status-board-kr.github.io, 이메일 로그인, 업체별 폴더) /
+  // P 현황판(pang-rent.github.io/P, 구글 로그인, 단일 업체라 맨 위 폴더)
+  const SITE = location.hostname === 'pang-rent.github.io' ? 'p' : 'status';
+  const FIREBASE = {
+    // index.html 의 firebaseConfig 와 같은 값
+    status: {
+      apiKey: "AIzaSyB0snoSwJ0wTOxI8vRf2GU27VF05zN0c7k",
+      authDomain: "fleet-board-f2345.firebaseapp.com",
+      databaseURL: "https://fleet-board-f2345-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "fleet-board-f2345",
+      storageBucket: "fleet-board-f2345.firebasestorage.app",
+      messagingSenderId: "613571323567",
+      appId: "1:613571323567:web:0003a663f5891364ef565a"
+    },
+    // pang-rent.github.io/P/index.html 의 firebaseConfig 와 같은 값
+    p: {
+      apiKey: "AIzaSyDLMLiu492qkW8VnPFcENddc7Hx_D-ocWY",
+      authDomain: "jangsung-4d5e3.firebaseapp.com",
+      databaseURL: "https://jangsung-4d5e3-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "jangsung-4d5e3",
+      storageBucket: "jangsung-4d5e3.firebasestorage.app",
+      messagingSenderId: "390123603041",
+      appId: "1:390123603041:web:35bbc4059db12d586e5620"
+    },
+  };
+  const app = initializeApp(FIREBASE[SITE]);
+  const db = getDatabase(app);
+  const auth = getAuth(app);
+  const $ = id => document.getElementById(id);
+  const CLAUDE_MODEL = 'claude-sonnet-5'; // index.html 의 CLAUDE_MODEL 과 같은 모델
+  // index.html 과 같은 무료 모델들 (글자가 많은 면허증이라 flash 부터 시도, 바쁘면 다음 모델)
+  const GEMINI_MODELS = ['gemini-3.6-flash', 'gemini-flash-latest', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite', 'gemini-flash-lite-latest'];
+  const STATUS = { waiting: '⏳ 사무실 PC가 받기를 기다리는 중', working: '✍️ 우기에 쓰는 중', filled: '✅ 우기 계약서를 채웠어요', saved: '✅ 우기 계약서를 저장했어요', error: '⚠️ 실패' };
+  let companyId = '', aiKey = '', vehicles = [], bookings = [], currentJob = null, stopJob = null;
+  const P = sub => SITE === 'p' ? sub : 'companies/' + companyId + '/' + sub;
+  const AI_KEY_LS = 'fleetAiApiKey'; // 이 폰에만 넣은 키 (index.html 과 같은 이름)
+  let dbKey = '';
+  function lsGet(k){ try{ return localStorage.getItem(k) || ''; }catch(e){ return ''; } }
+  function refreshKey(){ aiKey = dbKey || lsGet(AI_KEY_LS); $('keyCard').classList.toggle('hidden', !!aiKey); }
+
+  function toast(t){ const el = $('toast'); el.textContent = t; el.style.display = 'block'; clearTimeout(toast._t); toast._t = setTimeout(()=> el.style.display = 'none', 2500); }
+  function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  const pad = n => String(n).padStart(2, '0');
+  const localDT = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+  function when(iso){ return iso ? new Date(iso).toLocaleString('ko-KR', { month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit' }) : ''; }
+
+  $('loginBtn').onclick = async ()=>{
+    $('loginErr').textContent = '';
+    try{ await signInWithEmailAndPassword(auth, $('email').value.trim(), $('pw').value); }
+    catch(e){ $('loginErr').textContent = '로그인에 실패했어요. 이메일과 비밀번호를 확인해주세요.'; }
+  };
+  $('googleBtn').onclick = async ()=>{
+    $('loginErr').textContent = '';
+    try{ await signInWithPopup(auth, new GoogleAuthProvider()); }
+    catch(e){ $('loginErr').textContent = '구글 로그인에 실패했어요. 다시 눌러 주세요.'; }
+  };
+  $('emailLogin').classList.toggle('hidden', SITE === 'p');
+  $('googleBtn').classList.toggle('hidden', SITE !== 'p');
+  $('logoutBtn').onclick = ()=> signOut(auth);
+  $('keySave').onclick = ()=>{
+    const k = $('keyInput').value.trim();
+    // index.html 의 AI 설정과 같은 검사 (구글 키는 AQ… AIza… 등 여러 모양이라 모양은 안 따짐)
+    if(k.length < 20 || k.length > 300 || /\s/.test(k)){ toast('키 모양이 이상해요. 다시 복사해 주세요'); return; }
+    try{ localStorage.setItem(AI_KEY_LS, k); }catch(e){ toast('이 브라우저는 저장이 안 돼요'); return; }
+    $('keyInput').value = ''; refreshKey(); toast('저장했어요');
+  };
+
+  onAuthStateChanged(auth, async user=>{
+    $('boot').style.display = 'none';
+    $('loginBox').classList.toggle('hidden', !!user);
+    $('app').classList.toggle('hidden', !user);
+    if(!user) return;
+    if(SITE === 'p'){ start(); return; }
+    try{
+      const idx = await get(ref(db, 'userIndex/' + user.uid));
+      companyId = idx.exists() ? idx.val().companyId : '';
+      if(!companyId){ toast('소속 업체를 찾지 못했어요. 현황판에서 먼저 업체를 만들어주세요.'); return; }
+    }catch(e){ console.error(e); toast('업체 정보를 불러오지 못했어요'); return; }
+    start();
+  });
+
+  function start(){
+    refreshKey();
+    onValue(ref(db, P('aiSettings')), snap=>{ dbKey = (snap.exists() && snap.val().key) || ''; refreshKey(); }, ()=>{});
+    onValue(ref(db, P('wooky/agent')), snap=>{
+      const a = snap.val();
+      const ago = a && a.lastSeen ? (Date.now() - Date.parse(a.lastSeen)) / 60000 : Infinity;
+      $('agentStatus').innerHTML = ago < 3
+        ? `<span class="ok">✓ 사무실 PC 연결됨</span> · ${a.mode === 'save' ? '저장까지 자동' : '채우기만 (직원이 확인 후 저장)'}`
+        : '<span class="bad">⚠ 사무실 PC 프로그램이 꺼져 있어요. 사무실 PC 크롬을 켜 두세요. (보내 두면 켜질 때 작성해요)</span>';
+    }, ()=>{ $('agentStatus').innerHTML = '<span class="bad">⚠ 사무실 PC 상태를 읽을 권한이 없어요.</span>'; });
+    // P 현황판은 예전 단일 업체 시절 이름(index.html 의 LEGACY_STORAGE_KEY)에 차량이 있어요
+    const carPaths = SITE === 'p' ? ['fleet-vehicles-jangseong-v1', 'vehicles'] : [P('vehicles')];
+    let triedNext = false;
+    const watchCars = i => onValue(ref(db, carPaths[i]), snap=>{
+      if(!snap.exists() && carPaths[i + 1]){ if(!triedNext){ triedNext = true; watchCars(i + 1); } return; }
+      const v = snap.val() || [];
+      vehicles = (Array.isArray(v) ? v : Object.values(v)).filter(x => x && x.plate);
+      renderCars();
+    }, e=> toast(/permission/i.test(e && e.message) ? '차량 목록을 볼 권한이 없어요 (허용된 구글 계정인지 확인)' : '차량 목록을 불러오지 못했어요'));
+    watchCars(0);
+    // 고객 문의 채팅에서 확정된 예약 (있을 때만)
+    onValue(ref(db, P('customerChat/leads')), snap=>{
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const lo = localDT(new Date(today - 2 * 864e5)).slice(0, 10), hi = localDT(new Date(+today + 3 * 864e5)).slice(0, 10);
+      bookings = Object.entries(snap.val() || {}).map(([k, b]) => ({ k, ...b }))
+        .filter(b => b.type === 'booking' && b.status === 'confirmed' && b.startDate >= lo && b.startDate <= hi)
+        .sort((a, b) => (a.startDate + a.startTime).localeCompare(b.startDate + b.startTime));
+      renderBookings();
+    }, ()=>{});
+    onValue(query(ref(db, P('wooky/jobs')), orderByChild('createdAt'), limitToLast(5)), snap=>{
+      const list = [];
+      snap.forEach(c => { list.unshift(c.val()); });
+      $('recent').innerHTML = list.length ? list.map(j => `<div class="job">${esc(when(j.createdAt))} · ${esc(j.name || '')} ${esc(j.car || '')}<br>${esc(STATUS[j.status] || j.status)}${j.error ? ' - ' + esc(j.error) : ''}</div>`).join('') : '아직 없어요.';
+    }, ()=>{});
+    resetForm();
+  }
+
+  function renderCars(){
+    const order = s => s === '대기' ? 0 : s === '준비중' ? 1 : 2;
+    const list = vehicles.slice().sort((a, b) => order(a.status) - order(b.status) || String(a.plate).localeCompare(String(b.plate)));
+    $('carList').innerHTML = list.map(v =>
+      `<option value="${esc(v.plate)}">${esc(v.model || '')}${v.status ? ' (' + esc(v.status) + ')' : ''}</option>`).join('');
+  }
+  $('car').onchange = ()=>{
+    $('car').value = $('car').value.replace(/\s/g, '');
+    // 현황판에 이미 적어둔 손님 연락처·반납일이 있으면 채워줌
+    const v = vehicles.find(x => x.plate === $('car').value);
+    if(v && v.customerPhone && !$('hp').value) $('hp').value = v.customerPhone;
+    if(v && v.returnDate && !$('end').dataset.touched) $('end').value = v.returnDate + 'T' + $('start').value.slice(11, 16);
+  };
+  $('end').oninput = ()=>{ $('end').dataset.touched = '1'; };
+
+  function renderBookings(){
+    $('bookings').innerHTML = bookings.length
+      ? '<p class="hint">확정된 예약에서 고르면 차량·기간·연락처가 채워져요.</p>' + bookings.map((b, i) =>
+          `<button class="pick" data-i="${i}">${esc(b.name || '')} · ${esc(b.model || '')}${b.plate ? ' (' + esc(b.plate) + ')' : ''}<small>${esc(b.startDate)} ${esc(b.startTime || '')} ~ ${esc(b.endDate || '')} ${esc(b.endTime || '')} · ${esc(b.phone || '')}</small></button>`).join('')
+      : '';
+    $('bookings').querySelectorAll('.pick').forEach(btn => btn.onclick = ()=>{
+      const b = bookings[+btn.dataset.i];
+      $('bookings').querySelectorAll('.pick').forEach(x => x.classList.toggle('on', x === btn));
+      if(b.plate) $('car').value = b.plate;
+      $('start').value = b.startDate + 'T' + (b.startTime || '10:00');
+      if(b.endDate){ $('end').value = b.endDate + 'T' + (b.endTime || '10:00'); $('end').dataset.touched = '1'; }
+      if(b.phone) $('hp').value = b.phone;
+      if(b.name && !$('name').value) $('name').value = b.name;
+    });
+  }
+
+  // ── 보험대차 칸 (직접 쓰기). 공업사·조력자·보험사는 이 폰에서 전에 쓴 이름을 목록으로 보여줘요 ──
+  const INS = ['insShop', 'insHelper', 'insCar', 'insModel', 'insCo', 'insNo', 'insTel', 'insFax'];
+  const INS_LIST = { insShop: 'insShopList', insHelper: 'insHelperList', insCo: 'insCoList' };
+  let isIns = false;
+  function setIns(on){ isIns = on; $('rtIns').classList.toggle('on', on); $('rtNormal').classList.toggle('on', !on); $('insBox').classList.toggle('hidden', !on); }
+  $('rtIns').onclick = ()=>setIns(true);
+  $('rtNormal').onclick = ()=>setIns(false);
+  function usedNames(k){ try{ return JSON.parse(localStorage.getItem('wookyIns_' + k) || '[]'); }catch(e){ return []; } }
+  function fillInsLists(){
+    Object.entries(INS_LIST).forEach(([k, id]) => {
+      $(id).innerHTML = '';
+      usedNames(k).forEach(v => { const o = document.createElement('option'); o.value = v; $(id).appendChild(o); });
+    });
+  }
+  function rememberIns(d){
+    Object.keys(INS_LIST).forEach(k => {
+      if(!d[k]) return;
+      try{ localStorage.setItem('wookyIns_' + k, JSON.stringify([d[k]].concat(usedNames(k).filter(x => x !== d[k])).slice(0, 30))); }catch(e){}
+    });
+    fillInsLists();
+  }
+  fillInsLists();
+
+  function resetForm(){
+    ['name', 'rrn', 'hp', 'addr', 'lic', 'licexp', 'place', 'memo'].concat(INS).forEach(id => { $(id).value = ''; $(id).classList.remove('unclear'); });
+    setIns(false);
+    $('lictype').value = ''; $('car').value = '';
+    const now = new Date(); now.setMinutes(Math.ceil(now.getMinutes() / 10) * 10, 0, 0);
+    $('start').value = localDT(now);
+    $('end').value = localDT(new Date(+now + 864e5)); delete $('end').dataset.touched;
+    $('preview').style.display = 'none'; $('preview').removeAttribute('src');
+    $('readStatus').textContent = '';
+    $('jobBox').textContent = ''; $('nextBtn').classList.add('hidden'); $('sendBtn').disabled = false;
+    if(stopJob){ stopJob(); stopJob = null; }
+    currentJob = null;
+    renderBookings();
+  }
+  $('nextBtn').onclick = ()=>{ resetForm(); scrollTo(0, 0); };
+
+  // ── 면허증 사진 → AI로 글자 읽기 ─────────────────────────
+  function compressImage(file, maxSide, quality){
+    return new Promise((resolve, reject)=>{
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = ()=>{
+        const s = Math.min(1, maxSide / Math.max(img.width, img.height));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        resolve(c.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('사진을 열지 못했어요')); };
+      img.src = url;
+    });
+  }
+
+  const LICENSE_PROMPT =
+    'This photo should be a Korean driver\'s license (자동차운전면허증). Read it and fill every field.\n' +
+    '- name: 성명 exactly as printed.\n' +
+    '- rrn: the full 주민등록번호 exactly as printed, as NNNNNN-NNNNNNN (13 digits). If some digits are hidden or masked, write * for each hidden digit.\n' +
+    '- address: 주소 as printed, one line.\n' +
+    '- licenseNo: RR-YY-NNNNNN-NN with the 2-digit region code. If the region is printed as a name, convert it: 서울 11, 부산 12, 경기 13, 강원 14, 충북 15, 충남 16, 전북 17, 전남 18, 경북 19, 경남 20, 제주 21, 대구 22, 인천 23, 광주 25, 대전 26, 울산 28.\n' +
+    '- licenseType: the license class (1종대형, 1종보통, 1종소형, 1종특수, 2종보통, 2종소형, 2종원동기). If several are printed, give the one for a passenger car, preferring 1종보통 then 2종보통.\n' +
+    '- expiry: the END date of 적성검사기간 or 갱신기간, as YYYY-MM-DD.\n' +
+    '- isLicense: false if the photo is not a driver\'s license.\n' +
+    '- unclear: the Korean labels (이름, 주민등록번호, 주소, 면허번호, 면허종류, 유효기간) of fields you could not read with confidence.\n' +
+    'Use an empty string for anything you cannot read. Do not guess digits.';
+  const LICENSE_SCHEMA = {
+    type: 'object', additionalProperties: false,
+    required: ['isLicense', 'name', 'rrn', 'address', 'licenseNo', 'licenseType', 'expiry', 'unclear'],
+    properties: {
+      isLicense: { type: 'boolean' }, name: { type: 'string' }, rrn: { type: 'string' }, address: { type: 'string' },
+      licenseNo: { type: 'string' }, licenseType: { type: 'string' }, expiry: { type: 'string' },
+      unclear: { type: 'array', items: { type: 'string' } },
+    },
+  };
+  function parseJson(t){ try{ return JSON.parse(t); }catch(e){ const m = String(t).match(/\{[\s\S]*\}/); try{ return m ? JSON.parse(m[0]) : null; }catch(e2){ return null; } } }
+
+  async function readLicense(b64){
+    if(/^sk-ant-/.test(aiKey)){
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'x-api-key': aiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json', 'anthropic-dangerous-direct-browser-access': 'true' },
+        body: JSON.stringify({
+          model: CLAUDE_MODEL, max_tokens: 1024,
+          output_config: { format: { type: 'json_schema', schema: LICENSE_SCHEMA } },
+          messages: [{ role: 'user', content: [
+            { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } },
+            { type: 'text', text: LICENSE_PROMPT } ] }],
+        }),
+      });
+      const j = await r.json().catch(()=> null);
+      if(!r.ok) throw new Error(r.status === 401 ? 'AI 키가 올바르지 않아요 (현황판 🤖 AI 설정 확인)' : 'AI 오류 ' + r.status);
+      if(j.stop_reason === 'refusal') throw new Error('AI가 이 사진을 읽지 않았어요. 다시 찍어주세요');
+      const out = parseJson((j.content || []).filter(c => c.type === 'text').map(c => c.text).join(''));
+      if(!out) throw new Error('AI 답을 이해하지 못했어요. 다시 찍어주세요');
+      return out;
+    }
+    if(aiKey){
+      let last = '';
+      for(const model of GEMINI_MODELS){
+        const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent', {
+          method: 'POST', headers: { 'x-goog-api-key': aiKey, 'content-type': 'application/json' },
+          body: JSON.stringify({ contents: [{ parts: [ { inline_data: { mime_type: 'image/jpeg', data: b64 } },
+            { text: LICENSE_PROMPT + '\nReply with JSON only, keys: isLicense, name, rrn, address, licenseNo, licenseType, expiry, unclear.' } ] }],
+            generationConfig: { responseMimeType: 'application/json', temperature: 0 } }),
+        });
+        if(!r.ok){
+          const t = await r.text().catch(()=> '');
+          if(/API[ _]?key/i.test(t)){ last = 'badkey'; break; } // 키가 틀림 → 다른 모델도 똑같음
+          continue; // 바쁨·없는 모델 → 다음 모델
+        }
+        const j = await r.json();
+        const c = j.candidates && j.candidates[0];
+        const out = parseJson(c && c.content ? (c.content.parts || []).map(p => p.text || '').join('') : '');
+        if(out) return out;
+      }
+      if(last === 'badkey'){
+        try{ localStorage.removeItem(AI_KEY_LS); }catch(e){}
+        refreshKey();
+        throw new Error('AI 키가 올바르지 않아요. 위에 키를 다시 넣어 주세요');
+      }
+      throw new Error('AI가 바빠요. 잠시 후 다시 찍어주세요');
+    }
+    throw new Error('AI 키가 없어요. 위 "AI 키 넣기"에 Gemini 키를 넣어 주세요');
+  }
+
+  $('photoBtn').onclick = ()=> $('photo').click();
+  $('fileBtn').onclick = ()=> $('photoFile').click();
+  $('photo').onchange = ()=> onPhoto($('photo'));
+  $('photoFile').onchange = ()=> onPhoto($('photoFile'));
+  async function onPhoto(input){
+    const f = input.files && input.files[0];
+    input.value = '';
+    if(!f) return;
+    $('readStatus').textContent = '면허증 글자를 읽는 중이에요...';
+    $('photoBtn').disabled = true; $('fileBtn').disabled = true;
+    try{
+      const dataUrl = await compressImage(f, 1568, 0.88);
+      $('preview').src = dataUrl; $('preview').style.display = 'block';
+      const d = await readLicense(dataUrl.split(',')[1]);
+      if(d.isLicense === false){ $('readStatus').innerHTML = '<span class="bad">면허증이 아닌 것 같아요. 다시 찍어주세요.</span>'; return; }
+      const set = (id, v) => { if(v) $(id).value = v; };
+      set('name', d.name); set('addr', d.address); set('lic', d.licenseNo);
+      $('rrn').value = normRrn(d.rrn);
+      const exp = normDate(d.expiry); if(exp) $('licexp').value = exp;
+      if([...$('lictype').options].some(o => o.value === d.licenseType)) $('lictype').value = d.licenseType;
+      const map = { 이름: 'name', 주민등록번호: 'rrn', 주소: 'addr', 면허번호: 'lic', 면허종류: 'lictype', 유효기간: 'licexp' };
+      const unclear = (d.unclear || []).map(u => map[u]).filter(Boolean);
+      if(!RRN_OK.test($('rrn').value)) unclear.push('rrn'); // 가려진 자리(*)가 있거나 13자리가 아님
+      Object.values(map).forEach(id => $(id).classList.toggle('unclear', unclear.includes(id) || !$(id).value));
+      $('readStatus').innerHTML = unclear.length ? '<span class="bad">읽었어요. 노란 칸을 면허증과 비교해 주세요.</span>' : '<span class="ok">✓ 읽었어요. 한 번 훑어보고 아래로 내려가세요.</span>';
+    }catch(e){
+      console.error(e);
+      $('readStatus').innerHTML = '<span class="bad">' + esc(e.message || '읽지 못했어요') + '</span>';
+    }finally{ $('photoBtn').disabled = false; $('fileBtn').disabled = false; }
+  }
+
+  // 주민등록번호: 숫자(가려진 자리는 *)만 남기고 앞 6자리 뒤에 - 를 넣음
+  const RRN_OK = /^\d{6}-\d{7}$/;
+  function normRrn(v){ const x = String(v || '').replace(/[^0-9*]/g, ''); return x.length > 6 ? x.slice(0, 6) + '-' + x.slice(6, 13) : x; }
+  // 2030.12.31, 2030-12-31, 20301231 → 2030-12-31
+  function normDate(v){ const x = String(v || '').replace(/\D/g, ''); return x.length === 8 ? x.slice(0, 4) + '-' + x.slice(4, 6) + '-' + x.slice(6) : ''; }
+  $('rrn').onchange = ()=>{ $('rrn').value = normRrn($('rrn').value); $('rrn').classList.toggle('unclear', !RRN_OK.test($('rrn').value)); };
+
+  // ── 우기 작업 보내기 ──────────────────────────────────
+  $('sendBtn').onclick = async ()=>{
+    const d = {
+      // 우기 계약서 생년월일 칸에는 주민등록번호 13자리를 다 넣어요 (렌트 계약서 기준)
+      name: $('name').value.trim(), birth: normRrn($('rrn').value), hp: $('hp').value.trim(), addr: $('addr').value.trim(),
+      lic: $('lic').value.trim(), lictype: $('lictype').value, licexp: $('licexp').value,
+      car: $('car').value, start: $('start').value.replace('T', ' '), end: $('end').value.replace('T', ' '),
+      place: $('place').value.trim(), memo: $('memo').value.trim(),
+    };
+    if(isIns){ d.rentType = '보험대차'; INS.forEach(k => { d[k] = $(k).value.trim(); }); }
+    const miss = [['name', '이름'], ['birth', '주민등록번호'], ['hp', '휴대폰'], ['lic', '면허번호'], ['car', '차량'], ['start', '출발'], ['end', '반납 예정']].filter(([k]) => !d[k]).map(([, t]) => t);
+    if(miss.length){ toast(miss.join(', ') + ' 칸을 채워주세요'); return; }
+    if(!RRN_OK.test(d.birth)){ toast('주민등록번호 13자리를 다 넣어 주세요 (가려진 * 자리 포함)'); $('rrn').focus(); return; }
+    if(d.end <= d.start){ toast('반납 예정이 출발보다 뒤여야 해요'); return; }
+    Object.keys(d).forEach(k => { if(!d[k]) delete d[k]; });
+    if(isIns) rememberIns(d);
+    $('sendBtn').disabled = true;
+    try{
+      const job = await push(ref(db, P('wooky/jobs')), {
+        status: 'waiting', createdAt: new Date().toISOString(), createdBy: (auth.currentUser && auth.currentUser.email) || '',
+        name: d.name, car: d.car, data: d,
+      });
+      currentJob = job.key;
+      if(stopJob) stopJob();
+      $('jobBox').textContent = STATUS.waiting;
+      stopJob = onValue(ref(db, P('wooky/jobs/' + job.key)), snap=>{
+        const j = snap.val(); if(!j) return;
+        const r = j.result || {};
+        let t = STATUS[j.status] || j.status;
+        if(j.status === 'waiting' && j.note) t += '\n(' + j.note + ')';
+        if(j.status === 'error'){ t += '\n' + (j.error || '') + '\n고친 뒤 [우기에 계약서 쓰기]를 다시 누르면 돼요.'; $('sendBtn').disabled = false; }
+        if(j.status === 'filled' || j.status === 'saved'){
+          if(r.bad && r.bad.length) t += '\n못 채운 칸: ' + r.bad.join(', ');
+          if(r.carError) t += '\n' + r.carError;
+          if(r.licCheck) t += '\n면허 조회: ' + r.licCheck;
+          if(r.saveUnclear) t += '\n[저장]을 눌렀지만 저장됐는지 확인이 안 돼요. 사무실 PC 화면을 확인해 주세요.';
+          if(j.status === 'saved' && r.closed === false) t += '\n계약서 창은 못 닫았어요. 사무실 PC에서 [창닫기]를 눌러 주세요.';
+          if(j.status === 'filled') t += '\n사무실 PC에서 노란 칸을 확인하고 [저장(F2)]을 눌러 주세요.';
+        }
+        $('jobBox').textContent = t;
+        if(j.status !== 'waiting' && j.status !== 'working') $('nextBtn').classList.remove('hidden');
+      }, ()=>{});
+    }catch(e){
+      console.error(e);
+      $('sendBtn').disabled = false;
+      toast(e && /permission/i.test(e.code || e.message) ? '보낼 권한이 없어요 (현황판 보안 규칙에서 wooky 경로 허용 필요)' : '보내지 못했어요. 인터넷을 확인해 주세요');
+    }
+  };
+</script>
+</body>
+</html>
