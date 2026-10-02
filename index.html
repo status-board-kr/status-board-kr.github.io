@@ -2311,18 +2311,21 @@ async function setupWooky(){
     buttons: [{ text: '확인', value: 1, primary: true }]
   });
 }
-function requestWookyClose(plate, km){
+async function requestWookyClose(plate, km){
   // 구글 서버는 우기소프트에 직접 못 가므로, 할 일만 Firebase에 적어둠.
   // 사무실 PC의 일꾼 프로그램이 이걸 가져가 우기소프트에 종결하고 결과를 메신저로 알림.
   try{
     const { ref, push, db } = window._fb;
     const me = window.CURRENT_USER;
-    push(ref(db, P('wookyJobs')), {
+    await push(ref(db, P('wookyJobs')), {
       plate: plate, km: (km == null ? null : Number(km)),
       endAt: new Date().toISOString(), status: 'pending',
       at: new Date().toISOString(), by: (me && me.email) || ''
     });
-  }catch(e){ console.warn('우기소프트 종결 요청 기록 실패:', e); }
+  }catch(e){
+    console.warn('우기소프트 종결 요청 기록 실패:', e);
+    showToast('⚠️ 회수는 완료됐지만 우기소프트 종결 요청 저장에 실패했어요. 다시 회수 명령을 보내주세요.');
+  }
 }
 // 사무실 PC가 처리를 끝내면 결과(resultMsg)를 할 일에 적어둠. 현황판(로그인됨)이 그걸 보고 메신저에 한 번 띄우고 오래된 건 정리.
 let _wookyWatchStarted = false;
@@ -4242,8 +4245,8 @@ async function applyChatCommand(cmd){
         }, extra));
       }
     }catch(e){ console.warn('회수 기록 실패:', e && e.code); }
-    // 대여 중이던 차면 우기소프트 계약도 자동 종결 (계기판 km 있으면 같이)
-    if(typeBefore) requestWookyClose(v.plate, cmd.returnKm);
+    // 회수 전 구분이 비어 있어도 요청: 실제 운행중 계약 존재 여부는 PC 일꾼이 확인.
+    await requestWookyClose(v.plate, cmd.returnKm);
   }
 
   // 차량별 이력 기록 ("이력 9585" 로 조회할 수 있게)
