@@ -31,6 +31,16 @@ if (!act.includes('saveWidget')) {
     '        }',
     '',
     '        @android.webkit.JavascriptInterface',
+    '        public String peekOpen() {',
+    '            String s = pendingOpen; return s == null ? "" : s;',
+    '        }',
+    '',
+    '        @android.webkit.JavascriptInterface',
+    '        public void acknowledgeOpen(String handled) {',
+    '            if (handled != null && handled.equals(pendingOpen)) pendingOpen = null;',
+    '        }',
+    '',
+    '        @android.webkit.JavascriptInterface',
     '        public String consumeOpen() {',
     '            String s = pendingOpen; pendingOpen = null;',
     '            return s == null ? "" : s;',
@@ -44,10 +54,20 @@ if (!act.includes('saveWidget')) {
   const actMethods = [
     '',
     '    public static volatile String pendingOpen = null;',
+    '    private final android.os.Handler widgetOpenHandler = new android.os.Handler(android.os.Looper.getMainLooper());',
+    '    private final Runnable widgetOpenDelivery = new Runnable() {',
+    '        @Override public void run() {',
+    '            if (isFinishing() || isDestroyed() || pendingOpen == null) return;',
+    '            if (getBridge() != null && getBridge().getWebView() != null) {',
+    '                getBridge().getWebView().evaluateJavascript("if(typeof checkWidgetOpen === \'function\') checkWidgetOpen();", null);',
+    '            }',
+    '            widgetOpenHandler.postDelayed(this, 500);',
+    '        }',
+    '    };',
     '',
     '    private void dispatchWidgetOpen() {',
-    '        if (pendingOpen == null || getBridge() == null || getBridge().getWebView() == null) return;',
-    '        getBridge().getWebView().post(() -> getBridge().getWebView().evaluateJavascript("if(typeof checkWidgetOpen === \'function\') checkWidgetOpen();", null));',
+    '        widgetOpenHandler.removeCallbacks(widgetOpenDelivery);',
+    '        if (pendingOpen != null) widgetOpenHandler.post(widgetOpenDelivery);',
     '    }',
     '',
     '    private void captureOpen(android.content.Intent it) {',
@@ -62,6 +82,18 @@ if (!act.includes('saveWidget')) {
     '        setIntent(intent);',
     '        captureOpen(intent);',
     '        dispatchWidgetOpen();',
+    '    }',
+    '',
+    '    @Override',
+    '    public void onPause() {',
+    '        widgetOpenHandler.removeCallbacks(widgetOpenDelivery);',
+    '        super.onPause();',
+    '    }',
+    '',
+    '    @Override',
+    '    public void onDestroy() {',
+    '        widgetOpenHandler.removeCallbacks(widgetOpenDelivery);',
+    '        super.onDestroy();',
     '    }',
     '',
     '    @Override',
@@ -239,7 +271,7 @@ public class FleetWidgetUtil {
             int color = day == selDay ? Color.parseColor("#FFFFFF") : Color.parseColor(i%7 == 0 ? "#C76C6C" : i%7 == 6 ? "#5987AD" : "#334339");
             v.setTextColor(cell, color);
             v.setInt(cell, "setBackgroundResource", day == selDay ? R.drawable.wcell_sel : day == today ? R.drawable.wcell_today : 0);
-            // 기존형은 위젯 아래 일정 표시, 간편형은 모든 날짜를 앱 일정으로 연결.
+            // 기존형: 위젯 아래 선택 날짜 일정. 간편형: 일정 유무와 관계없이 앱의 해당 날짜 일정.
             v.setOnClickPendingIntent(cell, size == COMPACT ? opener(ctx, "date:" + ymd(year, month, day), 300+i) : selector(ctx, ymd(year, month, day), 100+i, size));
         }
         String date = ymd(year, month, selDay);

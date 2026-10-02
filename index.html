@@ -2230,14 +2230,22 @@ function pushWidgetData(){
   }, 1500);
 }
 // 위젯에서 날짜·메시지를 눌러 앱이 열렸으면 그 화면으로 바로 이동
+let widgetScheduleReady = false;
 function checkWidgetOpen(){
   try{
-    if(!(window.AndroidSettings && window.AndroidSettings.consumeOpen)) return;
-    if(!window.COMPANY_ID || !window._fb) return; // Keep the request until login/company loading finishes.
-    const v = window.AndroidSettings.consumeOpen();
+    const bridge = window.AndroidSettings;
+    if(!(bridge && (bridge.peekOpen || bridge.consumeOpen))) return;
+    if(!window.COMPANY_ID || !window._fb || !widgetScheduleReady) return;
+    const acknowledged = !!(bridge.peekOpen && bridge.acknowledgeOpen);
+    const v = acknowledged ? bridge.peekOpen() : bridge.consumeOpen();
     if(!v) return;
-    if(v === 'chat'){ if(typeof openChatModal === 'function') openChatModal(); return; }
-    if(v.startsWith('date:')){ openSchedModalOnDate(v.slice(5)); }
+    if(v === 'chat'){
+      if(typeof openChatModal !== 'function') return;
+      openChatModal();
+    }else if(/^date:\d{4}-\d{2}-\d{2}$/.test(v)){
+      openSchedModalOnDate(v.slice(5));
+    }else return;
+    if(acknowledged) bridge.acknowledgeOpen(v);
   }catch(e){ console.warn('위젯 열기 처리 실패:', e); }
 }
 function render(){
@@ -5923,6 +5931,7 @@ function resumeLocationShareIfNeeded(){
 }
 
 async function startApp(){
+  widgetScheduleReady = false;
   setDate();
   // 🕒 변경기록(되돌리기)은 관리자에게만 보여줌
   const hb = document.getElementById('historyBtn');
@@ -5937,6 +5946,8 @@ async function startApp(){
   await loadSchedules();
   renderSchedBanner();
   startScheduleSync();
+  widgetScheduleReady = true;
+  checkWidgetOpen();
   startChatSync();
   initChatNotify();
   initPushNotifications();
