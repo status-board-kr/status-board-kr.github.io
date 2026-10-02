@@ -239,7 +239,8 @@ public class FleetWidgetUtil {
             int color = day == selDay ? Color.parseColor("#FFFFFF") : Color.parseColor(i%7 == 0 ? "#C76C6C" : i%7 == 6 ? "#5987AD" : "#334339");
             v.setTextColor(cell, color);
             v.setInt(cell, "setBackgroundResource", day == selDay ? R.drawable.wcell_sel : day == today ? R.drawable.wcell_today : 0);
-            v.setOnClickPendingIntent(cell, n > 0 ? opener(ctx, "date:" + ymd(year, month, day), 300+i) : selector(ctx, ymd(year, month, day), 100+i, size));
+            // 기존형은 위젯 아래 일정 표시, 간편형은 모든 날짜를 앱 일정으로 연결.
+            v.setOnClickPendingIntent(cell, size == COMPACT ? opener(ctx, "date:" + ymd(year, month, day), 300+i) : selector(ctx, ymd(year, month, day), 100+i, size));
         }
         String date = ymd(year, month, selDay);
         if (size == LARGE) {
