@@ -606,6 +606,28 @@ header{background:#101b2e;border-bottom-color:#30415d;padding-bottom:10px}
 .card.st-running[data-type="장기"],.card.st-dispatch[data-type="장기"]{background:#30273f;border-color:#57466e;border-left-color:#a78bce}
 .card.return-alert{border-left-color:var(--red)}
 .card.return-soon-alert{border-left-color:var(--amber)}
+.desktop-only{display:none}
+@media(min-width:1000px){
+  :root{--bg:#f5f7fb;--panel:#fff;--panel2:#edf2f8;--line:#dfe6ef;--text:#20334d;--sub:#788ca6}
+  body{padding-left:220px;background:#f5f7fb;color:#20334d}
+  .desktop-only{display:block}
+  .desktop-sidebar{position:fixed;inset:0 auto 0 0;width:220px;padding:32px 18px;background:#192a40;color:#d7e1ed;z-index:25}
+  .desktop-sidebar strong{display:block;font-size:20px;margin:0 14px 8px;color:white}.desktop-sidebar small{font-size:12px;color:#8ea6c1;margin:0 14px}
+  .desktop-sidebar nav{display:grid;gap:8px;margin-top:28px}.desktop-sidebar button,.desktop-sidebar a{padding:15px 14px;text-align:left;background:transparent;color:#b8c9dd;border:0;border-radius:8px;font-size:14px;text-decoration:none}.desktop-sidebar .selected{background:#2b3d53;color:white}
+  header{position:relative;background:none;border:0;padding:32px 32px 15px}.title-row{grid-template-columns:1fr auto auto!important}.title-row>div:nth-child(2){text-align:left!important}.title-row>div:first-child{order:3}.title-row>div:nth-child(2){order:1}.title-row>div:nth-child(3){order:2}.title-actions .history-btn{background:#fff;color:#355377}.title-row h1{font-size:25px;color:#142b48}.date{color:#8193aa!important;margin-top:8px}
+  .header-actions{display:none}.desktop-summary{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:27px 0 22px}.desktop-summary>div{background:white;border:1px solid #dfe6ef;border-radius:9px;padding:20px}.desktop-summary label{font-size:12px;color:#7b8fa8}.desktop-summary b{display:block;font-size:30px;color:#294f7d;margin-top:10px}.desktop-summary small{font-size:12px;font-weight:400;color:#7b8fa8}.desktop-summary p{font-size:11px;color:#8b9caf;margin:5px 0 0}.desktop-summary>div:nth-child(3) b{color:#b27a30}
+  .stats{display:flex;gap:8px;width:fit-content}.stat{min-width:84px;display:flex;align-items:center;gap:7px;padding:10px 13px;border:0;background:transparent;color:#526b8b!important;border-radius:6px}.stat span{font-size:12px}.stat b{font-size:12px}.stat.active{background:#e9eff8;color:#234b7c!important;border:0}.board-bot{font-size:12px;padding:5px}.search-row{margin-top:14px}.search-row input{background:white;border-color:#dfe6ef}.search-row select{background:white!important;color:#435f81!important;border-color:#dfe6ef!important}
+  main{padding:0 32px 35px}.section-title{margin:24px 0 10px;font-size:15px;color:#2d4666}
+  .desktop-table-head,.desktop-vehicle-row{display:grid;grid-template-columns:1.25fr 1.15fr .65fr 1.5fr 1.25fr .75fr;gap:18px;align-items:center}.desktop-table-head{padding:14px 18px;background:#f8faff;border:1px solid #e0e6ef;border-bottom:0;border-radius:9px 9px 0 0;font-size:11px;color:#8192aa}
+  main .card{display:block!important;background:white!important;border:1px solid #e0e6ef!important;border-top:0!important;border-left-width:1px!important;margin:0!important;padding:20px 18px!important;border-radius:0!important;min-height:86px}.card>.cbody,.card>.amount{display:none}.desktop-vehicle-row{position:relative;z-index:1;font-size:12px;line-height:1.7;color:#426082}.desktop-vehicle-row strong{color:#17304f;font-size:14px}.desktop-vehicle-row small{display:block;color:#8a9bb0;font-size:11px}.desktop-vehicle-row .badge{display:inline-block;margin:2px 3px 2px 0;font-size:10px}.desktop-vehicle-row .type-badge{font-size:11px}.desktop-vehicle-row .tp-보험{background:#edf3fc;color:#38689f}.desktop-vehicle-row .tp-일반{background:#faf1e7;color:#a26b35}.desktop-vehicle-row .tp-장기{background:#f1edf8;color:#755690}.desktop-vehicle-row .st-idle{background:#ebf7f1;color:#438d74}.desktop-vehicle-row .st-running{background:#edf3fc;color:#38689f}.desktop-vehicle-row .st-prep{background:#edf0f4;color:#627182}.desktop-vehicle-row .return-due,.desktop-vehicle-row .return-soon{color:#bd7135}
+  main .card.return-alert{border-left:3px solid #c46b5d!important}main .card.return-soon-alert{border-left:3px solid #bf9147!important}.fab{background:#2c507f;color:white}.modal{color:#20334d}.modal-bg{background:#17263c80}
+}
+
+@media(min-width:1000px){
+.desktop-sidebar{overflow-y:auto}.desktop-sidebar nav{gap:4px}.desktop-sidebar nav button,.desktop-sidebar nav a{padding:10px 14px;font-size:13px}
+.title-actions{visibility:hidden}.desktop-add{position:absolute;right:32px;top:36px;background:#2c507f;border:0;border-radius:7px;color:white;padding:12px 16px;font-size:12px;font-weight:700}.board-bot{position:absolute;right:160px;top:37px;border:1px solid #dfe6ef;border-radius:7px;padding:10px 12px;background:white}.fab{display:none}
+.desktop-vehicle-row .badge.st-running{background:#edf3fc;color:#38689f}.desktop-vehicle-row .badge.st-idle{background:#ebf7f1;color:#438d74}.desktop-vehicle-row .badge.st-prep{background:#edf0f4;color:#627182}
+}
 </style>
 </head>
 <body>
@@ -706,7 +728,7 @@ header{background:#101b2e;border-bottom-color:#30415d;padding-bottom:10px}
 </div>
 
 
-<header>
+<aside class="desktop-only desktop-sidebar"><strong>차량 운영 관리</strong><small>차량 현황판</small><nav><button class="selected" onclick="window.scrollTo({top:0,behavior:'smooth'})">▦ 차량 현황</button><a href="payment.html">▣ 회수 · 미청구</a><button onclick="openChatModal()">▤ 메신저</button><button onclick="openSchedModal()">▦ 일정 · 배차</button><button onclick="openStaffModal()">♙ 직원 관리</button><button onclick="openLocModal()">⌖ 위치보기</button><button onclick="openInquiryModal()">☎ 상담</button><button onclick="openKakaoTalk()">▤ 카카오톡</button><button onclick="openQuickApp()" oncontextmenu="if(window.COMPANY_ROLE==='owner'){event.preventDefault();setupQuickApp();}">☆ 자주 쓰는 앱</button><button onclick="document.getElementById('docsBtn').click()">▣ 견적 · 계약서</button><button onclick="openHistoryModal()">◷ 변경기록</button><button onclick="reload(true)">↻ 새로고침</button><button onclick="openPhoneSetup(true)">⚙ 설정</button></nav></aside><header><button class="desktop-only desktop-add" onclick="openAddModal()">＋ 차량 등록</button>
   <div class="title-row">
     <div style="display:flex;gap:6px;">
       <button class="history-btn" onclick="reload(true)" title="새로고침" aria-label="새로고침" style="font-size:18px;">↻</button>
@@ -731,7 +753,7 @@ header{background:#101b2e;border-bottom-color:#30415d;padding-bottom:10px}
     <a class="link-btn" style="color:var(--amber);border:1px solid rgba(245,166,35,.5);" href="payment.html"><span class="nav-icon payment" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 9h20M6 15h4"/></svg></span><span>결제일 알림</span></a>
     <a class="link-btn" id="docsBtn" style="display:none;color:#38bdf8;border:1px solid rgba(56,189,248,.5);" href="https://status-board-kr.github.io/docs.html" target="_blank" rel="noopener" onclick="if(window.AndroidSettings&&window.AndroidSettings.openUrl){event.preventDefault();openExternalUrl(this.href);}"><span class="nav-icon document" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M8 12h8M8 16h6"/></svg></span><span>견적·계약서</span></a>
   </div>
-  <div class="stats" id="statsRow"></div><div class="board-bot" role="status">● 종결 봇 <b id="wookyHealthText">확인 중</b></div>
+  <section class="desktop-only desktop-summary" id="desktopSummary"></section><div class="stats" id="statsRow"></div><div class="board-bot" role="status">● 종결 봇 <b id="wookyHealthText">확인 중</b></div>
   <div id="wookyHealthBar" style="margin:8px 0;color:var(--sub);font-size:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;" role="status">
     <button type="button" id="wookyRetryBtn" style="display:none;" onclick="retryWookyFailures()">실패 건 재시도</button>
   </div>
@@ -1643,9 +1665,11 @@ async function persist(change){
       await set(ref(db, P('vehicles')), vehicles);
     }
     showToast('저장됨 · 다른 직원 화면에도 실시간 반영됩니다');
+    return true;
   }catch(e){
     console.error(e);
     showToast('저장 실패 - 다시 시도해주세요');
+    return false;
   }
 }
 
@@ -2081,7 +2105,51 @@ function toggleStatusFilter(s){
   render();
 }
 
+function dispatchCountToday(){
+  const today=todayStr(), found=new Set(vehicles.filter(v=>v.dispatchDate===today).map(v=>v.plate));
+  // Compatibility for recent commands sent before dispatch stamps were introduced.
+  const messages=Object.values(typeof _chatMessages==='undefined'?{}:Object.assign({},_chatOlder,_chatMessages)).filter(m=>m&&m.text).sort((a,b)=>String(a.at).localeCompare(String(b.at)));
+  messages.forEach((m,i)=>{
+    if(m.uid==='system'||m.type==='system')return;
+    const date=new Date(m.at);if(isNaN(date)||`${date.getFullYear()}-${pad2(date.getMonth()+1)}-${pad2(date.getDate())}`!==today)return;
+    const cmd=parseChatCommand(m.text);if(!cmd||!cmd.isDispatch)return;
+    for(let j=i+1;j<messages.length;j++){
+      const result=messages[j];if(new Date(result.at)-date>300000)break;
+      if(result.uid!=='system'&&result.type!=='system')continue;
+      if(!/^✅ /.test(result.text)||!/변경됨|배차 완료/.test(result.text))continue;
+      const plate=vehicles.find(v=>v.plate.endsWith(cmd.plateToken)&&result.text.startsWith('✅ '+v.plate+' '));
+      if(plate){found.add(plate.plate);break;}
+    }
+  });
+  let count=0;
+  vehicles.forEach(v=>{
+    const runs=Array.isArray(v.dispatchRuns)?v.dispatchRuns.filter(x=>x&&x.date===today):[];
+    count+=runs.length || (found.has(v.plate)?1:0);
+  });
+  return count;
+}
+function renderDesktopSummary(){
+  const el=document.getElementById('desktopSummary');if(!el)return;
+  const total=vehicles.length,idle=vehicles.filter(v=>v.status==='대기').length;
+  const running=vehicles.filter(v=>!['대기','준비중'].includes(v.status)).length;
+  const recalls=vehicles.filter(v=>String(v.returnDate||'').slice(0,10)===todayStr()).length;
+  const dispatch=dispatchCountToday();
+  el.innerHTML=[['운행중',running,'전체 차량의 '+(total?Math.round(running/total*100):0)+'%'],['대기',idle,'바로 배차 가능한 차량'],['오늘 회수',recalls,'오늘 등록된 회수 일정'],['오늘 배차',dispatch,'조완 · ㅈㅇ 완료 · 회수 후 재배차 포함']].map(([label,note,caption])=>'<div><label>'+label+'</label><b>'+note+'<small> '+(label==='오늘 배차'?'건':'대')+'</small></b><p>'+caption+'</p></div>').join('');
+}
+function desktopVehicleRow(v,sc,due,soon){
+  const e=escapeHtml;
+  return `<div class="desktop-only desktop-vehicle-row">
+    <div><strong class="plate">${e(v.plate)}</strong><small>${e([v.cls,v.model,v.fuel].filter(Boolean).join(' · '))}</small></div>
+    <div><span class="badge ${sc}">${e(statusLabel(v))}</span>${due?'<span class="badge return-due">회수일 도래</span>':soon?'<span class="badge return-soon">회수 임박</span>':''}${insuranceBadge(v)}${ageExpireBadge(v)}${renderAsLine(v)}${renderInspectionLine(v)}</div>
+    <div>${v.type?`<span class="type-badge tp-${e(v.type)}">${e(v.type)}</span>`:'—'}</div>
+    <div>${e(v.note||'—')}<small>${e(v.extra||'')}</small>${v.amount?`<small>${e(String(v.amount))}만원 ${v.payDay?'· 매월 '+e(String(v.payDay))+'일':''}</small>`:''}</div>
+    <div class="${due?'return-due':soon?'return-soon':''}">${v.returnDate?formatReturnDate(v.returnDate):'—'}</div>
+    <div>${v.dispatchAt?'배차 완료<small>'+e(new Date(v.dispatchAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}))+'</small>':'—'}</div>
+  </div>`;
+}
+
 function renderStats(){
+  renderDesktopSummary();
   const total = vehicles.length;
   const idle = vehicles.filter(v=>v.status==='대기').length;
   const prep = vehicles.filter(v=>v.status==='준비중').length;
@@ -2235,6 +2303,7 @@ function render(){
       return `
         <div class="card ${sc}${cardExtraClass}" data-type="${escapeHtml(v.type||'')}" data-service="${/정비|수리/.test(v.status||'')}" data-plate="${escapeHtml(v.plate)}">
           <span class="press-fill"></span>
+          ${desktopVehicleRow(v,sc,due,soon)}
           <div class="cbody">
             <div class="row1">
               <span class="plate-tag plate">${escapeHtml(v.plate)}</span>
@@ -2260,7 +2329,7 @@ function render(){
           ${v.amount?`<div class="amount">${v.customerName?`${escapeHtml(v.customerName)}<br>`:''}${escapeHtml(String(v.amount))}만원${v.payDay?`<br>매월 ${escapeHtml(String(v.payDay))}일`:''}${v.type==='일반'?`<br><span style="color:${v.depositPaid?'var(--green)':'var(--red)'};font-weight:700;">${v.depositPaid?'💰 입금완료':'⚠️ 미입금'}</span>`:''}</div>`:''}
         </div>`;
     }).join('');
-    return `<div class="section-title"><span>${escapeHtml(branch)}</span><span>${items.length}대</span></div>${cards}`;
+    return `<div class="section-title"><span>${escapeHtml(branch)}</span><span>${items.length}대</span></div><div class="desktop-only desktop-table-head"><span>차량번호 / 차종</span><span>상태 / 알림</span><span>대여 구분</span><span>메모 / 대상 차량</span><span>회수 일정</span><span>최근 배차</span></div>${cards}`;
   }).join('');
 
   // 카드 클릭/길게 누르기 이벤트는 인라인 onclick 대신 위임 방식으로 붙입니다.
@@ -4088,6 +4157,7 @@ function startChatSync(force){
       markChatRead();
     }
     updateChatBadge();
+    renderDesktopSummary();
     checkChatNotify();
   }, (err)=>{ console.error('채팅 수신 실패:', err); });
 }
@@ -4221,6 +4291,7 @@ function parseChatCommand(text){
   const rest = first[2] ? [first[2], ...raw.slice(1)] : raw.slice(1);
 
   const isRecall = rest.includes('회수') || rest.includes('ㅎㅅ');
+  const isDispatch = !isRecall && rest.some(t=>['조완','ㅈㅇ','조치완료'].includes(t));
   // "9588 키로 37960" / "9588 km 37960" → 마지막 회수 기록의 종료 주행거리 수정
   const kmIdx = rest.findIndex(t => /^(키로|킬로|km|KM|주행거리)$/.test(t));
   const kmFix = (kmIdx >= 0) ? Number(String(rest[kmIdx + 1] || '').replace(/[^0-9]/g, '')) : NaN;
@@ -4234,17 +4305,19 @@ function parseChatCommand(text){
   return {
     plateToken,
     isRecall,
+    isDispatch,
     newStatus: statusToken ? CHAT_STATUS_KEYWORDS[statusToken] : null,
     typeToken: typeToken || null,
     note: noteTokens.join(' '),
-    isQueryOnly: !isRecall && !statusToken && !typeToken && noteTokens.length === 0
+    isQueryOnly: !isRecall && !isDispatch && !statusToken && !typeToken && noteTokens.length === 0
   };
 }
 // 명령을 실제 차량 데이터에 적용. 결과 안내 문구를 돌려줍니다.
 async function applyChatCommand(cmd){
   const idx = vehicles.findIndex(v => v && v.plate && v.plate.endsWith(cmd.plateToken));
   if(idx === -1) return { ok:false, msg:`❌ 뒷자리 ${cmd.plateToken} 차량을 찾을 수 없어요.` };
-  const v = Object.assign({}, vehicles[idx]);
+  const previous = vehicles[idx];
+  const v = Object.assign({}, previous);
 
   // "9588 키로 37960" → 가장 최근 회수 기록의 종료 주행거리 고치기
   if(cmd.kmFix){
@@ -4293,6 +4366,19 @@ async function applyChatCommand(cmd){
       v.status = '대기'; v.startDate = null;
     }
   }
+  if(cmd.isRecall) v.dispatchSessionActive=false;
+  if(cmd.isDispatch){
+    const newRun=!previous.dispatchSessionActive || ['대기','준비중'].includes(previous.status);
+    if(newRun){
+      const now=new Date(),cutoff=new Date(now.getTime()-30*86400000).toISOString();
+      const runs=Array.isArray(previous.dispatchRuns)?previous.dispatchRuns.filter(x=>x&&x.at>=cutoff):[];
+      v.dispatchDate=todayStr();v.dispatchAt=now.toISOString();
+      v.dispatchRuns=runs.concat({date:v.dispatchDate,at:v.dispatchAt});
+    }
+    v.dispatchSessionActive=true;
+    if(!cmd.newStatus) v.status='운행중';
+    if(!v.startDate) v.startDate=todayStr();
+  }
   // 회수·조완 모두 상대 차량번호를 메모에 남깁니다.
   if(cmd.extraPlates && cmd.extraPlates.length){
     const base = (v.note || '').trim();
@@ -4302,7 +4388,8 @@ async function applyChatCommand(cmd){
 
   vehicles[idx]=v;
   render();
-  await persist({type:'upsert', vehicle:v});
+  const saved = await persist({type:'upsert', vehicle:v});
+  if(!saved){ vehicles[idx]=previous; render(); return {ok:false,msg:'⚠️ 저장 실패 - 배차·회수 처리가 저장되지 않았어요. 다시 시도해주세요'}; }
   await syncReturnSchedule(v.plate, oldReturnDate, v.returnDate, cmd.isRecall ? typeBefore : v.type);
 
   // 회수면 미청구(회수 기록) 목록에 항상 남김 — 회수 시간 + 종료 주행거리 + 계기판 사진
@@ -4333,6 +4420,7 @@ async function applyChatCommand(cmd){
     let hist = cmd.isRecall ? ('회수 처리 → 대기' + (cmd.returnKm ? ` · 종료 ${Number(cmd.returnKm).toLocaleString()}km` : '')) : '';
     if(cmd.extraPlates && cmd.extraPlates.length) hist += (hist ? ' · ' : '') + '상대차량 ' + cmd.extraPlates.join(' ');
     if(!cmd.isRecall){
+      if(cmd.isDispatch) hist += '배차 완료';
       if(cmd.typeToken) hist += cmd.typeToken;
       if(cmd.newStatus) hist += (hist?' / ':'') + cmd.newStatus;
       if(cmd.note) hist += (hist?' / ':'') + cmd.note;
@@ -4345,7 +4433,7 @@ async function applyChatCommand(cmd){
   }catch(e){ console.warn('이력 기록 실패(무시):', e && e.code); }
 
   return { ok:true,
-    msg:`✅ ${v.plate} (${v.model||'-'}) ${cmd.isRecall ? '회수 완료' : '변경됨'}\n- 구분: ${v.type||'-'}\n- 상태: ${v.status||'-'}\n- 메모: ${v.note||'-'}`
+    msg:`✅ ${v.plate} (${v.model||'-'}) ${cmd.isRecall ? '회수 완료' : cmd.isDispatch ? '배차 완료' : '변경됨'}\n- 구분: ${v.type||'-'}\n- 상태: ${v.status||'-'}\n- 메모: ${v.note||'-'}`
       + (cmd.isRecall ? `\n- 종료 주행거리: ${cmd.returnKm ? Number(cmd.returnKm).toLocaleString()+'km' : '미입력'}\n📋 미청구(회수 기록) 목록에 추가됨${cmd.aiKm ? `\n✏️ 주행거리가 다르면 "${String(v.plate).slice(-4)} 키로 37960" 처럼 보내면 고쳐져요` : ''}` : '') };
 }
 

@@ -26,6 +26,7 @@ if (!act.includes('saveWidget')) {
     '            try {',
     '                getSharedPreferences("fleet_widget", MODE_PRIVATE).edit().putString("data", json).apply();',
     '                FleetWidgetUtil.refreshAll(MainActivity.this);',
+    '                FleetWidgetWeather.refresh(MainActivity.this);',
     '            } catch (Exception ignored) { }',
     '        }',
     '',
@@ -91,6 +92,7 @@ import org.json.JSONObject;
 
 public class FleetWidgetUtil {
     public static final int LARGE = 2;
+    public static final int COMPACT = 3;
 
     public static JSONObject load(Context ctx) {
         try {
@@ -102,6 +104,8 @@ public class FleetWidgetUtil {
     public static void refreshAll(Context ctx) {
         AppWidgetManager m = AppWidgetManager.getInstance(ctx);
         update(ctx, m, m.getAppWidgetIds(new ComponentName(ctx, FleetCalendarWidget.class)), LARGE);
+        int[] compact = m.getAppWidgetIds(new ComponentName(ctx, FleetCompactWidget.class));
+        update(ctx, m, compact, COMPACT);
     }
 
     public static void update(Context ctx, AppWidgetManager m, int[] ids, int size) {
@@ -119,11 +123,11 @@ public class FleetWidgetUtil {
     }
 
     // 날짜를 누르면 앱을 열지 않고 위젯 안에서 그 날 일정으로 바꿈
-    static PendingIntent selector(Context ctx, String ds, int code) {
-        Intent it = new Intent(ctx, FleetCalendarWidget.class);
+    static PendingIntent selector(Context ctx, String ds, int code, int size) {
+        Intent it = new Intent(ctx, size == COMPACT ? FleetCompactWidget.class : FleetCalendarWidget.class);
         it.setAction("fleet.widget.SELECT");
         it.putExtra("sel", ds);
-        return PendingIntent.getBroadcast(ctx, code, it, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+        return PendingIntent.getBroadcast(ctx, code + size*1000, it, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
     static String ymd(int y, int m, int d) {
@@ -149,7 +153,7 @@ public class FleetWidgetUtil {
     }
 
     static RemoteViews build(Context ctx, int size) {
-        int layout = R.layout.widget_large;
+        int layout = size == COMPACT ? R.layout.widget_compact : R.layout.widget_large;
         RemoteViews v = new RemoteViews(ctx.getPackageName(), layout);
         v.setOnClickPendingIntent(R.id.w_root, opener(ctx, "", 1));
         v.setOnClickPendingIntent(R.id.w_unread, opener(ctx, "chat", 2));
@@ -183,13 +187,13 @@ public class FleetWidgetUtil {
         if (base == null) return v;
         JSONObject months = d.optJSONObject("months");
         String currentKey = ymd(base.optInt("y"), base.optInt("m"), 1).substring(0, 7);
-        String key = ctx.getSharedPreferences("fleet_widget", Context.MODE_PRIVATE).getString("month", currentKey);
+        String key = ctx.getSharedPreferences("fleet_widget", Context.MODE_PRIVATE).getString("month"+size, currentKey);
         JSONObject cal = months == null ? null : months.optJSONObject(key);
         if (cal == null) { cal = base; key = currentKey; }
         int year = cal.optInt("y"), month = cal.optInt("m"), today = cal.optInt("today");
         int first = cal.optInt("firstDow"), days = cal.optInt("days");
         JSONObject count = cal.optJSONObject("count"), items = cal.optJSONObject("items"), events = cal.optJSONObject("events");
-        String selected = ctx.getSharedPreferences("fleet_widget", Context.MODE_PRIVATE).getString("sel", "");
+        String selected = ctx.getSharedPreferences("fleet_widget", Context.MODE_PRIVATE).getString("sel"+size, "");
         int selDay = today > 0 ? today : 1;
         if (selected.startsWith(key + "-")) {
             try { selDay = Integer.parseInt(selected.substring(8)); } catch (Exception ignored) { }
@@ -202,16 +206,16 @@ public class FleetWidgetUtil {
             java.util.Calendar other = (java.util.Calendar)cursor.clone(); other.add(java.util.Calendar.MONTH, delta);
             String target = ymd(other.get(java.util.Calendar.YEAR), other.get(java.util.Calendar.MONTH)+1, 1);
             if (months == null || months.optJSONObject(target.substring(0,7)) == null) target = ymd(year, month, selDay);
-            v.setOnClickPendingIntent(delta < 0 ? R.id.w_prev : R.id.w_next, selector(ctx, target, delta < 0 ? 50 : 51));
+            v.setOnClickPendingIntent(delta < 0 ? R.id.w_prev : R.id.w_next, selector(ctx, target, delta < 0 ? 50 : 51, size));
         }
-        v.setOnClickPendingIntent(R.id.w_today, selector(ctx, d.optString("todayStr"), 52));
+        v.setOnClickPendingIntent(R.id.w_today, selector(ctx, d.optString("todayStr"), 52, size));
         int rows = (first + days + 6) / 7;
         for (int row = 0; row < 6; row++) v.setViewVisibility(id(ctx, "w_r" + row), row < rows ? android.view.View.VISIBLE : android.view.View.GONE);
         for (int i = 0; i < 42; i++) {
             int cell = id(ctx, "w_c" + i), day = i - first + 1;
             if (day < 1 || day > days) {
                 v.setTextViewText(cell, ""); v.setInt(cell, "setBackgroundResource", 0);
-                v.setOnClickPendingIntent(cell, selector(ctx, "", 100+i));
+                v.setOnClickPendingIntent(cell, selector(ctx, "", 100+i, size));
                 continue;
             }
             int n = count == null ? 0 : count.optInt(String.valueOf(day));
@@ -223,7 +227,8 @@ public class FleetWidgetUtil {
                 if ("회수".equals(firstEvent.optString("kind")) && title.length() >= 4) label = title.substring(title.length()-4) + "회수";
                 else label = title.length() > 5 ? title.substring(0,4) + "…" : title;
             } else if (n > 0) label = "일정 " + n + "건";
-            String dayText = String.valueOf(day);
+            String weather = size == COMPACT ? FleetWidgetWeather.icon(ctx, ymd(year, month, day)) : "";
+            String dayText = String.valueOf(day) + (weather.isEmpty() ? "" : " " + weather);
             android.text.SpannableString cellText = new android.text.SpannableString(dayText + (label.isEmpty() ? "" : "\\n" + label));
             if (!label.isEmpty()) {
                 int start = dayText.length()+1;
@@ -234,9 +239,10 @@ public class FleetWidgetUtil {
             int color = day == selDay ? Color.parseColor("#FFFFFF") : Color.parseColor(i%7 == 0 ? "#C76C6C" : i%7 == 6 ? "#5987AD" : "#334339");
             v.setTextColor(cell, color);
             v.setInt(cell, "setBackgroundResource", day == selDay ? R.drawable.wcell_sel : day == today ? R.drawable.wcell_today : 0);
-            v.setOnClickPendingIntent(cell, n > 0 ? opener(ctx, "date:" + ymd(year, month, day), 300+i) : selector(ctx, ymd(year, month, day), 100+i));
+            v.setOnClickPendingIntent(cell, n > 0 ? opener(ctx, "date:" + ymd(year, month, day), 300+i) : selector(ctx, ymd(year, month, day), 100+i, size));
         }
         String date = ymd(year, month, selDay);
+        if (size == LARGE) {
         v.setTextViewText(R.id.w_seltitle, month + "월 " + selDay + "일" + (today == selDay ? " · 오늘" : ""));
         JSONArray detail = events == null ? null : events.optJSONArray(String.valueOf(selDay));
         JSONArray fallback = items == null ? null : items.optJSONArray(String.valueOf(selDay));
@@ -259,14 +265,18 @@ public class FleetWidgetUtil {
         v.setTextViewText(R.id.w_more, total > 2 ? "외 " + (total - 2) + "건 · 앱에서 보기" : "");
         v.setViewVisibility(R.id.w_more,total > 2 ? android.view.View.VISIBLE : android.view.View.GONE);
         v.setOnClickPendingIntent(R.id.w_more, opener(ctx,"date:"+date,202));
+        } else {
+            v.setTextViewText(R.id.w_weather, FleetWidgetWeather.status(ctx));
+            v.setOnClickPendingIntent(R.id.w_weather, PendingIntent.getActivity(ctx, 909, new Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://docs.api.met.no/doc/License.html")), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
+        }
         v.setOnClickPendingIntent(R.id.w_openapp, opener(ctx,"date:"+date,3));
         return v;
     }
 }
 `;
 fs.writeFileSync(path.join(javaDir, 'FleetWidgetUtil.java'), util);
-for (const [name, size] of [['FleetCalendarWidget','LARGE']]) {
-  const onReceive = size !== 'LARGE' ? '' : `
+for (const [name, size] of [['FleetCalendarWidget','LARGE'],['FleetCompactWidget','COMPACT']]) {
+  const onReceive = false ? '' : `
 
     // 위젯 안에서 날짜를 눌렀을 때: 고른 날짜를 저장하고 다시 그림
     @Override
@@ -275,7 +285,7 @@ for (const [name, size] of [['FleetCalendarWidget','LARGE']]) {
         if ("fleet.widget.SELECT".equals(intent.getAction())) {
             String s = intent.getStringExtra("sel");
             if (s == null || !s.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}")) return;
-            ctx.getSharedPreferences("fleet_widget", Context.MODE_PRIVATE).edit().putString("sel", s).putString("month", s.substring(0,7)).apply();
+            ctx.getSharedPreferences("fleet_widget", Context.MODE_PRIVATE).edit().putString("sel"+FleetWidgetUtil.${size}, s).putString("month"+FleetWidgetUtil.${size}, s.substring(0,7)).apply();
             AppWidgetManager m = AppWidgetManager.getInstance(ctx);
             FleetWidgetUtil.update(ctx, m, m.getAppWidgetIds(new android.content.ComponentName(ctx, ${name}.class)), FleetWidgetUtil.${size});
         }
@@ -408,19 +418,13 @@ console.log('widget layouts written');
 // 4) 앱 설정에 위젯 3종 등록
 let man = fs.readFileSync(manifestPath, 'utf8');
 man = man.replace(/<receiver\b[^>]*android:name="\.FleetWidget(?:Small|Medium|Large)"[^>]*>[\s\S]*?<\/receiver>/g, '');
-if (!man.includes('FleetCalendarWidget')) {
-  const rec = (cls, xml, label) => `
+const rec = (cls, xml, label) => `
         <receiver android:name=".${cls}" android:exported="false" android:label="${label}">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/${xml}"/>
         </receiver>`;
-  man = man.replace('</application>',
-    rec('FleetCalendarWidget', 'widget_large_info', '차량 현황 · 캘린더') + '\n    </application>');
-  fs.writeFileSync(manifestPath, man);
-  console.log('widget receivers registered');
-}
-
-
+man=man.replace(/<receiver\b[^>]*android:name="\.Fleet(?:Calendar|Compact)Widget"[^>]*>[\s\S]*?<\/receiver>/g,'');
+man=man.replace('</application>',rec('FleetCalendarWidget','widget_large_info','차량 현황 · 기존형')+rec('FleetCompactWidget','widget_compact_info','차량 현황 · 간편형')+'\n</application>');
 
 // Approved white/green calendar widget, six fleet counts and selected-day agenda.
 const lightDrawables = {
@@ -448,9 +452,13 @@ fs.writeFileSync(path.join(res,'layout','widget_small.xml'),lightRoot(whiteHeade
 fs.writeFileSync(path.join(res,'layout','widget_medium.xml'),lightRoot(whiteHeader+healthRow+fleetCounts+list('0dp').replace('#E2E8F0','#43534A')+updated.replace('#64748B','#9AA59E')));
 fs.writeFileSync(path.join(res,'layout','widget_large.xml'),lightRoot(whiteHeader+healthRow+fleetCounts+monthRow+lightCal+separator+selectedRow+agenda+footer));
 fs.writeFileSync(path.join(res,'xml','widget_large_info.xml'),info('widget_large',250,400,[4,5]).replace('android:resizeMode=', 'android:minResizeHeight="400dp" android:resizeMode='));
-console.log('approved calendar widget applied');
+fs.writeFileSync(path.join(res,'layout','widget_compact.xml'),lightRoot(whiteHeader+healthRow+fleetCounts+monthRow+text('w_weather','장성군 · 앱 열어 날씨 갱신',8,'#849087','android:layout_marginTop="4dp"')+lightCal+footer));
+fs.writeFileSync(path.join(res,'xml','widget_compact_info.xml'),info('widget_compact',250,320,[4,4]).replace('android:resizeMode=', 'android:minResizeHeight="320dp" android:resizeMode='));
+console.log('two approved calendar widgets applied');
 
 // Remove generated legacy providers and layouts on an existing Android checkout too.
 for (const name of ['FleetWidgetSmall','FleetWidgetMedium','FleetWidgetLarge']) { const file=path.join(javaDir,name+'.java');if(fs.existsSync(file))fs.unlinkSync(file); }
 for(const folder of ['layout','xml'])for(const size of ['small','medium']) {const file=path.join(res,folder,'widget_'+size+(folder==='xml'?'_info':'')+'.xml');if(fs.existsSync(file))fs.unlinkSync(file);}
 fs.writeFileSync(manifestPath, man);
+
+fs.writeFileSync(path.join(javaDir,"FleetWidgetWeather.java"), 'package PACKAGE_NAME;\n\nimport android.content.Context;\nimport android.content.SharedPreferences;\nimport org.json.*;\nimport java.net.*;\nimport java.io.*;\nimport java.text.SimpleDateFormat;\nimport java.util.*;\n\n// Fixed public Jangseong town coordinates. No device location or fleet data is sent.\n// MET Norway CC BY 4.0 forecast, reduced to a representative daytime symbol.\npublic class FleetWidgetWeather {\n    private static boolean busy;\n    public static synchronized void refresh(Context context) {\n        final Context ctx=context.getApplicationContext();\n        if(android.appwidget.AppWidgetManager.getInstance(ctx).getAppWidgetIds(new android.content.ComponentName(ctx,FleetCompactWidget.class)).length==0)return;\n        SharedPreferences p=ctx.getSharedPreferences("fleet_weather",Context.MODE_PRIVATE);\n        long now=System.currentTimeMillis();\n        if(busy || now<p.getLong("next",0)) return;\n        busy=true;\n        p.edit().putLong("next",now+3600000L).apply();\n        new Thread(() -> {\n            HttpURLConnection c=null;\n            try {\n                c=(HttpURLConnection)new URL("https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=35.3018&lon=126.7848").openConnection();\n                c.setConnectTimeout(5000);c.setReadTimeout(8000);\n                c.setRequestProperty("User-Agent","JangseongFleetWidget/1.0 (https://github.com/status-board-kr/status-board-kr.github.io)");\n                String modified=p.getString("modified","");\n                if(!modified.isEmpty())c.setRequestProperty("If-Modified-Since",modified);\n                int status=c.getResponseCode();\n                long next=Math.max(System.currentTimeMillis()+3600000L,c.getHeaderFieldDate("Expires",0));\n                if(status==304){p.edit().putLong("fetched",System.currentTimeMillis()).putLong("next",next).apply();return;}\n                if(status!=200)return;\n                ByteArrayOutputStream bytes=new ByteArrayOutputStream();\n                try(InputStream in=c.getInputStream()){byte[] buf=new byte[8192];int n;while((n=in.read(buf))!=-1){bytes.write(buf,0,n);if(bytes.size()>2000000)throw new IOException("oversized weather response");}}\n                JSONObject response=new JSONObject(bytes.toString("UTF-8"));\n                JSONArray series=response.getJSONObject("properties").getJSONArray("timeseries");\n                SimpleDateFormat utc=new SimpleDateFormat("yyyy-MM-dd\'T\'HH:mm:ss\'Z\'",Locale.US);utc.setTimeZone(TimeZone.getTimeZone("UTC"));\n                SimpleDateFormat date=new SimpleDateFormat("yyyy-MM-dd",Locale.US);date.setTimeZone(TimeZone.getTimeZone("Asia/Seoul"));\n                Calendar local=Calendar.getInstance(TimeZone.getTimeZone("Asia/Seoul"));\n                JSONObject daily=new JSONObject();Map<String,Integer> scores=new HashMap<>();\n                for(int i=0;i<series.length();i++){\n                    JSONObject row=series.getJSONObject(i);Date time=utc.parse(row.getString("time"));local.setTime(time);\n                    String ds=date.format(time);int score=Math.abs(local.get(Calendar.HOUR_OF_DAY)-12);\n                    JSONObject data=row.getJSONObject("data"),part=data.optJSONObject("next_6_hours");\n                    if(part==null)part=data.optJSONObject("next_1_hours");if(part==null)part=data.optJSONObject("next_12_hours");\n                    if(part==null || part.optJSONObject("summary")==null)continue;\n                    if(!scores.containsKey(ds)||score<scores.get(ds)){daily.put(ds,part.getJSONObject("summary").optString("symbol_code"));scores.put(ds,score);}\n                }\n                if(daily.length()>0)p.edit().putString("days",daily.toString()).putString("modified",c.getHeaderField("Last-Modified")).putLong("fetched",System.currentTimeMillis()).putLong("next",next).apply();\n            }catch(Exception ignored){}finally{if(c!=null)c.disconnect();synchronized(FleetWidgetWeather.class){busy=false;}FleetWidgetUtil.refreshAll(ctx);}\n        },"fleet-weather").start();\n    }\n    public static String icon(Context ctx,String date){\n        SharedPreferences p=ctx.getSharedPreferences("fleet_weather",Context.MODE_PRIVATE);\n        if(System.currentTimeMillis()-p.getLong("fetched",0)>86400000L)return "";\n        try{\n            String s=new JSONObject(p.getString("days","{}")).optString(date);\n            if(s.isEmpty())return "";\n            if(s.contains("thunder"))return "⚡";\n            if(s.contains("snow")||s.contains("sleet"))return "❄";\n            if(s.contains("rain"))return "☂";\n            if(s.contains("clearsky"))return "☀";\n            if(s.contains("fair")||s.contains("partlycloudy"))return "⛅";\n            return "☁";\n        }catch(Exception ignored){return "";}\n    }\n    public static String status(Context ctx){\n        long fetched=ctx.getSharedPreferences("fleet_weather",Context.MODE_PRIVATE).getLong("fetched",0);\n        if(fetched==0 || System.currentTimeMillis()-fetched>86400000L)return "장성군 · 앱 열어 날씨 갱신";\n        SimpleDateFormat fmt=new SimpleDateFormat("M/d HH:mm",Locale.KOREA);fmt.setTimeZone(TimeZone.getTimeZone("Asia/Seoul"));\n        return "장성군 낮 예보 · "+fmt.format(new Date(fetched))+" · MET Norway";\n    }\n}\n'.replace("PACKAGE_NAME",pkg));
