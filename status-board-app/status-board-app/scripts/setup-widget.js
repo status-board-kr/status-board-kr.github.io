@@ -1,4 +1,4 @@
-// 홈 화면 위젯 3종(작게·중간·크게) — setup-android.js 다음에 실행
+// 홈 화면 위젯: 차량 현황·캘린더 하나 — setup-android.js 다음에 실행
 // · 앱이 window.AndroidSettings.saveWidget(json)으로 요약 자료를 넘기면 위젯이 그림
 // · 위젯 날짜를 누르면 앱이 그 날짜 일정 화면으로 열림 (consumeOpen 으로 전달)
 const fs = require('fs'), path = require('path');
@@ -83,7 +83,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 public class FleetWidgetUtil {
-    public static final int SMALL = 0, MEDIUM = 1, LARGE = 2;
+    public static final int LARGE = 2;
 
     public static JSONObject load(Context ctx) {
         try {
@@ -94,9 +94,7 @@ public class FleetWidgetUtil {
 
     public static void refreshAll(Context ctx) {
         AppWidgetManager m = AppWidgetManager.getInstance(ctx);
-        update(ctx, m, m.getAppWidgetIds(new ComponentName(ctx, FleetWidgetSmall.class)), SMALL);
-        update(ctx, m, m.getAppWidgetIds(new ComponentName(ctx, FleetWidgetMedium.class)), MEDIUM);
-        update(ctx, m, m.getAppWidgetIds(new ComponentName(ctx, FleetWidgetLarge.class)), LARGE);
+        update(ctx, m, m.getAppWidgetIds(new ComponentName(ctx, FleetCalendarWidget.class)), LARGE);
     }
 
     public static void update(Context ctx, AppWidgetManager m, int[] ids, int size) {
@@ -115,7 +113,7 @@ public class FleetWidgetUtil {
 
     // 날짜를 누르면 앱을 열지 않고 위젯 안에서 그 날 일정으로 바꿈
     static PendingIntent selector(Context ctx, String ds, int code) {
-        Intent it = new Intent(ctx, FleetWidgetLarge.class);
+        Intent it = new Intent(ctx, FleetCalendarWidget.class);
         it.setAction("fleet.widget.SELECT");
         it.putExtra("sel", ds);
         return PendingIntent.getBroadcast(ctx, code, it, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
@@ -144,7 +142,7 @@ public class FleetWidgetUtil {
     }
 
     static RemoteViews build(Context ctx, int size) {
-        int layout = size == SMALL ? R.layout.widget_small : (size == MEDIUM ? R.layout.widget_medium : R.layout.widget_large);
+        int layout = R.layout.widget_large;
         RemoteViews v = new RemoteViews(ctx.getPackageName(), layout);
         v.setOnClickPendingIntent(R.id.w_root, opener(ctx, "", 1));
         v.setOnClickPendingIntent(R.id.w_unread, opener(ctx, "chat", 2));
@@ -155,7 +153,6 @@ public class FleetWidgetUtil {
         int unread = d.optInt("unread");
         v.setTextViewText(R.id.w_unread, unread > 0 ? "메신저 " + unread : "메신저");
         v.setInt(R.id.w_unread, "setBackgroundResource", unread > 0 ? R.drawable.wchip_red : R.drawable.wchip_gray);
-        if (size == SMALL) return v;
         v.setTextViewText(R.id.w_updated, d.optString("updated"));
         JSONObject health = d.optJSONObject("agentHealth");
         String state = "앱 열어 연결 확인";
@@ -175,11 +172,6 @@ public class FleetWidgetUtil {
         }
         v.setTextViewText(R.id.w_health, state);
         v.setTextColor(R.id.w_health, stateColor);
-        if (size == MEDIUM) {
-            v.setTextViewText(R.id.w_list, lines(d.optJSONArray("soon"), 3, "오늘·내일 일정 없음"));
-            v.setOnClickPendingIntent(R.id.w_list, opener(ctx, "date:" + d.optString("todayStr"), 3));
-            return v;
-        }
         JSONObject base = d.optJSONObject("cal");
         if (base == null) return v;
         JSONObject months = d.optJSONObject("months");
@@ -251,7 +243,7 @@ public class FleetWidgetUtil {
 }
 `;
 fs.writeFileSync(path.join(javaDir, 'FleetWidgetUtil.java'), util);
-for (const [name, size] of [['FleetWidgetSmall','SMALL'],['FleetWidgetMedium','MEDIUM'],['FleetWidgetLarge','LARGE']]) {
+for (const [name, size] of [['FleetCalendarWidget','LARGE']]) {
   const onReceive = size !== 'LARGE' ? '' : `
 
     // 위젯 안에서 날짜를 눌렀을 때: 고른 날짜를 저장하고 다시 그림
@@ -393,16 +385,15 @@ console.log('widget layouts written');
 
 // 4) 앱 설정에 위젯 3종 등록
 let man = fs.readFileSync(manifestPath, 'utf8');
-if (!man.includes('FleetWidgetSmall')) {
+man = man.replace(/<receiver\b[^>]*android:name="\.FleetWidget(?:Small|Medium|Large)"[^>]*>[\s\S]*?<\/receiver>/g, '');
+if (!man.includes('FleetCalendarWidget')) {
   const rec = (cls, xml, label) => `
         <receiver android:name=".${cls}" android:exported="false" android:label="${label}">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/${xml}"/>
         </receiver>`;
   man = man.replace('</application>',
-    rec('FleetWidgetSmall', 'widget_small_info', '현황판 (작게)') +
-    rec('FleetWidgetMedium', 'widget_medium_info', '현황판 (중간)') +
-    rec('FleetWidgetLarge', 'widget_large_info', '현황판 (크게)') + '\n    </application>');
+    rec('FleetCalendarWidget', 'widget_large_info', '차량 현황 · 캘린더') + '\n    </application>');
   fs.writeFileSync(manifestPath, man);
   console.log('widget receivers registered');
 }
@@ -436,3 +427,8 @@ fs.writeFileSync(path.join(res,'layout','widget_medium.xml'),lightRoot(whiteHead
 fs.writeFileSync(path.join(res,'layout','widget_large.xml'),lightRoot(whiteHeader+healthRow+fleetCounts+monthRow+lightCal+separator+selectedRow+agenda+footer));
 fs.writeFileSync(path.join(res,'xml','widget_large_info.xml'),info('widget_large',250,400,[4,5]).replace('android:resizeMode=', 'android:minResizeHeight="400dp" android:resizeMode='));
 console.log('approved calendar widget applied');
+
+// Remove generated legacy providers and layouts on an existing Android checkout too.
+for (const name of ['FleetWidgetSmall','FleetWidgetMedium','FleetWidgetLarge']) { const file=path.join(javaDir,name+'.java');if(fs.existsSync(file))fs.unlinkSync(file); }
+for(const folder of ['layout','xml'])for(const size of ['small','medium']) {const file=path.join(res,folder,'widget_'+size+(folder==='xml'?'_info':'')+'.xml');if(fs.existsSync(file))fs.unlinkSync(file);}
+fs.writeFileSync(manifestPath, man);
