@@ -4784,14 +4784,9 @@ async function sendChatPhoto(text){
       // 주행거리를 또렷하게 읽었으면 그대로 입력 (나중에 수정 가능)
       cmd.returnKm = km; cmd.aiKm = km;
     }else{
-    const head = km
-      ? `📷 계기판에서 읽은 누적 주행거리: ${km.toLocaleString()} km${ai.confidence === 'low' ? '  (⚠️ 흐릿해서 확실하지 않아요)' : ''}\n\n맞으면 [확인], 다르면 숫자를 고쳐서 [확인]하세요.`
-      : `${ai && ai.reason === 'nokey' ? '🤖 AI 키가 없어서 자동으로 못 읽었어요. (관리자: 👥 직원 관리 → AI 키)' : '⚠️ ' + ((ai && ai.reason) || '주행거리를 못 읽었어요')}\n\n종료 주행거리(km)를 직접 입력하세요. (모르면 빈칸)`;
-    const ans = await appPrompt(`${veh.plate} 회수`, head, km ? String(km) : '',
-      { inputMode:'numeric', placeholder:'종료 주행거리 (km)', hint:'모르면 비워두고 확인을 누르세요' });
-    const num = ans == null ? NaN : Number(String(ans).replace(/[^0-9]/g, ''));
-    cmd.returnKm = (Number.isFinite(num) && num > 0) ? num : null;
-    cmd.aiKm = km;
+      // 키로수를 못 읽거나 확실하지 않으면 입력을 기다리지 않고 회수합니다.
+      cmd.returnKm = null;
+      cmd.aiKm = km || null;
     }
   }
   let result;
