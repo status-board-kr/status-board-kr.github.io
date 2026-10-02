@@ -147,75 +147,105 @@ public class FleetWidgetUtil {
         int layout = size == SMALL ? R.layout.widget_small : (size == MEDIUM ? R.layout.widget_medium : R.layout.widget_large);
         RemoteViews v = new RemoteViews(ctx.getPackageName(), layout);
         v.setOnClickPendingIntent(R.id.w_root, opener(ctx, "", 1));
+        v.setOnClickPendingIntent(R.id.w_unread, opener(ctx, "chat", 2));
         JSONObject d = load(ctx);
-        if (d == null) {
-            v.setTextViewText(R.id.w_idle, "-");
+        if (d == null) return v;
+        String[] fields = {"total", "idle", "prep", "insurance", "general", "long"};
+        for (String field : fields) v.setTextViewText(id(ctx, "w_" + field), String.valueOf(d.optInt(field)));
+        int unread = d.optInt("unread");
+        v.setTextViewText(R.id.w_unread, unread > 0 ? "메신저 " + unread : "메신저");
+        v.setInt(R.id.w_unread, "setBackgroundResource", unread > 0 ? R.drawable.wchip_red : R.drawable.wchip_gray);
+        if (size == SMALL) return v;
+        v.setTextViewText(R.id.w_updated, d.optString("updated"));
+        JSONObject health = d.optJSONObject("agentHealth");
+        String state = "앱 열어 연결 확인";
+        int stateColor = Color.parseColor("#849087");
+        if (health != null) {
+            try {
+                java.text.SimpleDateFormat utc = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.US);
+                utc.setTimeZone(java.util.TimeZone.getTimeZone("UTC"));
+                long lastSeen = utc.parse(health.optString("lastSeen").substring(0,19)).getTime();
+                long age = System.currentTimeMillis() - lastSeen;
+                if (age >= 0 && age < 45000) {
+                    boolean ok = "ok".equals(health.optString("loginState"));
+                    state = ok ? "● 봇 연결됨" : "● 로그인 실패";
+                    stateColor = Color.parseColor(ok ? "#009B5C" : "#BD5959");
+                } else state = "연결 확인 필요";
+            } catch (Exception ignored) { }
+        }
+        v.setTextViewText(R.id.w_health, state);
+        v.setTextColor(R.id.w_health, stateColor);
+        if (size == MEDIUM) {
+            v.setTextViewText(R.id.w_list, lines(d.optJSONArray("soon"), 3, "오늘·내일 일정 없음"));
+            v.setOnClickPendingIntent(R.id.w_list, opener(ctx, "date:" + d.optString("todayStr"), 3));
             return v;
         }
-        v.setTextViewText(R.id.w_idle, String.valueOf(d.optInt("idle")));
-        v.setTextViewText(R.id.w_prep, String.valueOf(d.optInt("prep")));
-        v.setTextViewText(R.id.w_run, String.valueOf(d.optInt("run")));
-        v.setTextViewText(R.id.w_long, String.valueOf(d.optInt("long")));
-        int unread = d.optInt("unread");
-        v.setTextViewText(R.id.w_unread, "💬 " + unread);
-        v.setInt(R.id.w_unread, "setBackgroundResource", unread > 0 ? R.drawable.wchip_red : R.drawable.wchip_gray);
-        v.setOnClickPendingIntent(R.id.w_unread, opener(ctx, "chat", 2));
-
-        if (size == MEDIUM) {
-            v.setTextViewText(R.id.w_list, lines(d.optJSONArray("soon"), 4, "오늘·내일 일정 없음"));
-            v.setTextViewText(R.id.w_updated, d.optString("updated"));
-            v.setOnClickPendingIntent(R.id.w_list, opener(ctx, "date:" + d.optString("todayStr"), 3));
+        JSONObject base = d.optJSONObject("cal");
+        if (base == null) return v;
+        JSONObject months = d.optJSONObject("months");
+        String currentKey = ymd(base.optInt("y"), base.optInt("m"), 1).substring(0, 7);
+        String key = ctx.getSharedPreferences("fleet_widget", Context.MODE_PRIVATE).getString("month", currentKey);
+        JSONObject cal = months == null ? null : months.optJSONObject(key);
+        if (cal == null) { cal = base; key = currentKey; }
+        int year = cal.optInt("y"), month = cal.optInt("m"), today = cal.optInt("today");
+        int first = cal.optInt("firstDow"), days = cal.optInt("days");
+        JSONObject count = cal.optJSONObject("count"), items = cal.optJSONObject("items"), events = cal.optJSONObject("events");
+        String selected = ctx.getSharedPreferences("fleet_widget", Context.MODE_PRIVATE).getString("sel", "");
+        int selDay = today > 0 ? today : 1;
+        if (selected.startsWith(key + "-")) {
+            try { selDay = Integer.parseInt(selected.substring(8)); } catch (Exception ignored) { }
         }
-        if (size == LARGE) {
-            JSONObject cal = d.optJSONObject("cal");
-            if (cal != null) {
-                int y = cal.optInt("y"), m = cal.optInt("m"), today = cal.optInt("today");
-                int first = cal.optInt("firstDow"), days = cal.optInt("days");
-                JSONObject cnt = cal.optJSONObject("count");
-                JSONObject items = cal.optJSONObject("items");
-                // 선택한 날짜 (이번 달이 아니면 오늘로)
-                String sel = ctx.getSharedPreferences("fleet_widget", Context.MODE_PRIVATE).getString("sel", "");
-                String monthKey = ymd(y, m, 1).substring(0, 8);
-                int selDay = today;
-                if (sel.startsWith(monthKey)) {
-                    try { selDay = Integer.parseInt(sel.substring(8)); } catch (Exception ignored) { }
-                    if (selDay < 1 || selDay > days) selDay = today;
-                }
-                v.setTextViewText(R.id.w_month, y + "년 " + m + "월");
-                // 이번 달에 필요한 주(줄) 수만 보이기
-                int rows = (first + days + 6) / 7;
-                for (int r = 0; r < 6; r++) {
-                    int rid = id(ctx, "w_r" + r);
-                    if (rid != 0) v.setViewVisibility(rid, r < rows ? android.view.View.VISIBLE : android.view.View.GONE);
-                }
-                for (int i = 0; i < 42; i++) {
-                    int cid = id(ctx, "w_c" + i);
-                    if (cid == 0) continue;
-                    int day = i - first + 1;
-                    if (day < 1 || day > days) {
-                        v.setTextViewText(cid, "");
-                        v.setInt(cid, "setBackgroundResource", 0);
-                        continue;
-                    }
-                    int n = cnt == null ? 0 : cnt.optInt(String.valueOf(day));
-                    int col = i % 7;
-                    v.setTextViewText(cid, n > 0 ? (day + "\\n" + (n > 9 ? "9+" : "•" + n)) : String.valueOf(day));
-                    int color = day == today ? Color.parseColor("#1A1A1A")
-                        : (col == 0 ? Color.parseColor("#F87171") : (col == 6 ? Color.parseColor("#60A5FA") : Color.parseColor("#E2E8F0")));
-                    v.setTextColor(cid, color);
-                    int bg = day == today ? R.drawable.wcell_today : (day == selDay ? R.drawable.wcell_sel : (n > 0 ? R.drawable.wcell_mark : 0));
-                    v.setInt(cid, "setBackgroundResource", bg);
-                    v.setOnClickPendingIntent(cid, selector(ctx, ymd(y, m, day), 100 + i));
-                }
-                String selDs = ymd(y, m, selDay);
-                v.setTextViewText(R.id.w_seltitle, m + "월 " + selDay + "일" + (selDay == today ? " (오늘)" : "") + " 일정");
-                JSONArray dayItems = items == null ? null : items.optJSONArray(String.valueOf(selDay));
-                v.setTextViewText(R.id.w_list, lines(dayItems, 4, "일정 없음"));
-                v.setOnClickPendingIntent(R.id.w_openapp, opener(ctx, "date:" + selDs, 3));
-                v.setOnClickPendingIntent(R.id.w_list, opener(ctx, "date:" + selDs, 4));
+        if (selDay < 1 || selDay > days) selDay = today > 0 ? today : 1;
+        v.setTextViewText(R.id.w_month, year + ". " + (month < 10 ? "0" : "") + month);
+        java.util.Calendar cursor = java.util.Calendar.getInstance();
+        cursor.set(year, month - 1, 1);
+        for (int delta : new int[]{-1, 1}) {
+            java.util.Calendar other = (java.util.Calendar)cursor.clone(); other.add(java.util.Calendar.MONTH, delta);
+            String target = ymd(other.get(java.util.Calendar.YEAR), other.get(java.util.Calendar.MONTH)+1, 1);
+            if (months == null || months.optJSONObject(target.substring(0,7)) == null) target = ymd(year, month, selDay);
+            v.setOnClickPendingIntent(delta < 0 ? R.id.w_prev : R.id.w_next, selector(ctx, target, delta < 0 ? 50 : 51));
+        }
+        v.setOnClickPendingIntent(R.id.w_today, selector(ctx, d.optString("todayStr"), 52));
+        int rows = (first + days + 6) / 7;
+        for (int row = 0; row < 6; row++) v.setViewVisibility(id(ctx, "w_r" + row), row < rows ? android.view.View.VISIBLE : android.view.View.GONE);
+        for (int i = 0; i < 42; i++) {
+            int cell = id(ctx, "w_c" + i), day = i - first + 1;
+            if (day < 1 || day > days) {
+                v.setTextViewText(cell, ""); v.setInt(cell, "setBackgroundResource", 0);
+                v.setOnClickPendingIntent(cell, selector(ctx, "", 100+i));
+                continue;
             }
-            v.setTextViewText(R.id.w_updated, d.optString("updated"));
+            int n = count == null ? 0 : count.optInt(String.valueOf(day));
+            v.setTextViewText(cell, String.valueOf(day) + (n > 0 ? "\\n•" : ""));
+            int color = day == selDay ? Color.parseColor("#FFFFFF") : Color.parseColor(i%7 == 0 ? "#C76C6C" : i%7 == 6 ? "#5987AD" : "#334339");
+            v.setTextColor(cell, color);
+            v.setInt(cell, "setBackgroundResource", day == selDay ? R.drawable.wcell_sel : day == today ? R.drawable.wcell_today : 0);
+            v.setOnClickPendingIntent(cell, selector(ctx, ymd(year, month, day), 100+i));
         }
+        String date = ymd(year, month, selDay);
+        v.setTextViewText(R.id.w_seltitle, month + "월 " + selDay + "일" + (today == selDay ? " · 오늘" : ""));
+        JSONArray detail = events == null ? null : events.optJSONArray(String.valueOf(selDay));
+        JSONArray fallback = items == null ? null : items.optJSONArray(String.valueOf(selDay));
+        int total = count == null ? 0 : count.optInt(String.valueOf(selDay));
+        v.setTextViewText(R.id.w_count, "일정 " + total + "건");
+        v.setViewVisibility(R.id.w_empty, total == 0 ? android.view.View.VISIBLE : android.view.View.GONE);
+        for (int i=0; i<2; i++) {
+            JSONObject event = detail == null ? null : detail.optJSONObject(i);
+            String old = fallback == null ? "" : fallback.optString(i);
+            boolean exists = event != null || !old.isEmpty();
+            v.setViewVisibility(id(ctx,"w_event"+i), exists ? android.view.View.VISIBLE : android.view.View.GONE);
+            v.setTextViewText(id(ctx,"w_time"+i), event == null ? "" : event.optString("time"));
+            v.setTextViewText(id(ctx,"w_title"+i), event == null ? old : event.optString("title"));
+            String note = event == null ? "" : event.optString("note");
+            v.setTextViewText(id(ctx,"w_note"+i), note);
+            v.setViewVisibility(id(ctx,"w_note"+i), note.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE);
+            v.setTextViewText(id(ctx,"w_kind"+i), event == null ? "일정" : event.optString("kind","일정"));
+            v.setOnClickPendingIntent(id(ctx,"w_event"+i), opener(ctx,"date:"+date,200+i));
+        }
+        v.setTextViewText(R.id.w_more, total > 2 ? "외 " + (total - 2) + "건 · 앱에서 보기" : "");
+        v.setViewVisibility(R.id.w_more,total > 2 ? android.view.View.VISIBLE : android.view.View.GONE);
+        v.setOnClickPendingIntent(R.id.w_more, opener(ctx,"date:"+date,202));
+        v.setOnClickPendingIntent(R.id.w_openapp, opener(ctx,"date:"+date,3));
         return v;
     }
 }
@@ -230,7 +260,8 @@ for (const [name, size] of [['FleetWidgetSmall','SMALL'],['FleetWidgetMedium','M
         super.onReceive(ctx, intent);
         if ("fleet.widget.SELECT".equals(intent.getAction())) {
             String s = intent.getStringExtra("sel");
-            ctx.getSharedPreferences("fleet_widget", Context.MODE_PRIVATE).edit().putString("sel", s == null ? "" : s).apply();
+            if (s == null || !s.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}")) return;
+            ctx.getSharedPreferences("fleet_widget", Context.MODE_PRIVATE).edit().putString("sel", s).putString("month", s.substring(0,7)).apply();
             AppWidgetManager m = AppWidgetManager.getInstance(ctx);
             FleetWidgetUtil.update(ctx, m, m.getAppWidgetIds(new android.content.ComponentName(ctx, ${name}.class)), FleetWidgetUtil.${size});
         }
@@ -376,3 +407,32 @@ if (!man.includes('FleetWidgetSmall')) {
   console.log('widget receivers registered');
 }
 
+
+
+// Approved white/green calendar widget, six fleet counts and selected-day agenda.
+const lightDrawables = {
+  widget_bg:shape('#FFFFFFFF',23,null),wchip_gray:shape('#FFF5F8F6',7,null),
+  wchip_red:shape('#FFFCECEC',7,null),wcell_today:shape('#FFE9F8EF',9,null),
+  wcell_sel:shape('#FF00A762',9,null),wlist_bg:shape('#FFF5F8F6',10,null),
+  wline_green:shape('#FF00A762',2,null)
+};
+for(const [name,xml]of Object.entries(lightDrawables))fs.writeFileSync(path.join(res,'drawable',name+'.xml'),xml);
+const text=(id,value,size,color,extra='')=>'<TextView '+(id?'android:id="@+id/'+id+'" ':'')+'android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="'+value+'" android:textSize="'+size+'sp" android:textColor="'+color+'" '+extra+'/>';
+const whiteHeader='<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">'+text('','차량 현황',15,'#293C32','android:textStyle="bold" android:layout_weight="1"')+text('w_unread','메신저',10,'#537B64','android:padding="5dp" android:background="@drawable/wchip_gray"')+'</LinearLayout>';
+const healthRow=text('w_health','앱 열어 연결 확인',9,'#849087','android:layout_gravity="end" android:layout_marginTop="3dp"');
+const fleetCounts='<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:background="@drawable/wlist_bg" android:paddingTop="7dp" android:paddingBottom="7dp" android:orientation="horizontal">'+[['total','전체'],['idle','대기'],['prep','준비중'],['insurance','보험'],['general','일반'],['long','장기']].map(([id,label])=>'<LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical" android:gravity="center">'+text('',label,9,'#748079')+text('w_'+id,'-',17,id==='total'?'#009B5C':'#293C32','android:textStyle="bold" android:layout_marginTop="3dp"')+'</LinearLayout>').join('')+'</LinearLayout>';
+const lightRoot=inner=>'<?xml version="1.0" encoding="utf-8"?><LinearLayout '+A+' android:id="@+id/w_root" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="14dp" android:background="@drawable/widget_bg">'+inner+'</LinearLayout>';
+const monthRow='<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:layout_marginTop="10dp" android:orientation="horizontal">'+text('w_month','',19,'#293C32','android:textStyle="bold" android:layout_weight="1"')+text('w_prev','‹',24,'#758178','android:paddingStart="9dp" android:paddingEnd="9dp"')+text('w_next','›',24,'#758178','android:paddingStart="9dp" android:paddingEnd="9dp"')+text('w_today','오늘',10,'#758178','android:padding="6dp" android:background="@drawable/wchip_gray"')+'</LinearLayout>';
+let lightCal='<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="8dp" android:layout_marginBottom="4dp">'+['일','월','화','수','목','금','토'].map((day,i)=>text('',day,10,i===0?'#C76C6C':i===6?'#5987AD':'#849087','android:layout_weight="1" android:gravity="center"')).join('')+'</LinearLayout>';
+for(let row=0;row<6;row++){lightCal+='<LinearLayout android:id="@+id/w_r'+row+'" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal" android:baselineAligned="false">';for(let col=0;col<7;col++)lightCal+=text('w_c'+(row*7+col),'',14,'#334339','android:layout_weight="1" android:gravity="center" android:layout_margin="1dp" android:lineSpacingMultiplier="0.8"').replace('android:layout_width="wrap_content" android:layout_height="wrap_content"','android:layout_width="0dp" android:layout_height="match_parent"');lightCal+='</LinearLayout>';}
+const separator='<TextView android:layout_width="match_parent" android:layout_height="1dp" android:background="#E9EDEA" android:layout_marginTop="8dp" android:layout_marginBottom="8dp"/>';
+const selectedRow='<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical" android:orientation="horizontal">'+text('w_seltitle','오늘 일정',12,'#293C32','android:textStyle="bold" android:layout_weight="1"')+text('w_count','',9,'#849087')+'</LinearLayout>';
+let agenda=text('w_empty','등록된 일정이 없습니다',11,'#849087','android:paddingTop="8dp" android:paddingBottom="8dp"');
+for(let i=0;i<2;i++)agenda+='<LinearLayout android:id="@+id/w_event'+i+'" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="37dp" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="5dp">'+text('w_time'+i,'',12,'#43534A','android:textStyle="bold" android:layout_marginEnd="7dp"')+'<TextView android:layout_width="3dp" android:layout_height="29dp" android:background="@drawable/wline_green" android:layout_marginEnd="8dp"/><LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:orientation="vertical">'+text('w_title'+i,'',12,'#293C32','android:textStyle="bold" android:maxLines="1" android:ellipsize="end"')+text('w_note'+i,'',9,'#849087','android:maxLines="1" android:ellipsize="end" android:layout_marginTop="3dp"')+'</LinearLayout>'+text('w_kind'+i,'',9,'#008F54','android:padding="4dp" android:background="@drawable/wchip_gray"')+'</LinearLayout>';
+agenda+=text('w_more','',9,'#758178','android:layout_gravity="end" android:layout_marginTop="4dp"');
+const footer='<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:gravity="center_vertical" android:orientation="horizontal">'+text('w_updated','앱 열어 갱신',8,'#9AA59E','android:layout_weight="1"')+text('w_openapp','현황판 열기 ›',10,'#6B7B71','android:padding="3dp"')+'</LinearLayout>';
+fs.writeFileSync(path.join(res,'layout','widget_small.xml'),lightRoot(whiteHeader+fleetCounts));
+fs.writeFileSync(path.join(res,'layout','widget_medium.xml'),lightRoot(whiteHeader+healthRow+fleetCounts+list('0dp').replace('#E2E8F0','#43534A')+updated.replace('#64748B','#9AA59E')));
+fs.writeFileSync(path.join(res,'layout','widget_large.xml'),lightRoot(whiteHeader+healthRow+fleetCounts+monthRow+lightCal+separator+selectedRow+agenda+footer));
+fs.writeFileSync(path.join(res,'xml','widget_large_info.xml'),info('widget_large',250,400,[4,5]).replace('android:resizeMode=', 'android:minResizeHeight="400dp" android:resizeMode='));
+console.log('approved calendar widget applied');
