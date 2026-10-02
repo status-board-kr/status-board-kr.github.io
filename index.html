@@ -682,7 +682,6 @@
   </div>
   <div class="stats" id="statsRow"></div>
   <div id="wookyHealthBar" style="margin:8px 0;color:var(--sub);font-size:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;" role="status">
-    <span id="wookyHealthText">자동 종결 · 연결 확인 중…</span>
     <button type="button" id="wookyRetryBtn" style="display:none;" onclick="retryWookyFailures()">실패 건 재시도</button>
   </div>
 
@@ -2032,7 +2031,6 @@ function renderStats(){
   const prep = vehicles.filter(v=>v.status==='준비중').length;
   const longTerm = vehicles.filter(v=>v.type===LONG_BRANCH);
   const longCount = longTerm.length;
-  const longAmount = longTerm.reduce((sum,v)=> sum + (Number(v.amount)||0), 0);
   // ▼ 수정: 운행중 카운트에서 장기렌트 차량은 제외 (장기는 별도 통계로만 표시)
   const running = total - idle - prep - longCount;
   const el = document.getElementById('statsRow');
@@ -2042,8 +2040,9 @@ function renderStats(){
     <div class="stat blue ${statusFilter==='준비중'?'active':''}" onclick="toggleStatusFilter('준비중')"><b>${prep}</b><span>준비중</span></div>
     <div class="stat green ${statusFilter==='운행중'?'active':''}" onclick="toggleStatusFilter('운행중')"><b>${running}</b><span>운행중</span></div>
     <div class="stat purple ${statusFilter===LONG_BRANCH?'active':''}" onclick="toggleStatusFilter('${LONG_BRANCH}')"><b>${longCount}대</b><span>${escapeHtml(LONG_BRANCH)}</span></div>
-    <div class="stat purple"><b>${longAmount.toLocaleString()}만</b><span>장기금액</span></div>
+    <div class="stat" id="wookyHealthStat" role="status"><b id="wookyHealthText">확인 중</b><span>봇 연결</span></div>
   `;
+  renderWookyHealth();
 }
 
 // ── 홈 화면 위젯에 요약 자료 넘기기 (앱에서만) ─────────────────
@@ -2306,11 +2305,12 @@ function renderWookyHealth(){
   const text = document.getElementById('wookyHealthText');
   if(!text) return;
   const fresh = wookyHealth && Date.now()-new Date(wookyHealth.lastSeen).getTime()<45000;
-  text.textContent = !fresh ? '⚪ 자동 종결 · 일꾼 연결 안 됨' :
-    wookyHealth.loginState==='ok' ? '🟢 자동 종결 · 연결됨' : '🔴 자동 종결 · 우기소프트 로그인 실패';
+  text.textContent = !fresh ? '미연결' : wookyHealth.loginState==='ok' ? '연결됨' : '로그인 실패';
+  text.style.color = !fresh ? 'var(--sub)' : wookyHealth.loginState==='ok' ? 'var(--green, #34d399)' : '#f87171';
   const failed = Object.values(wookyRetryJobs).filter(j=>j && j.status==='done' && ['fail','error'].includes(j.result)).length;
   const button = document.getElementById('wookyRetryBtn');
   button.style.display = failed && window.COMPANY_ROLE==='owner' ? '' : 'none';
+  document.getElementById('wookyHealthBar').style.display = failed && window.COMPANY_ROLE==='owner' ? 'flex' : 'none';
   button.textContent = '실패 '+failed+'건 재시도';
 }
 async function retryWookyFailures(){
