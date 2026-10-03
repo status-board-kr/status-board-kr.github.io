@@ -8,6 +8,8 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -32,8 +34,15 @@ import androidx.compose.ui.unit.sp
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { revision++; model.locationChanged() }
     val allowed = remember(revision) { FleetNotifications.permitted(context) }
     WebSheet(close) {
-        Column(Modifier.weight(1f).fillMaxWidth().padding(16.dp)) {
+        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
             Text("내 앱 설정", fontSize = 18.sp)
+            Text("화면 색상", modifier = Modifier.padding(top = 18.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(false to "화이트", true to "블랙").forEach { (dark, label) ->
+                    FilterChip(selected = FleetAppearance.dark == dark, onClick = { FleetAppearance.select(context, dark) }, label = { Text(label) })
+                }
+            }
+            Text("이 휴대전화에 저장되며 다시 실행해도 유지됩니다.", color = WebSub, fontSize = 11.sp)
             Text("알림: ${if (allowed) "허용됨" else "휴대전화에서 허용 필요"}", color = WebSub, fontSize = 12.sp, modifier = Modifier.padding(top = 18.dp))
             Text(FleetPush.status(context, session), color = WebSub, fontSize = 12.sp)
             TextButton(onClick = {

@@ -28,11 +28,11 @@ import kotlinx.coroutines.delay
 import kr.statusboard.core.BotConnection
 import kr.statusboard.core.FleetBotHealth
 
-private val Ink = Color(0xFF1C2D44)
-private val Soft = Color(0xFF8190A5)
-private val Line = Color(0xFFE2E8F0)
-private val Accent = Color(0xFF375C84)
-private val MenuBackground = Color(0xFFF6F8FB)
+private val Ink get() = FleetAppearance.text
+private val Soft get() = WebSub
+private val Line get() = WebLine
+private val Accent get() = WebAmber
+private val MenuBackground get() = FleetAppearance.background
 private data class MenuItem(val title: String, val icon: Int)
 
 @Composable internal fun FleetShell(state: FleetUiState, refresh: () -> Unit, logout: () -> Unit, retryWooky: () -> Unit, model: FleetViewModel, widgetOpen: String? = null, acknowledgeOpen: () -> Unit = {}) {
@@ -97,22 +97,7 @@ private data class MenuItem(val title: String, val icon: Int)
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f)) {
             if (menu) FleetMenu(state, open)
-            else screens.SaveableStateProvider("fleet") { FleetBoard(state, model) }
-        }
-        MaterialTheme(colorScheme = lightColorScheme(onSurface = Ink, surface = Color.White, primary = Accent)) {
-            Row(Modifier.fillMaxWidth().background(Color.White).border(1.dp, Line)
-                .windowInsetsPadding(WindowInsets.navigationBars).padding(vertical = 10.dp)) {
-                listOf(MenuItem("차량 현황", R.drawable.menu_board), MenuItem("일정", R.drawable.menu_calendar),
-                    MenuItem("메신저", R.drawable.menu_chat), MenuItem("전체 메뉴", R.drawable.menu_more)).forEach { item ->
-                    Column(Modifier.weight(1f).clickable { open(item.title) }.padding(vertical = 3.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally) {
-                        val active = if (menu) item.title == "전체 메뉴" else item.title == "차량 현황"
-                        MenuIcon(item.icon, if (active) Accent else Soft, 18)
-                        Text(item.title, color = if (active) Accent else Soft, fontSize = 10.sp,
-                            modifier = Modifier.padding(top = 5.dp))
-                    }
-                }
-            }
+            else screens.SaveableStateProvider("fleet") { FleetBoard(state, model, open) }
         }
     }
     if (schedule) FleetScheduleDialog(state, LocalDate.parse(scheduleDate), model) { schedule = false }
@@ -146,7 +131,7 @@ private data class MenuItem(val title: String, val icon: Int)
             confirmButton = { TextButton(onClick = { pending = null }) { Text("확인") } })
     }
 }
-@Composable private fun botConnection(state: FleetUiState): BotConnection {
+@Composable internal fun botConnection(state: FleetUiState): BotConnection {
     var now by remember { mutableStateOf(Instant.now()) }
     LaunchedEffect(Unit) { while (true) { delay(5000); now = Instant.now() } }
     val health = state.wookyJobs.keys().asSequence().mapNotNull { state.wookyJobs.optJSONObject(it)?.optJSONObject("agentHealth") }.maxByOrNull { it.optString("lastSeen") }
@@ -159,15 +144,15 @@ private data class MenuItem(val title: String, val icon: Int)
 
 @Composable private fun FleetMenu(state: FleetUiState, open: (String) -> Unit) {
     val connection = botConnection(state)
-    MaterialTheme(colorScheme = lightColorScheme(background = MenuBackground, surface = Color.White, onSurface = Ink, onBackground = Ink, primary = Accent)) {
+    MaterialTheme(colorScheme = FleetAppearance.scheme()) {
         Column(Modifier.fillMaxSize().background(MenuBackground).windowInsetsPadding(WindowInsets.statusBars)) {
-            Column(Modifier.fillMaxWidth().background(Color.White).padding(19.dp)) {
+            Column(Modifier.fillMaxWidth().background(WebPanel).padding(19.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text("전체 메뉴", fontSize = 23.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                     IconButton(onClick = { open("차량 현황") }) { MenuIcon(R.drawable.menu_close, size = 20) }
                 }
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(36.dp).background(Color(0xFFEFF3F8), RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(36.dp).background(WebPanel2, RoundedCornerShape(11.dp)), contentAlignment = Alignment.Center) {
                         MenuIcon(R.drawable.menu_users, Accent)
                     }
                     Column(Modifier.weight(1f).padding(start = 11.dp)) {
@@ -175,7 +160,7 @@ private data class MenuItem(val title: String, val icon: Int)
                         Text("${if (state.session?.isAdmin == true) "관리자" else "직원"} · ${state.homeBranch}", color = Soft, fontSize = 10.sp, modifier = Modifier.padding(top = 4.dp))
                     }
                     Text(if (state.session?.isAdmin == true) "관리자" else "직원", color = Soft, fontSize = 10.sp,
-                        modifier = Modifier.background(Color(0xFFEEF3F9), RoundedCornerShape(6.dp)).padding(7.dp))
+                        modifier = Modifier.background(WebPanel2, RoundedCornerShape(6.dp)).padding(7.dp))
                 }
             }
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(15.dp)) {
@@ -186,7 +171,7 @@ private data class MenuItem(val title: String, val icon: Int)
                             Row(Modifier.fillMaxWidth()) {
                                 row.forEach { item ->
                                     Column(Modifier.weight(1f).clickable { open(item.title) }.padding(vertical = 15.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                                        Box(Modifier.size(30.dp).background(if (item.title == "카카오톡") Color(0xFFFFF6CD) else Color(0xFFEEF3F8), RoundedCornerShape(9.dp)), contentAlignment = Alignment.Center) {
+                                        Box(Modifier.size(30.dp).background(if (item.title == "카카오톡") Color(0xFFFFF6CD) else WebPanel2, RoundedCornerShape(9.dp)), contentAlignment = Alignment.Center) {
                                             MenuIcon(item.icon, if (item.title == "카카오톡") Color(0xFF4B4230) else Accent)
                                         }
                                         Text(item.title, fontSize = 11.sp, modifier = Modifier.padding(top = 7.dp))
@@ -196,7 +181,7 @@ private data class MenuItem(val title: String, val icon: Int)
                             }
                         }
                 }
-                Row(Modifier.fillMaxWidth().padding(top = 11.dp).background(Color(0xFFEEF1F5), RoundedCornerShape(10.dp)).clickable { open("종결 봇") }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().padding(top = 11.dp).background(WebPanel2, RoundedCornerShape(10.dp)).clickable { open("종결 봇") }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text("종결 봇 · ${connection.label}", color = if (connection == BotConnection.CONNECTED) Color(0xFF438970) else if (connection == BotConnection.LOGIN_FAILED) Color(0xFFAE5A58) else Soft, fontSize = 11.sp, modifier = Modifier.weight(1f))
                     MenuIcon(R.drawable.menu_chevron, size = 13)
                 }
@@ -239,7 +224,7 @@ private data class MenuItem(val title: String, val icon: Int)
     Text(text, color = Soft, fontSize = 11.sp, modifier = Modifier.padding(top = 20.dp, bottom = 10.dp))
 }
 @Composable private fun Panel(content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(12.dp)).border(1.dp, Line, RoundedCornerShape(12.dp)), content = content)
+    Column(Modifier.fillMaxWidth().background(WebPanel, RoundedCornerShape(12.dp)).border(1.dp, Line, RoundedCornerShape(12.dp)), content = content)
 }
 @Composable private fun MenuRow(item: MenuItem, open: (String) -> Unit) {
     Row(Modifier.fillMaxWidth().clickable { open(item.title) }.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {

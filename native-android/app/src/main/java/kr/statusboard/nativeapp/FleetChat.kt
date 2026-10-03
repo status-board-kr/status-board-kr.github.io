@@ -35,16 +35,15 @@ import kotlinx.coroutines.tasks.await
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
 
-internal val WebPanel = androidx.compose.ui.graphics.Color(0xFF16213A)
-internal val WebPanel2 = androidx.compose.ui.graphics.Color(0xFF1C2947)
-internal val WebLine = androidx.compose.ui.graphics.Color(0xFF2A3757)
-internal val WebSub = androidx.compose.ui.graphics.Color(0xFF8B96B8)
-internal val WebAmber = androidx.compose.ui.graphics.Color(0xFFF5A623)
+internal val WebPanel get() = FleetAppearance.panel
+internal val WebPanel2 get() = FleetAppearance.panel2
+internal val WebLine get() = FleetAppearance.line
+internal val WebSub get() = FleetAppearance.sub
+internal val WebAmber get() = FleetAppearance.amber
 
 @Composable internal fun WebSheet(close: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     Dialog(onDismissRequest = close, properties = DialogProperties(usePlatformDefaultWidth = false)) {
-        MaterialTheme(colorScheme = darkColorScheme(primary = WebAmber, onPrimary = WebPanel, surface = WebPanel,
-            onSurface = androidx.compose.ui.graphics.Color(0xFFE8ECF7), outline = WebLine, secondary = WebSub)) {
+        MaterialTheme(colorScheme = FleetAppearance.scheme()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
             Column(Modifier.fillMaxWidth().widthIn(max = 480.dp).fillMaxHeight(.94f)
                 .background(WebPanel, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
