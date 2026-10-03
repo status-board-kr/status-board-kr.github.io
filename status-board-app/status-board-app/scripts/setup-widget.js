@@ -154,6 +154,14 @@ public class FleetWidgetUtil {
         return PendingIntent.getActivity(ctx, code, it, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
     }
 
+    static PendingIntent schedulePopup(Context ctx, String date, int code) {
+        Intent it = new Intent(ctx, FleetWidgetScheduleActivity.class);
+        it.setAction("fleet.schedule.popup." + date);
+        it.putExtra("date", date);
+        it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        return PendingIntent.getActivity(ctx, code, it, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    }
+
     // 날짜를 누르면 앱을 열지 않고 위젯 안에서 그 날 일정으로 바꿈
     static PendingIntent selector(Context ctx, String ds, int code, int size) {
         Intent it = new Intent(ctx, size == COMPACT ? FleetCompactWidget.class : FleetCalendarWidget.class);
@@ -271,8 +279,8 @@ public class FleetWidgetUtil {
             int color = day == selDay ? Color.parseColor("#FFFFFF") : Color.parseColor(i%7 == 0 ? "#C76C6C" : i%7 == 6 ? "#5987AD" : "#334339");
             v.setTextColor(cell, color);
             v.setInt(cell, "setBackgroundResource", day == selDay ? R.drawable.wcell_sel : day == today ? R.drawable.wcell_today : 0);
-            // 기존형: 위젯 아래 선택 날짜 일정. 간편형: 일정 유무와 관계없이 앱의 해당 날짜 일정.
-            v.setOnClickPendingIntent(cell, size == COMPACT ? opener(ctx, "date:" + ymd(year, month, day), 300+i) : selector(ctx, ymd(year, month, day), 100+i, size));
+            // 기존형은 위젯 안에서 선택, 간편형은 홈 화면 위에 해당 날짜 일정 팝업.
+            v.setOnClickPendingIntent(cell, size == COMPACT ? schedulePopup(ctx, ymd(year, month, day), 300+i) : selector(ctx, ymd(year, month, day), 100+i, size));
         }
         String date = ymd(year, month, selDay);
         if (size == LARGE) {
@@ -308,6 +316,7 @@ public class FleetWidgetUtil {
 }
 `;
 fs.writeFileSync(path.join(javaDir, 'FleetWidgetUtil.java'), util);
+fs.writeFileSync(path.join(javaDir, 'FleetWidgetScheduleActivity.java'), fs.readFileSync(path.join(__dirname, 'widget-schedule-popup.java'), 'utf8').replaceAll('PACKAGE_NAME', pkg));
 for (const [name, size] of [['FleetCalendarWidget','LARGE'],['FleetCompactWidget','COMPACT']]) {
   const onReceive = false ? '' : `
 
@@ -458,6 +467,8 @@ const rec = (cls, xml, label) => `
         </receiver>`;
 man=man.replace(/<receiver\b[^>]*android:name="\.Fleet(?:Calendar|Compact)Widget"[^>]*>[\s\S]*?<\/receiver>/g,'');
 man=man.replace('</application>',rec('FleetCalendarWidget','widget_large_info','차량 현황 · 기존형')+rec('FleetCompactWidget','widget_compact_info','차량 현황 · 간편형')+'\n</application>');
+man=man.replace(/<activity\b[^>]*android:name="\.FleetWidgetScheduleActivity"[^>]*\/>/g,'');
+man=man.replace('</application>',`<activity android:name=".FleetWidgetScheduleActivity" android:exported="false" android:excludeFromRecents="true" android:launchMode="singleTask" android:taskAffinity="${pkg}.widgetpopup" android:theme="@android:style/Theme.Material.Light.Dialog.NoActionBar" />\n</application>`);
 
 // Approved white/green calendar widget, six fleet counts and selected-day agenda.
 const lightDrawables = {
