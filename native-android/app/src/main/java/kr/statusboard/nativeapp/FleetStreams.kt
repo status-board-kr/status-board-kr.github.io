@@ -14,7 +14,7 @@ class FleetStreams {
         listOf("vehicles", "schedules", "profile", "members", "wookyJobs", "locations", "locationSettings", "paymentSettings", "paymentOverrides", "generalSales", "quickApps", "quickApp", "inquiries").forEach { name ->
             listen(root.child(name), name, receive, denied)
         }
-        listen(root.child("chat").orderByKey().limitToLast(50), "chat", receive, denied)
+        listen(root.child("chat").orderByChild("at").limitToLast(50), "chat", receive, denied)
         listen(root.child("paymentSendLog").orderByKey().limitToLast(100), "paymentSendLog", receive, denied)
         listen(FirebaseDatabase.getInstance().getReference(".info/connected"), "connected", receive, denied)
     }

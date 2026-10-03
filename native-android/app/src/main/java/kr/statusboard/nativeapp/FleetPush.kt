@@ -53,6 +53,16 @@ object FleetPush {
             p.edit().putBoolean("registered", true).putLong("at", now).apply()
     }
     fun invalidate(context: Context) { prefs(context).edit().putBoolean("registered", false).putLong("at", 0).apply(); lastAttempt = 0 }
+    fun queueRefresh(context: Context) {
+        val owner = prefs(context).getString("owner", null) ?: return
+        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: return
+        if (!owner.startsWith("$uid:")) return
+        val company = owner.removePrefix("$uid:")
+        if (runCatching { FleetSession(uid, company, "staff") }.isFailure) return
+        val extras = PersistableBundle().apply { putString("uid", uid); putString("company", company); putBoolean("refresh", true) }
+        context.getSystemService(JobScheduler::class.java).schedule(JobInfo.Builder(2467103, ComponentName(context, FleetPushJobService::class.java))
+            .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY).setExtras(extras).build())
+    }
     fun clear(context: Context) {
         prefs(context).edit().remove("owner").remove("at").remove("seen").putBoolean("registered", false).apply()
         FirebaseMessaging.getInstance().isAutoInitEnabled = false
@@ -82,11 +92,13 @@ object FleetPush {
     }
     suspend fun deliver(context: Context, params: JobParameters) {
         val uid = params.extras.getString("uid") ?: return; val company = params.extras.getString("company") ?: return
-        val id = params.extras.getString("id") ?: return; val auth = FirebaseAuth.getInstance(); val p = prefs(context)
+        val auth = FirebaseAuth.getInstance(); val p = prefs(context)
         val expected = "$uid:$company"
         if (auth.currentUser?.uid != uid || p.getString("owner", null) != expected || !FleetNotifications.permitted(context)) return
         val session = FleetAccessResolver(NativeMembership(FleetTransport(auth))).resolve(uid) ?: return
         if (session.cacheKey != expected) return
+        if (params.extras.getBoolean("refresh")) { sync(context, session); return }
+        val id = params.extras.getString("id") ?: return
         val seen = p.getStringSet("seen", emptySet()).orEmpty()
         if (id in seen) return
         // Same identifier replaces an earlier delivery; no private message body in notification storage.
@@ -113,7 +125,7 @@ object FleetPush {
 class FleetMessagingService : FirebaseMessagingService() {
     override fun onNewToken(token: String) {
         FleetPush.invalidate(this)
-        // Token registration uses fresh membership on the next app resume; never guess the company.
+        FleetPush.queueRefresh(this)
     }
     override fun onMessageReceived(message: RemoteMessage) { FleetPush.queue(this, message) }
 }

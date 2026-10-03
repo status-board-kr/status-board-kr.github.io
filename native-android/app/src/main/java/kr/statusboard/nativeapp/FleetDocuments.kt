@@ -223,11 +223,12 @@ import java.util.UUID
         val saved = state.documents?.optJSONObject(key)
         if (saved?.optString("_nativeSaveId") == request) version = saved.optString("updatedAt").takeIf(String::isNotBlank)
     }
-    pdf?.let { file -> FleetDocumentPreview(file, tab.getString("label")) { pdf = null } }
+    pdf?.let { file -> FleetDocumentPreview(file, tab.getString("label"), { model.state.value.session?.cacheKey == state.session?.cacheKey && model.state.value.session?.isAdmin == true }) { pdf = null } }
 }
 
-@Composable private fun FleetDocumentPreview(file: File, title: String, close: () -> Unit) {
+@Composable private fun FleetDocumentPreview(file: File, title: String, allowed: () -> Boolean, close: () -> Unit) {
     val context = LocalContext.current; var pages by remember(file) { mutableIntStateOf(0) }
+    val scope = rememberCoroutineScope(); var exporting by remember(file) { mutableStateOf(false) }
     var error by remember(file) { mutableStateOf("") }
     LaunchedEffect(file) { try { pages = withContext(Dispatchers.IO) { FleetDocumentPdf.pages(file) } } catch (failure: Exception) { if (failure is CancellationException) throw failure; error = "문서 미리보기를 열지 못했습니다." } }
     WebSheet(close) {
@@ -237,6 +238,18 @@ import java.util.UUID
                 context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("application/pdf").putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), "PDF 공유"))
             }) { Text("PDF 공유") }
         }
+        TextButton(onClick = {
+            if (!exporting) { exporting = true; scope.launch {
+                try {
+                    val images = withContext(Dispatchers.IO) { FleetDocumentPdf.images(file, allowed) }
+                    if (allowed()) {
+                        val uris = ArrayList(images.map { FileProvider.getUriForFile(context, "${context.packageName}.photos", it) })
+                        context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND_MULTIPLE).setType("image/jpeg").putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), "JPG 저장 · 공유"))
+                    } else images.forEach { it.delete() }
+                } catch (failure: Exception) { if (failure is CancellationException) throw failure; error = "JPG를 만들지 못했습니다. 다시 시도해주세요." }
+                finally { exporting = false }
+            } }
+        }, enabled = !exporting) { Text(if (exporting) "이미지 만드는 중…" else "JPG 저장 · 공유") }
         LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
             if (error.isNotBlank()) item { Text(error, color = WebSub) }
             items((0 until pages).toList(), key = { it }) { index ->

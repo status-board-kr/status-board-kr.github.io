@@ -5,6 +5,15 @@ import java.time.*
 data class FleetAlarm(val seed: String, val at: Instant, val title: String, val body: String, val open: String)
 object FleetAlarms {
     val zone: ZoneId = ZoneId.of("Asia/Seoul")
+    fun workStart(now: Instant, isAdmin: Boolean, consent: Boolean, start: LocalTime, end: LocalTime, holidays: FleetHolidayCalendar): List<FleetAlarm> {
+        if (isAdmin || !consent) return emptyList()
+        val today = now.atZone(zone).toLocalDate()
+        return (0L until 14L).mapNotNull { offset ->
+            val date = today.plusDays(offset); val at = date.atTime(start).atZone(zone).toInstant()
+            if (at <= now || !FleetLocationPolicy.decide(at, false, true, true, start, end, holidays).collect) null
+            else FleetAlarm("locstart-$date-$start", at, "위치 공유 시작 시간이에요", "앱을 한 번 열면 근무시간 동안 위치 공유가 시작됩니다.", "location")
+        }
+    }
     fun build(vehicles: List<FleetVehicle>, schedules: List<Map<String, Any?>>, now: Instant): List<FleetAlarm> {
         val result = mutableListOf<FleetAlarm>(); val today = now.atZone(zone).toLocalDate()
         val limit = now.plusSeconds(30 * 86400L)

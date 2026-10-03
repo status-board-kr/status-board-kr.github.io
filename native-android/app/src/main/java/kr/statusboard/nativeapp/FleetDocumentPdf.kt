@@ -132,4 +132,19 @@ object FleetDocumentPdf {
         } }
     }
     fun pages(file: File): Int = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { PdfRenderer(it).use { renderer -> renderer.pageCount } }
+    fun images(file: File, stillAllowed: () -> Boolean): List<File> {
+        val output = mutableListOf<File>()
+        try {
+            for (index in 0 until pages(file)) {
+                check(stillAllowed()) { "문서 접근 권한이 변경되었습니다." }
+                val image = page(file, index)
+                val target = File(file.parentFile, "document-${UUID.randomUUID()}-${index + 1}.jpg")
+                output += target
+                try { target.outputStream().use { check(image.compress(Bitmap.CompressFormat.JPEG, 95, it)) } }
+                finally { image.recycle() }
+            }
+            check(stillAllowed()) { "문서 접근 권한이 변경되었습니다." }
+            return output
+        } catch (error: Exception) { output.forEach { it.delete() }; throw error }
+    }
 }

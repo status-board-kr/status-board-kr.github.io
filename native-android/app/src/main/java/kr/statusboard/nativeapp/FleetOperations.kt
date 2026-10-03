@@ -73,21 +73,26 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
     }
     suspend fun olderChat(session: FleetSession, before: String?): org.json.JSONObject {
         verify(session)
-        val query = root(session).child("chat").orderByKey()
-        val page = (if (before == null) query else query.endBefore(before)).limitToLast(50).get().await()
+        val ref = root(session).child("chat")
+        val query = ref.orderByChild("at")
+        val at = before?.let { ref.child(it).child("at").get().await().getValue(String::class.java) }
+        if (before != null && at == null) return org.json.JSONObject()
+        val page = (if (before == null) query else query.endBefore(at, before)).limitToLast(50).get().await()
         return org.json.JSONObject(asMap(page.value))
     }
     private suspend fun scanChat(session: FleetSession, receive: (List<DataSnapshot>) -> Boolean) {
         verify(session)
-        val base = root(session).child("chat").orderByKey(); var before: String? = null
-        val cutoff = Instant.now().minusSeconds(730L * 86400)
+        val base = root(session).child("chat").orderByChild("at")
+        var before: String? = null; var beforeAt: String? = null
+        val cutoff = Instant.now().minusSeconds(730L * 86400).toString()
         while (true) {
             check(auth.currentUser?.uid == session.uid) { "계정이 변경되었습니다." }
-            val page = (if (before == null) base else base.endBefore(before)).limitToLast(200).get().await().children.toList()
+            val range = base.startAt(cutoff)
+            val page = (if (before == null) range else range.endBefore(beforeAt, before)).limitToLast(200).get().await().children.toList()
             if (page.isEmpty()) break
-            val recent = page.filter { record -> runCatching { !Instant.parse(record.child("at").value.toString()).isBefore(cutoff) }.getOrDefault(true) }
-            if (!receive(recent) || page.size < 200) break
-            val next = page.first().key!!; check(next != before); before = next
+            if (!receive(page) || page.size < 200) break
+            val next = page.first().key!!; check(next != before)
+            before = next; beforeAt = page.first().child("at").getValue(String::class.java)
         }
         verify(session)
     }
@@ -102,8 +107,10 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
     }
     suspend fun chatContext(session: FleetSession, id: String): org.json.JSONObject {
         verify(session); validKey(id)
-        val query = root(session).child("chat").orderByKey()
-        val before = query.endAt(id).limitToLast(26).get().await(); val after = query.startAt(id).limitToFirst(26).get().await()
+        val ref = root(session).child("chat")
+        val at = ref.child(id).child("at").get().await().getValue(String::class.java) ?: error("메시지가 삭제되었습니다.")
+        val query = ref.orderByChild("at")
+        val before = query.endAt(at, id).limitToLast(26).get().await(); val after = query.startAt(at, id).limitToFirst(26).get().await()
         return org.json.JSONObject(asMap(before.value) + asMap(after.value))
     }
     suspend fun backupChat(session: FleetSession, context: android.content.Context): java.io.File = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
@@ -549,23 +556,51 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
         val actual = verify(session)
         check(actual.isAdmin) { "관리자만 종결 요청을 재시도할 수 있습니다." }
         val ref = root(session).child("wookyJobs")
-        ref.get().await()
+        val jobs = asMap(ref.get().await().value).mapValues { asMap(it.value) }
         var count = 0
-        transact(ref) { value ->
-            count = 0
-            val jobs = asMap(value).toMutableMap()
-            val occupied = jobs.values.map(::asMap).filter { it["status"] in listOf("pending", "working") }.map { it["plate"] }.toMutableSet()
-            jobs.keys.sorted().forEach { id ->
-                val job = asMap(jobs[id])
-                if (job["status"] == "done" && job["result"] in listOf("fail", "error") && job["plate"] !in occupied) {
-                    jobs[id] = job + mapOf("status" to "pending", "result" to null, "resultMsg" to null, "announced" to false,
-                        "hint" to null, "diag" to null, "retryCount" to ((job["retryCount"] as? Number)?.toInt().orZero() + 1), "retriedAt" to Instant.now().toString())
-                    occupied += job["plate"]; count++
-                }
+        // The existing rules authorize individual jobs, never a write to their parent.
+        // All clients select the same first failed job for each plate.
+        FleetWookyRecovery.candidates(jobs).forEach { id ->
+            validKey(id)
+            val expected = jobs.getValue(id)
+            val live = asMap(ref.get().await().value).mapValues { asMap(it.value) }
+            if (id !in FleetWookyRecovery.candidates(live)) return@forEach
+            var changed = false
+            transact(ref.child(id)) { value ->
+                val current = asMap(value)
+                val next = FleetWookyRecovery.retry(current, expected, Instant.now().toString())
+                changed = next != current
+                next
             }
-            jobs
+            if (changed) count++
         }
         count
+    }
+    suspend fun announceWooky(session: FleetSession, snapshot: org.json.JSONObject) = lock.withLock {
+        val pending = snapshot.keys().asSequence().mapNotNull { key -> snapshot.optJSONObject(key)?.let { key to it } }
+            .filter { (_, job) -> job.optString("status") == "done" && (!job.optBoolean("announced") || job.optInt("announcedRetryCount", 0) != job.optInt("retryCount", 0)) }.toList()
+        if (pending.isEmpty()) return@withLock
+        verify(session)
+        val company = root(session)
+        pending.forEach { (id, _) ->
+            validKey(id)
+            val jobRef = company.child("wookyJobs/$id")
+            val job = asMap(jobRef.get().await().value)
+            val attempt = (job["retryCount"] as? Number)?.toInt() ?: 0
+            if (job["status"] != "done" || (job["announced"] == true && ((job["announcedRetryCount"] as? Number)?.toInt() ?: 0) == attempt)) return@forEach
+            val text = job["resultMsg"]?.toString().orEmpty()
+            if (text.isNotBlank()) {
+                createOnce(company.child("chat/wooky_${id}_$attempt"), mapOf("text" to text, "uid" to "system", "email" to "우기소프트 연동",
+                    "at" to (job["verifiedAt"] ?: job["finishedAt"] ?: job["startedAt"] ?: job["at"] ?: job["endAt"] ?: Instant.now().toString())))
+            }
+            // Save the message first under the web's stable id; restart cannot lose or duplicate it.
+            transact(jobRef) { value ->
+                val current = asMap(value)
+                if (current["status"] == "done" && ((current["retryCount"] as? Number)?.toInt() ?: 0) == attempt)
+                    current + mapOf("announced" to true, "announcedRetryCount" to attempt)
+                else value
+            }
+        }
     }
     private fun Int?.orZero() = this ?: 0
     private suspend fun finishEdit(company: DatabaseReference, vehicle: DatabaseReference, id: String, op: Map<String, Any?>) {
@@ -599,16 +634,23 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
         ref.get().await()
         return suspendCancellableCoroutine { continuation ->
         var failure: Exception? = null
+        var unchanged = false
         ref.runTransaction(object : Transaction.Handler {
             override fun doTransaction(data: MutableData): Transaction.Result {
-                return try { data.value = transform(data.value); Transaction.success(data) }
+                return try {
+                    val before = data.value; val after = transform(before)
+                    unchanged = after == before
+                    // Idempotent retries must not attempt an unauthorized write to an existing
+                    // system/other sender's chat message merely to save the same value again.
+                    if (unchanged) Transaction.abort() else { data.value = after; Transaction.success(data) }
+                }
                 catch (error: Exception) { failure = error; Transaction.abort() }
             }
             override fun onComplete(error: DatabaseError?, committed: Boolean, snapshot: DataSnapshot?) {
                 if (!continuation.isActive) return
                 val problem = failure ?: error?.let { if (it.code == DatabaseError.PERMISSION_DENIED) AccessDenied() else Exception("저장 응답을 받지 못했습니다. 같은 요청으로 다시 시도해주세요.") }
                 if (problem != null) continuation.resumeWithException(problem)
-                else if (!committed) continuation.resumeWithException(Exception("저장이 취소됐습니다."))
+                else if (!committed && !unchanged) continuation.resumeWithException(Exception("저장이 취소됐습니다."))
                 else continuation.resume(snapshot?.value)
             }
         }, false)

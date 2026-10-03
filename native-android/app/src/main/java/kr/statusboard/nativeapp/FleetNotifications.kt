@@ -34,7 +34,13 @@ object FleetNotifications {
         val session = state.session ?: return
         if (state.cached || !state.scheduleLoaded || !permitted(context)) return
         val records = state.schedules.keys().asSequence().mapNotNull { state.schedules.optJSONObject(it) }.map(::jsonMap).toList()
-        schedule(context, session, FleetAlarms.build(state.vehicles, records, Instant.now()), Instant.now())
+        val now = Instant.now()
+        schedule(context, session, build(context, session, state.vehicles, records, state.locationSettings, now), now)
+    }
+    private fun build(context: Context, session: FleetSession, vehicles: List<FleetVehicle>, records: List<Map<String, Any?>>, settings: JSONObject, now: Instant): List<FleetAlarm> {
+        val work = runCatching { FleetAlarms.workStart(now, session.isAdmin, FleetLocation.consent(context, session.cacheKey),
+            java.time.LocalTime.parse(settings.optString("start", "09:00")), java.time.LocalTime.parse(settings.optString("end", "18:00")), FleetLocation.holidays(context)) }.getOrDefault(emptyList())
+        return (FleetAlarms.build(vehicles, records, now) + work).sortedBy { it.at }
     }
     private fun schedule(context: Context, session: FleetSession, alarms: List<FleetAlarm>, created: Instant) {
         channel(context)
@@ -57,7 +63,9 @@ object FleetNotifications {
         val vehicles = VehicleCodec.decode(transport.read(session.path("vehicles")))
         val schedules = transport.read(session.path("schedules")) as? JSONObject ?: JSONObject()
         val records = schedules.keys().asSequence().mapNotNull { schedules.optJSONObject(it) }.map(::jsonMap).toList()
-        schedule(context, session, FleetAlarms.build(vehicles, records, Instant.now()), Instant.now())
+        val settings = transport.read(session.path("locationSettings")) as? JSONObject ?: JSONObject()
+        val now = Instant.now()
+        schedule(context, session, build(context, session, vehicles, records, settings, now), now)
     }
     suspend fun deliver(context: Context, source: Intent) {
         val auth = FirebaseAuth.getInstance(); val uid = source.getStringExtra("uid") ?: return
@@ -71,7 +79,9 @@ object FleetNotifications {
         val vehicles = VehicleCodec.decode(transport.read(session.path("vehicles")))
         val schedules = transport.read(session.path("schedules")) as? JSONObject ?: JSONObject()
         val records = schedules.keys().asSequence().mapNotNull { schedules.optJSONObject(it) }.map(::jsonMap).toList()
-        val alarm = FleetAlarms.build(vehicles, records, created).firstOrNull { it.seed == source.getStringExtra("seed") } ?: return
+        val settings = transport.read(session.path("locationSettings")) as? JSONObject ?: JSONObject()
+        val alarm = build(context, session, vehicles, records, settings, created).firstOrNull { it.seed == source.getStringExtra("seed") } ?: return
+        if (alarm.open == "location" && (FleetLocationService.activeKey == session.cacheKey || !FleetLocation.decide(context, session, settings).collect)) return
         // Recheck identity after network awaits; logout must suppress stale company notifications.
         if (auth.currentUser?.uid != uid || context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("owner", null) != key) return
         show(context, alarm.seed, alarm.title, alarm.body, alarm.open)

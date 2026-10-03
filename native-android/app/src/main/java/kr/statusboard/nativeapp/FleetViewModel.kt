@@ -159,7 +159,14 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
                                     documents = if (own.optString("role") == "owner") _state.value.documents else null,
                                     history = if (own.optString("role") == "owner") _state.value.history else null)
                             }
-                            "wookyJobs" -> _state.value = _state.value.copy(wookyJobs = value as? JSONObject ?: JSONObject())
+                            "wookyJobs" -> {
+                                val jobs = value as? JSONObject ?: JSONObject()
+                                _state.value = _state.value.copy(wookyJobs = jobs)
+                                launch {
+                                    try { operations.announceWooky(session, jobs) }
+                                    catch (error: Exception) { if (error is CancellationException) throw error }
+                                }
+                            }
                             "locations" -> _state.value = _state.value.copy(locations = value as? JSONObject ?: JSONObject())
                             "locationSettings" -> _state.value = _state.value.copy(locationSettings = value as? JSONObject ?: JSONObject(), locationSettingsLoaded = true)
                             "paymentSettings" -> _state.value = _state.value.copy(paymentSettings = value as? JSONObject ?: JSONObject())
@@ -446,7 +453,7 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
         val session = _state.value.session ?: return
         if (_state.value.loadingOlder || _state.value.noOlder) return
         val epoch = generation
-        val before = _state.value.chat.keys().asSequence().minOrNull()
+        val before = _state.value.chat.keys().asSequence().minWithOrNull(compareBy<String> { _state.value.chat.optJSONObject(it)?.optString("at").orEmpty() }.thenBy { it })
         _state.value = _state.value.copy(loadingOlder = true)
         viewModelScope.launch {
             try {
