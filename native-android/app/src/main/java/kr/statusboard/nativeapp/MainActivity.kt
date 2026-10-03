@@ -37,7 +37,7 @@ class MainActivity : ComponentActivity() {
                 val model: FleetViewModel = viewModel()
                 val state by model.state.collectAsStateWithLifecycle()
                 Surface(Modifier.fillMaxSize()) {
-                    if (state.signedIn) FleetShell(state, model::refresh, model::logout, model::retryWooky) else Login(state, model::login)
+                    if (state.signedIn) FleetShell(state, model::refresh, model::logout, model::retryWooky, model) else Login(state, model::login)
                 }
             }
         }
@@ -64,7 +64,7 @@ private fun palette(type: String): Pair<Color, Color> = when (type) {
     "장기" -> Color(0xFF332D43) to Color(0xFFB7A1D1)
     else -> Color(0xFF20374F) to Color(0xFFCFDBEC)
 }
-@Composable internal fun FleetBoard(state: FleetUiState, refresh: () -> Unit, logout: () -> Unit) {
+@Composable internal fun FleetBoard(state: FleetUiState, refresh: () -> Unit, logout: () -> Unit, model: FleetViewModel) {
     var filter by rememberSaveable { mutableStateOf("전체") }
     var selected by remember { mutableStateOf<FleetVehicle?>(null) }
     var scheduleOpen by remember { mutableStateOf(false) }
@@ -106,16 +106,8 @@ private fun palette(type: String): Pair<Color, Color> = when (type) {
         }
         Text("조회 시험판 · 기존 앱의 알림과 위젯을 계속 이용하세요.", color = Muted, fontSize = 11.sp, modifier = Modifier.fillMaxWidth().background(Color(0xFF18243A)).padding(12.dp))
     }
-    selected?.let { vehicle ->
-        AlertDialog(onDismissRequest = { selected = null }, title = { Text(vehicle.plate) }, text = {
-            Column {
-                Text(vehicle.model); Text("상태: ${vehicle.status}"); Text("구분: ${vehicle.type ?: "—"}")
-                Text("메모: ${vehicle.note ?: "—"}"); Text("회수일: ${vehicle.returnDate ?: "—"}")
-                FleetPresentation.warnings(vehicle, today).forEach { Text(it, color = Color(0xFFEAC483)) }
-            }
-        }, confirmButton = { TextButton(onClick = { selected = null }) { Text("닫기") } })
-    }
-    if (scheduleOpen) ScheduleDialog(state, today) { scheduleOpen = false }
+    selected?.let { vehicle -> FleetVehicleEditor(state, vehicle, model) { selected = null } }
+    if (scheduleOpen) FleetScheduleDialog(state, today, model) { scheduleOpen = false }
 }
 @Composable private fun VehicleCard(vehicle: FleetVehicle, longBranch: String, today: LocalDate, click: () -> Unit) {
     val type = when { vehicle.status == "대기" || vehicle.status == "준비중" -> vehicle.status; vehicle.type == longBranch -> "장기"; else -> vehicle.type.orEmpty() }

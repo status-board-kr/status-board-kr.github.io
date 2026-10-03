@@ -32,17 +32,19 @@ private val Accent = Color(0xFF375C84)
 private val MenuBackground = Color(0xFFF6F8FB)
 private data class MenuItem(val title: String, val icon: Int)
 
-@Composable internal fun FleetShell(state: FleetUiState, refresh: () -> Unit, logout: () -> Unit, retryWooky: () -> Unit) {
+@Composable internal fun FleetShell(state: FleetUiState, refresh: () -> Unit, logout: () -> Unit, retryWooky: () -> Unit, model: FleetViewModel) {
     var menu by rememberSaveable(state.session?.cacheKey) { mutableStateOf(false) }
     var schedule by rememberSaveable(state.session?.cacheKey) { mutableStateOf(false) }
     var pending by remember { mutableStateOf<String?>(null) }
     var botOpen by remember { mutableStateOf(false) }
+    var chatOpen by rememberSaveable { mutableStateOf(false) }
     val screens = rememberSaveableStateHolder()
     val open: (String) -> Unit = { title ->
         when (title) {
             "차량 현황" -> menu = false
             "전체 메뉴" -> menu = true
             "일정" -> schedule = true
+            "메신저" -> chatOpen = true
             "새로고침" -> refresh()
             "로그아웃" -> logout()
             "종결 봇" -> botOpen = true
@@ -53,7 +55,7 @@ private data class MenuItem(val title: String, val icon: Int)
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f)) {
             if (menu) FleetMenu(state, open)
-            else screens.SaveableStateProvider("fleet") { FleetBoard(state, refresh, logout) }
+            else screens.SaveableStateProvider("fleet") { FleetBoard(state, refresh, logout, model) }
         }
         MaterialTheme(colorScheme = lightColorScheme(onSurface = Ink, surface = Color.White, primary = Accent)) {
             Row(Modifier.fillMaxWidth().background(Color.White).border(1.dp, Line)
@@ -71,7 +73,8 @@ private data class MenuItem(val title: String, val icon: Int)
             }
         }
     }
-    if (schedule) ScheduleDialog(state, LocalDate.now()) { schedule = false }
+    if (schedule) FleetScheduleDialog(state, LocalDate.now(), model) { schedule = false }
+    if (chatOpen) FleetChatDialog(state, model) { chatOpen = false }
     if (botOpen) {
         val connection = botConnection(state)
         val failed = state.wookyJobs.keys().asSequence().mapNotNull { state.wookyJobs.optJSONObject(it) }.count { it.optString("status") == "done" && it.optString("result") in listOf("fail", "error") }

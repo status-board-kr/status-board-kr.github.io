@@ -108,6 +108,40 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
         company.child("schedules/$id").updateChildren(mapOf("title" to title.trim(), "date" to date, "repeat" to repeat, "memo" to memo.trim())).await()
         id
     }
+    suspend fun deleteSchedule(session: FleetSession, key: String) = lock.withLock {
+        verify(session)
+        require(key.isNotBlank() && key.none { it in ".#$[]/" })
+        root(session).child("schedules/$key").removeValue().await()
+    }
+    suspend fun saveVehicle(session: FleetSession, original: FleetVehicle, fields: Map<String, Any?>) = lock.withLock {
+        verify(session)
+        val editable = setOf("type", "startDate", "returnDate", "status", "note", "extra", "depositPaid", "regDate",
+            "ageExpireDate", "asYears", "insuranceDate", "inspectionType", "inspectionDate", "amount", "payDay", "customerName", "customerPhone")
+        require(fields.keys.all { it in editable })
+        for (key in listOf("startDate", "returnDate", "regDate", "ageExpireDate", "insuranceDate", "inspectionDate")) {
+            fields[key]?.toString()?.takeIf(String::isNotBlank)?.let { LocalDate.parse(it.take(10)) }
+        }
+        fields["amount"]?.toString()?.let { require(it.toDoubleOrNull()?.let { value -> value.isFinite() && value >= 0 } == true) { "금액을 확인해주세요." } }
+        fields["payDay"]?.toString()?.let { require(it.toIntOrNull()?.let { value -> value in 1..31 } == true) { "결제일은 1~31일입니다." } }
+        fields["asYears"]?.toString()?.let { require(it.toIntOrNull()?.let { value -> value in 1..10 } == true) { "A/S 기간은 1~10년입니다." } }
+        val changed = fields.filter { (key, value) -> original.rawFields[key] != value }
+        if (changed.isEmpty()) return@withLock
+        val company = root(session)
+        val latest = company.child("vehicles").get().await()
+        val hit = latest.children.singleOrNull { it.child("plate").value == original.plate } ?: error("차량을 다시 선택해주세요.")
+        val id = company.child("history").push().key!!
+        createOnce(company.child("history/$id"), mapOf("vehicles" to latest.value, "savedAt" to Instant.now().toEpochMilli()))
+        transact(hit.ref) { value ->
+            if (value == null) null else {
+                val raw = asMap(value)
+                check(raw["plate"] == original.plate) { "차량 순서가 변경됐습니다. 다시 열어주세요." }
+                check(changed.keys.all { key -> raw[key]?.toString() == original.rawFields[key]?.toString() }) {
+                    "다른 직원이 해당 항목을 수정했습니다. 다시 열어 확인해주세요."
+                }
+                raw + changed
+            }
+        }
+    }
     suspend fun toggleSchedule(session: FleetSession, key: String, date: String) = lock.withLock {
         verify(session); LocalDate.parse(date)
         require(key.none { it in ".#$[]/" })
@@ -145,49 +179,10 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
     }
     private fun Int?.orZero() = this ?: 0
     private suspend fun finish(company: DatabaseReference, vehicle: DatabaseReference, id: String, op: Map<String, Any?>) {
-        val at = op["at"].toString(); val plate = op["plate"].toString()
-        val recall = op["recall"] == true
-        val oldDate = op["oldReturnDate"] as? String
-        val nextDate = op["newReturnDate"] as? String
-        val schedule = company.child("schedules/${FleetCommands.returnKey(plate)}")
-        if (recall) {
-            val record = mapOf("title" to "$plate 회수", "plate" to plate,
-                "type" to op["oldType"], "date" to (oldDate ?: at.take(10)), "done" to true, "auto" to true,
-                "doneAt" to at, "billed" to false, "nativeOperation" to id, "returnKm" to op["returnKm"],
-                "photoId" to op["photoId"], "otherPlates" to op["otherPlates"])
-            var archived = false
-            if (!oldDate.isNullOrBlank()) {
-                val updated = transact(schedule) { current ->
-                    val existing = asMap(current)
-                    // Preserve billing fields and do not complete a later redispatch's schedule.
-                    if (existing["nativeOperation"] == id) current
-                    else if (existing["date"] == oldDate && existing["done"] != true)
-                        existing + mapOf("done" to true, "doneAt" to at, "type" to op["oldType"], "plate" to plate, "nativeOperation" to id,
-                            "returnKm" to op["returnKm"], "photoId" to op["photoId"], "otherPlates" to op["otherPlates"])
-                    else current
-                }
-                archived = asMap(updated)["nativeOperation"] == id
-            }
-            if (!archived) createOnce(company.child("schedules/$id"), record)
-            createOnce(company.child("wookyJobs/$id"), mapOf("plate" to plate, "endAt" to at,
-                "status" to "pending", "at" to at, "by" to op["by"], "nativeOperation" to id, "km" to op["returnKm"]))
-        } else if (!oldDate.isNullOrBlank() && nextDate.isNullOrBlank()) {
-            transact(schedule) { current ->
-                val record = asMap(current)
-                if (record["date"] == oldDate) record + mapOf("done" to true, "doneAt" to at) else current
-            }
-        }
-        createOnce(company.child("plateHistory/$plate/$id"), mapOf("time" to DateTimeFormatter.ofPattern("MM/dd HH:mm").withZone(zone).format(Instant.parse(at)),
-            "text" to (if (recall) "회수 처리 → 대기" else op["message"].toString()) + (op["otherPlates"]?.let { " · 상대차량 $it" } ?: ""), "nativeOperation" to id, "photoId" to op["photoId"]))
-        createOnce(company.child("chat/$id-result"), mapOf("uid" to "system", "email" to "현황판",
-            "type" to "system", "at" to at, "text" to (op["message"].toString().replace("종결 요청 처리 중", "종결 요청 저장됨"))))
-        transact(vehicle) { current ->
-            if (current == null) null else {
-                val raw = asMap(current)
-                val done = (asMap(raw["_nativeCompleted"]) + (id to at)).entries.sortedByDescending { it.value.toString() }.take(100).associate { it.toPair() }
-                raw + mapOf("_nativeOperations" to (asMap(raw["_nativeOperations"]) - id), "_nativeCompleted" to done)
-            }
-        }
+        FleetEffects.finish(object : FleetEffectStore {
+            override suspend fun mutate(path: String, transform: (Any?) -> Any?): Any? = transact(company.child(path), transform)
+            override suspend fun vehicle(transform: (Any?) -> Any?): Any? = transact(vehicle, transform)
+        }, id, op)
     }
     private suspend fun correctMileage(company: DatabaseReference, id: String, plate: String, km: Long, now: Instant): String {
         val hit = company.child("schedules").get().await().children.filter {

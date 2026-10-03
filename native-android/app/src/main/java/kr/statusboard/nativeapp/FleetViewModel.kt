@@ -244,5 +244,30 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+    private fun edit(action: suspend (FleetSession) -> Unit, complete: (Boolean) -> Unit = {}) {
+        val session = _state.value.session ?: return
+        if (_state.value.sending || _state.value.cached) return
+        val epoch = generation
+        _state.value = _state.value.copy(sending = true, message = "")
+        viewModelScope.launch {
+            try {
+                action(session)
+                if (epoch == generation) { _state.value = _state.value.copy(sending = false, message = "저장했습니다."); complete(true) }
+            } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                if (epoch == generation) {
+                    if (error is AccessDenied) revoke(epoch)
+                    else _state.value = _state.value.copy(sending = false, message = error.message ?: "저장 결과를 확인하지 못했습니다.")
+                    complete(false)
+                }
+            }
+        }
+    }
+    fun saveSchedule(key: String?, title: String, date: String, repeat: Boolean, memo: String, complete: (Boolean) -> Unit) =
+        edit({ operations.saveSchedule(it, key, title, date, repeat, memo) }, complete)
+    fun toggleSchedule(key: String, date: String) = edit({ operations.toggleSchedule(it, key, date) })
+    fun deleteSchedule(key: String) = edit({ operations.deleteSchedule(it, key) })
+    fun saveVehicle(original: FleetVehicle, fields: Map<String, Any?>, complete: (Boolean) -> Unit) =
+        edit({ operations.saveVehicle(it, original, fields) }, complete)
     override fun onCleared() { streams.close(); super.onCleared() }
 }
