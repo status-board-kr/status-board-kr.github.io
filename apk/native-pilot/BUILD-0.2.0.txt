@@ -1,0 +1,2 @@
+Source: 5fb9e9a02cc9c8a953a31131fd76cdbc3537aef3
+Build: https://github.com/status-board-kr/status-board-kr.github.io/actions/runs/37127765222
