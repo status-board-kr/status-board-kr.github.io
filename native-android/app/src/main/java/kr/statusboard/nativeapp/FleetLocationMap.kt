@@ -51,8 +51,10 @@ internal data class FleetStaffPoint(val uid: String, val name: String, val lat: 
     LaunchedEffect(ready, payload, selected, selectionRevision) {
         if (ready) {
             view.evaluateJavascript("window.fleetMapUpdate && window.fleetMapUpdate($payload, ${JSONObject.quote(selected.orEmpty())});", null)
-            repeat(10) {
-                kotlinx.coroutines.delay(1000)
+            // A slow SDK/geocoder must still update the list after the first ten seconds.
+            // This reads local map state only; it does not poll Firebase or request another geocode.
+            while (true) {
+                kotlinx.coroutines.delay(2000)
                 view.evaluateJavascript("JSON.stringify(window.fleetMapAddresses ? window.fleetMapAddresses() : {});", { result ->
                     runCatching {
                         val text = org.json.JSONTokener(result).nextValue() as? String ?: return@runCatching

@@ -56,7 +56,9 @@ class NativeVerificationTest {
             compose.runOnUiThread { compose.activity.screen = screen }
             compose.onNodeWithText(title, useUnmergedTree = true).assertIsDisplayed()
             if (screen == "location") {
-                compose.waitUntil(30_000) { compose.onAllNodesWithText("근처", substring = true).fetchSemanticsNodes().isNotEmpty() }
+                capture("location-loading")
+                try { compose.waitUntil(30_000) { compose.onAllNodesWithText("근처", substring = true).fetchSemanticsNodes().isNotEmpty() } }
+                catch (failure: AssertionError) { capture("location-failure"); throw failure }
                 compose.onNodeWithText(title, useUnmergedTree = true).assertIsDisplayed()
             }
             if (screen in setOf("chat", "schedule", "location", "staff")) compose.onAllNodesWithText("닫기").assertCountEquals(1).onFirst().assertIsDisplayed()

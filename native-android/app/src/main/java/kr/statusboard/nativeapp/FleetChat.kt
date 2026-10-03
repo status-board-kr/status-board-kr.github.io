@@ -84,12 +84,14 @@ internal val WebAmber get() = FleetAppearance.amber
     val visible = searchHits?.let { result -> result.keys().asSequence().mapNotNull { key -> result.optJSONObject(key)?.let { key to it } }.sortedByDescending { it.second.optString("at") }.toList() }
         ?: if (query.isBlank()) messages else messages.filter { it.second.optString("text").contains(query, true) }
     val list = rememberLazyListState()
-    LaunchedEffect(messages.lastOrNull()?.first) { if (visible.isNotEmpty() && query.isBlank() && state.chatHistory == null && searchHits == null) list.animateScrollToItem(visible.size) }
+    LaunchedEffect(messages.lastOrNull()?.first) { if (visible.isNotEmpty() && query.isBlank() && state.chatHistory == null && searchHits == null) list.animateScrollToItem(visible.size + 1) }
     LaunchedEffect(jumpTarget, state.chatHistory) { if (state.chatHistory != null) jumpTarget?.let { id ->
-        val index = visible.indexOfFirst { it.first == id }; if (index >= 0) { list.animateScrollToItem(index + 1); jumpTarget = null }
+        val index = visible.indexOfFirst { it.first == id }; if (index >= 0) { list.animateScrollToItem(index + 2); jumpTarget = null }
     } }
     WebSheet(close) {
-        Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 18.dp)) {
+        LazyColumn(Modifier.weight(1f, fill = false).fillMaxWidth().padding(horizontal = 16.dp), state = list,
+            contentPadding = PaddingValues(vertical = 18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        item { Column(Modifier.fillMaxWidth()) {
             Text("💬 직원 메신저", fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
             OutlinedButton(onClick = {
                 model.backupChat { file -> if (file != null) {
@@ -97,10 +99,8 @@ internal val WebAmber get() = FleetAppearance.amber
                     context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), "최근 2년 대화 백업"))
                 } }
             }, enabled = !state.sending && !state.cached, contentPadding = PaddingValues(10.dp, 4.dp)) { Text("💾 백업", fontSize = 12.sp) }
-            Text("최근 50개 · 이전 대화 더 보기 · 최근 2년 전체 검색·백업", color = WebSub, fontSize = 12.sp)
-        }
-        LazyColumn(Modifier.weight(1f, fill = false).fillMaxWidth().padding(horizontal = 16.dp), state = list,
-            contentPadding = PaddingValues(vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("최근 50개를 보여줘요 · 위로 올리면 더 불러와요 · 대화는 2년간 보관 (🔍검색·💾백업)", color = WebSub, fontSize = 12.sp)
+        } }
             item {
                 if (state.chatHistory != null || searchHits != null) TextButton(onClick = { model.recentChat(); searchHits = null; query = ""; jumpTarget = null }, modifier = Modifier.fillMaxWidth()) { Text("최근 대화로 돌아가기") }
                 else if (!state.noOlder) TextButton(onClick = model::loadOlderChat, enabled = !state.loadingOlder, modifier = Modifier.fillMaxWidth()) {
