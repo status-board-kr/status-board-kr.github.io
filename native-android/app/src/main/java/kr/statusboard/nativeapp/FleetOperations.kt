@@ -77,6 +77,56 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
         val page = (if (before == null) query else query.endBefore(before)).limitToLast(50).get().await()
         return org.json.JSONObject(asMap(page.value))
     }
+    private suspend fun scanChat(session: FleetSession, receive: (List<DataSnapshot>) -> Boolean) {
+        verify(session)
+        val base = root(session).child("chat").orderByKey(); var before: String? = null
+        val cutoff = Instant.now().minusSeconds(730L * 86400)
+        while (true) {
+            check(auth.currentUser?.uid == session.uid) { "계정이 변경되었습니다." }
+            val page = (if (before == null) base else base.endBefore(before)).limitToLast(200).get().await().children.toList()
+            if (page.isEmpty()) break
+            val recent = page.filter { record -> runCatching { !Instant.parse(record.child("at").value.toString()).isBefore(cutoff) }.getOrDefault(true) }
+            if (!receive(recent) || page.size < 200) break
+            val next = page.first().key!!; check(next != before); before = next
+        }
+        verify(session)
+    }
+    suspend fun searchChat(session: FleetSession, query: String): org.json.JSONObject {
+        require(query.isNotBlank() && query.length <= 200)
+        val result = linkedMapOf<String, Any?>()
+        scanChat(session) { page ->
+            for (record in page.asReversed()) if (record.child("text").value?.toString()?.contains(query.trim(), true) == true && result.size < 100) result[record.key!!] = record.value
+            result.size < 100
+        }
+        return org.json.JSONObject(result)
+    }
+    suspend fun chatContext(session: FleetSession, id: String): org.json.JSONObject {
+        verify(session); validKey(id)
+        val query = root(session).child("chat").orderByKey()
+        val before = query.endAt(id).limitToLast(26).get().await(); val after = query.startAt(id).limitToFirst(26).get().await()
+        return org.json.JSONObject(asMap(before.value) + asMap(after.value))
+    }
+    suspend fun backupChat(session: FleetSession, context: android.content.Context): java.io.File = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        val directory = java.io.File(context.cacheDir, "backups").apply { mkdirs() }
+        val chunks = mutableListOf<java.io.File>(); val final = java.io.File(directory, "메신저백업-${java.util.UUID.randomUUID()}.txt")
+        try {
+            scanChat(session) { page ->
+                val file = java.io.File(directory, "chunk-${java.util.UUID.randomUUID()}.tmp")
+                file.bufferedWriter().use { writer -> page.forEach { record ->
+                    val raw = asMap(record.value); val at = runCatching { Instant.parse(raw["at"].toString()).atZone(zone).format(DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm")) }.getOrDefault(raw["at"].toString())
+                    writer.appendLine("$at · ${raw["email"] ?: "현황판"}")
+                    if (raw["photoId"] != null || raw["photoIds"] != null) writer.appendLine("[사진]")
+                    writer.appendLine(raw["text"]?.toString().orEmpty()); writer.appendLine()
+                } }; chunks += file; true
+            }
+            final.bufferedWriter().use { writer ->
+                writer.appendLine("현황판 메신저 백업 · 최근 2년 · ${Instant.now().atZone(zone)}"); writer.appendLine()
+                chunks.asReversed().forEach { chunk -> chunk.bufferedReader().use { reader -> reader.copyTo(writer) } }
+            }
+            verify(session); final
+        } catch (error: Exception) { final.delete(); throw error }
+        finally { chunks.forEach { it.delete() } }
+    }
     suspend fun deleteChat(session: FleetSession, id: String) = lock.withLock {
         val current = verify(session)
         require(id.isNotBlank() && id.none { it in ".#$[]/" })
@@ -187,16 +237,75 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
     suspend fun setSalePaid(session: FleetSession, key: String, paid: Boolean) = lock.withLock {
         verify(session); validKey(key)
         val company = root(session)
-        transact(company.child("generalSales/$key")) { value ->
+        val id = java.util.UUID.randomUUID().toString(); val at = Instant.now().toString()
+        val saved = transact(company.child("generalSales/$key")) { value ->
             check(value != null) { "매출 기록이 삭제되었습니다." }
-            asMap(value) + mapOf("depositPaid" to paid, "updatedAt" to Instant.now().toString())
+            val raw = asMap(value)
+            check(raw["_nativeDelete"] == null && asMap(raw["_nativeSaleUpdates"]).isEmpty()) { "이전 매출 처리가 남아 있습니다. 새로고침해주세요." }
+            raw + mapOf("depositPaid" to paid, "updatedAt" to at, "_nativeSaleUpdates" to mapOf(id to mapOf("at" to at, "fields" to mapOf("depositPaid" to paid))))
         }
-        company.child("vehicles").get().await().children.filter { it.child("saleKey").value == key }.forEach { vehicle ->
-            transact(vehicle.ref) { value ->
-                val raw = asMap(value)
-                if (raw["saleKey"] == key && raw["type"] == "일반") raw + ("depositPaid" to paid) else value
+        finishSale(company, key, id, asMap(asMap(asMap(saved)["_nativeSaleUpdates"])[id]))
+    }
+    suspend fun saveSale(session: FleetSession, key: String, id: String, fields: Map<String, Any?>, version: String?) = lock.withLock {
+        verify(session); validKey(key); validKey(id)
+        require(fields.keys.all { it in setOf("customerName", "items", "amount", "date", "depositPaid") })
+        val at = Instant.now().toString(); val company = root(session)
+        val saved = transact(company.child("generalSales/$key")) { value ->
+            check(value != null) { "매출 기록이 삭제되었습니다." }
+            val raw = asMap(value)
+            if (asMap(raw["_nativeSaleCompleted"]).containsKey(id) || asMap(raw["_nativeSaleUpdates"]).containsKey(id)) raw else {
+                check(raw["_nativeDelete"] == null && asMap(raw["_nativeSaleUpdates"]).isEmpty()) { "이전 매출 처리가 남아 있습니다. 새로고침해주세요." }
+                check(raw["updatedAt"]?.toString() == version) { "다른 직원이 매출을 수정했습니다. 다시 열어주세요." }
+                fields["amount"]?.let { require((it as? Number)?.toDouble()?.let { n -> n.isFinite() && n >= 0 } == true) { "금액을 확인해주세요." } }
+                val linked = fields.filterKeys { it in setOf("amount", "depositPaid") }
+                raw + fields + mapOf("updatedAt" to at, "_nativeSaleUpdates" to mapOf(id to mapOf("at" to at, "fields" to linked)))
             }
         }
+        val pending = asMap(asMap(saved)["_nativeSaleUpdates"])[id]
+        if (pending != null) finishSale(company, key, id, asMap(pending))
+    }
+    suspend fun deleteSale(session: FleetSession, key: String, id: String, version: String?) = lock.withLock {
+        verify(session); validKey(key); validKey(id)
+        val company = root(session)
+        val saved = transact(company.child("generalSales/$key")) { value ->
+            if (value == null) null else {
+                val raw = asMap(value)
+                check(asMap(raw["_nativeSaleUpdates"]).isEmpty()) { "이전 매출 처리가 남아 있습니다. 새로고침해주세요." }
+                check(raw["_nativeDelete"] == id || (raw["_nativeDelete"] == null && raw["updatedAt"]?.toString() == version)) { "다른 직원이 매출을 수정했습니다. 다시 열어주세요." }
+                raw + ("_nativeDelete" to id)
+            }
+        }
+        if (saved != null) finishSaleDeletion(company, key, id)
+    }
+    private suspend fun finishSale(company: DatabaseReference, key: String, id: String, op: Map<String, Any?>) {
+        val ref = company.child("generalSales/$key"); val current = ref.get().await()
+        if (current.child("updatedAt").value == op["at"]) company.child("vehicles").get().await().children.filter { it.child("saleKey").value == key }.forEach { vehicle ->
+            transact(vehicle.ref) { value ->
+                val raw = asMap(value)
+                if (raw["saleKey"] == key && raw["type"] == "일반") {
+                    check(raw["_nativeDeletion"] == null && asMap(raw["_nativeEdits"]).isEmpty() && asMap(raw["_nativeOperations"]).isEmpty()) { "차량 처리가 남아 있습니다. 새로고침해주세요." }
+                    raw + asMap(op["fields"])
+                } else value
+            }
+        }
+        transact(ref) { value ->
+            if (value == null) null else { val raw = asMap(value); raw + mapOf("_nativeSaleUpdates" to (asMap(raw["_nativeSaleUpdates"]) - id), "_nativeSaleCompleted" to (asMap(raw["_nativeSaleCompleted"]) + (id to op["at"]))) }
+        }
+    }
+    private suspend fun finishSaleDeletion(company: DatabaseReference, key: String, id: String) {
+        company.child("vehicles").get().await().children.filter { it.child("saleKey").value == key }.forEach { vehicle ->
+            transact(vehicle.ref) { value -> val raw = asMap(value)
+                if (raw["saleKey"] == key) {
+                    check(asMap(raw["_nativeEdits"]).isEmpty() && asMap(raw["_nativeOperations"]).isEmpty()) { "차량 처리가 남아 있습니다. 새로고침해주세요." }
+                    raw + ("saleKey" to null)
+                } else value
+            }
+        }
+        transact(company.child("generalSales/$key")) { value -> if (asMap(value)["_nativeDelete"] == id) null else value }
+    }
+    suspend fun addManualReturn(session: FleetSession, id: String, plate: String, at: String) = lock.withLock {
+        verify(session); validKey(id); require(plate.isNotBlank() && plate.length <= 30); Instant.parse(at)
+        createOnce(root(session).child("schedules/$id"), mapOf("plate" to plate.trim(), "done" to true, "manual" to true, "doneAt" to at, "billed" to false))
     }
     suspend fun deletePaymentLog(session: FleetSession, key: String) = lock.withLock {
         verify(session); validKey(key); root(session).child("paymentSendLog/$key").removeValue().await()
@@ -350,6 +459,11 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
             for (op in vehicle.child("_nativeOperations").children) {
                 finish(company, vehicle.ref, op.key!!, asMap(op.value))
             }
+        }
+        for (sale in company.child("generalSales").get().await().children) {
+            val deleting = sale.child("_nativeDelete").value?.toString()
+            if (deleting != null) finishSaleDeletion(company, sale.key!!, deleting)
+            else for (op in sale.child("_nativeSaleUpdates").children) finishSale(company, sale.key!!, op.key!!, asMap(op.value))
         }
     }
     suspend fun saveSchedule(session: FleetSession, key: String?, title: String, date: String, repeat: Boolean, memo: String): String = lock.withLock {

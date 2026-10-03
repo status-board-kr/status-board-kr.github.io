@@ -27,6 +27,11 @@ import java.time.ZoneId
     var split by remember { mutableStateOf(true) }; var unbilled by remember { mutableStateOf(false) }
     var messagePlate by remember { mutableStateOf<String?>(null) }; var messageText by remember { mutableStateOf("") }
     var deleteLog by remember { mutableStateOf<String?>(null) }
+    var saleEdit by remember { mutableStateOf<String?>(null) }; var manualReturn by remember { mutableStateOf(false) }
+    var manualPlate by remember { mutableStateOf("") }; var manualId by remember { mutableStateOf(java.util.UUID.randomUUID().toString()) }; var manualAt by remember { mutableStateOf(java.time.Instant.now().toString()) }
+    var longFilter by remember { mutableStateOf("전체") }; var returnDate by remember { mutableStateOf("") }; var logDate by remember { mutableStateOf("") }
+    var returnView by remember { mutableStateOf("전체") }; var logView by remember { mutableStateOf("전체") }
+    var returnPhoto by remember { mutableStateOf<String?>(null) }
     val editable = !state.cached && !state.sending
     fun share(text: String) { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), "결제 안내 공유")) }
     WebSheet(close) {
@@ -42,7 +47,13 @@ import java.time.ZoneId
                 0 -> {
                     val vehicles = state.vehicles.filter { it.type == state.longBranch && (it.rawFields["amount"]?.toString()?.toDoubleOrNull() ?: 0.0) > 0 }
                     Text("장기 ${vehicles.size}대 · 발송완료 ${vehicles.count { state.paymentOverrides.optJSONObject(FleetPayments.key(it.plate))?.optString("lastSentMonth") == month }}대", color = WebSub, fontSize = 12.sp)
-                    vehicles.filter { query.isBlank() || "${it.plate} ${it.rawFields["customerName"]}".contains(query, true) }.forEach { vehicle ->
+                    Text("장기 합계 ${"%.1f".format(vehicles.sumOf { it.rawFields["amount"]?.toString()?.toDoubleOrNull() ?: 0.0 })}만원", color = WebAmber, fontSize = 13.sp)
+                    Row { listOf("전체", "발송 필요", "발송 완료").forEach { label -> TextButton(onClick = { longFilter = label }) { Text("${if (longFilter == label) "✓ " else ""}$label", fontSize = 11.sp) } } }
+                    vehicles.filter { query.isBlank() || "${it.plate} ${it.rawFields["customerName"]}".contains(query, true) }.filter { vehicle ->
+                        val sent = state.paymentOverrides.optJSONObject(FleetPayments.key(vehicle.plate))?.optString("lastSentMonth") == month
+                        val due = vehicle.rawFields["payDay"]?.toString()?.toIntOrNull()?.takeIf { it in 1..31 }?.let { FleetPayments.dueDate(today, it) }
+                        when (longFilter) { "발송 완료" -> sent; "발송 필요" -> !sent && due != null && !due.isAfter(today.plusDays(3)); else -> true }
+                    }.forEach { vehicle ->
                         val override = state.paymentOverrides.optJSONObject(FleetPayments.key(vehicle.plate))
                         val values = jsonMap(override); val text = FleetPayments.message(vehicle.rawFields, values, jsonMap(state.paymentSettings), today)
                         HorizontalDivider(Modifier.padding(vertical = 12.dp))
@@ -84,27 +95,37 @@ import java.time.ZoneId
                             Text("${sale["customerName"] ?: ""} · ${sale["date"]} ~ ${sale["returnDate"] ?: ""}", color = WebSub, fontSize = 11.sp)
                             Text("${"%.1f".format(amount(sale))}만원", fontSize = 14.sp)
                             Row { Checkbox(sale["depositPaid"] == true, { model.setSalePaid(key, it) }, enabled = editable); Text("입금 완료", fontSize = 12.sp, modifier = Modifier.padding(top = 14.dp)) }
+                            TextButton(onClick = { saleEdit = key }, enabled = editable) { Text("매출 수정 · 연장 · 삭제", fontSize = 11.sp) }
                         }
                     }
                 }
                 2 -> {
+                    TextButton(onClick = { manualReturn = true; manualPlate = ""; manualId = java.util.UUID.randomUUID().toString(); manualAt = java.time.Instant.now().toString() }, enabled = editable) { Text("+ 수동 회수 기록 추가") }
+                    Row { listOf("전체", "날짜", "차량").forEach { label -> TextButton(onClick = { returnView = label }) { Text("${if (returnView == label) "✓ " else ""}$label", fontSize = 11.sp) } } }
+                    if (returnView == "날짜") WebField("회수 날짜 (YYYY-MM-DD, 비우면 전체)", returnDate, { returnDate = it }, true)
                     Row { Checkbox(unbilled, { unbilled = it }); Text("청구 미완료만 보기", fontSize = 12.sp, modifier = Modifier.padding(top = 14.dp)) }
                     val records = state.schedules.keys().asSequence().mapNotNull { key -> state.schedules.optJSONObject(key)?.let { key to it } }
                         .filter { (_, record) -> record.optBoolean("done") && (record.optBoolean("auto") || record.optBoolean("manual")) && (!unbilled || !record.optBoolean("billed")) }
                         .filter { (_, record) -> query.isBlank() || "${record.optString("plate")} ${record.optString("title")} ${record.optString("memo")}".contains(query, true) }
+                        .filter { (_, record) -> returnView != "날짜" || returnDate.isBlank() || localLogDate(record.optString("doneAt")) == returnDate }
                         .sortedByDescending { it.second.optString("doneAt") }.toList()
                     Text("회수 ${records.size}건", color = WebSub, fontSize = 12.sp)
-                    records.forEach { (key, record) ->
+                    (if (returnView == "차량") records.sortedBy { it.second.optString("plate") } else records).forEach { (key, record) ->
                         HorizontalDivider(Modifier.padding(vertical = 12.dp)); Text(record.optString("plate").ifBlank { record.optString("title") }, fontSize = 14.sp)
                         Text("${record.optString("type")} · ${record.optString("doneAt")}\n${record.optString("memo")}\n종료 주행거리: ${record.optString("returnKm").ifBlank { "미입력" }}", color = WebSub, fontSize = 11.sp)
                         Row { Checkbox(record.optBoolean("billed"), { model.markBilled(key, it) }, enabled = editable); Text("청구 완료", fontSize = 12.sp, modifier = Modifier.padding(top = 14.dp)) }
+                        val photo = record.optString("photoId").takeIf { it.isNotBlank() && it != "null" }
+                        if (photo != null) TextButton(onClick = { returnPhoto = photo }) { Text("회수 사진 보기", fontSize = 11.sp) }
                     }
                 }
                 3 -> {
+                    Row { listOf("전체", "날짜", "차량").forEach { label -> TextButton(onClick = { logView = label }) { Text("${if (logView == label) "✓ " else ""}$label", fontSize = 11.sp) } } }
+                    if (logView == "날짜") WebField("발송 날짜 (YYYY-MM-DD, 비우면 전체)", logDate, { logDate = it }, true)
                     Text("최근 발송 기록 100건", color = WebSub, fontSize = 11.sp)
                     state.paymentSendLog.keys().asSequence().mapNotNull { key -> state.paymentSendLog.optJSONObject(key)?.let { key to it } }
                         .filter { query.isBlank() || "${it.second.optString("plate")} ${it.second.optString("name")}".contains(query, true) }
-                        .sortedByDescending { it.second.optString("sentAt") }.forEach { (key, entry) ->
+                        .filter { logView != "날짜" || logDate.isBlank() || localLogDate(it.second.optString("sentAt")) == logDate }
+                        .sortedBy { if (logView == "차량") it.second.optString("plate") else "" }.let { list -> if (logView == "차량") list else list.sortedByDescending { it.second.optString("sentAt") } }.forEach { (key, entry) ->
                             HorizontalDivider(Modifier.padding(vertical = 12.dp)); Text("${entry.optString("plate")} · ${entry.optString("name")}", fontSize = 14.sp)
                             Text("${entry.optString("ym")} · ${entry.optString("sentAt")}\n${entry.optString("message")}", color = WebSub, fontSize = 11.sp)
                             TextButton(onClick = { deleteLog = key }, enabled = editable) { Text("기록 삭제", fontSize = 11.sp) }
@@ -115,6 +136,13 @@ import java.time.ZoneId
         }
         OutlinedButton(onClick = close, modifier = Modifier.fillMaxWidth().padding(16.dp)) { Text("닫기") }
     }
+    saleEdit?.let { key -> state.generalSales.optJSONObject(key)?.let { FleetSaleEditor(state, model, key, it) { saleEdit = null } } }
+    if (manualReturn) AlertDialog(onDismissRequest = { manualReturn = false }, title = { Text("수동 회수 기록") }, text = { Column {
+        WebField("반납 처리된 차량번호", manualPlate, { manualPlate = it }, editable)
+        Text("미청구 목록에 기록만 추가합니다.", color = WebSub, fontSize = 11.sp)
+        if (state.message.isNotBlank()) Text(state.message, color = WebSub)
+    } }, confirmButton = { TextButton(onClick = { model.addManualReturn(manualId, manualPlate, manualAt) { if (it) manualReturn = false } }, enabled = editable && manualPlate.isNotBlank()) { Text("기록 추가") } }, dismissButton = { TextButton(onClick = { manualReturn = false }) { Text("취소") } })
+    returnPhoto?.let { id -> FleetPhotoViewer(state, id) { returnPhoto = null } }
     if (settings) FleetPaymentSettings(state, model) { settings = false }
     messagePlate?.let { plate -> AlertDialog(onDismissRequest = { messagePlate = null }, title = { Text("이번 달 안내문 수정") },
         text = { OutlinedTextField(messageText, { messageText = it }, modifier = Modifier.fillMaxWidth()) },
@@ -123,6 +151,7 @@ import java.time.ZoneId
     deleteLog?.let { key -> AlertDialog(onDismissRequest = { deleteLog = null }, title = { Text("발송 기록 삭제") }, text = { Text("선택한 발송 기록을 삭제할까요?") },
         confirmButton = { TextButton(onClick = { model.deletePaymentLog(key); deleteLog = null }) { Text("삭제") } }, dismissButton = { TextButton(onClick = { deleteLog = null }) { Text("취소") } }) }
 }
+private fun localLogDate(raw: String): String = runCatching { java.time.Instant.parse(raw).atZone(ZoneId.of("Asia/Seoul")).toLocalDate().toString() }.getOrDefault(raw.take(10))
 
 @Composable private fun FleetPaymentSettings(state: FleetUiState, model: FleetViewModel, close: () -> Unit) {
     val source = state.paymentSettings

@@ -12,5 +12,6 @@ class FleetDocumentCalculationTest {
         val cost = FleetDocumentCalculation.newcarCost(30000000.0, 36.0, 0.0, 10.0, false, mapOf("rate" to 0, "months" to 60, "ins" to 100000))
         assertEquals(516666.666666, cost, .01)
         assertEquals("예시 900101-1******", FleetDocumentCalculation.maskIdentity("예시 900101-1234567"))
+        assertEquals("900101-1******", FleetDocumentCalculation.maskIdentity("9001011234567"))
     }
 }

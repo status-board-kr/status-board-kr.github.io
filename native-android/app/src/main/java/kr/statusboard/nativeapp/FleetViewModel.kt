@@ -31,7 +31,7 @@ data class FleetUiState(
     val paymentSettings: JSONObject = JSONObject(), val paymentOverrides: JSONObject = JSONObject(),
     val generalSales: JSONObject = JSONObject(), val paymentSendLog: JSONObject = JSONObject(),
     val quickApps: JSONObject = JSONObject(), val companySettings: JSONObject? = null, val history: JSONObject? = null,
-    val documents: JSONObject? = null, val inquiries: JSONObject = JSONObject()
+    val documents: JSONObject? = null, val inquiries: JSONObject = JSONObject(), val chatHistory: JSONObject? = null
 )
 class FleetViewModel(application: Application) : AndroidViewModel(application) {
     private val auth = FirebaseAuth.getInstance()
@@ -214,6 +214,7 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
         FleetWidgets.clear(getApplication())
         FleetLocation.stop(getApplication())
         FleetNotifications.clear(getApplication())
+        FleetPrivateFiles.clear(getApplication())
         val old = _state.value.session
         auth.signOut()
         _state.value = FleetUiState(message = "업체 접근 권한을 확인하지 못했습니다. 인터넷 연결을 확인하고 다시 로그인해주세요.")
@@ -225,6 +226,7 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
         FleetWidgets.clear(getApplication())
         FleetLocation.stop(getApplication())
         FleetNotifications.clear(getApplication())
+        FleetPrivateFiles.clear(getApplication())
         val previous = _state.value.session
         auth.signOut(); _state.value = FleetUiState()
         if (previous != null) viewModelScope.launch { cache.remove(previous.cacheKey) }
@@ -362,6 +364,9 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
     fun markPaymentSent(plate: String, month: String, message: String, sent: Boolean) = edit({ operations.markPaymentSent(it, plate, month, message, sent) })
     fun markBilled(key: String, billed: Boolean) = edit({ operations.markBilled(it, key, billed) })
     fun setSalePaid(key: String, paid: Boolean) = edit({ operations.setSalePaid(it, key, paid) })
+    fun saveSale(key: String, id: String, fields: Map<String, Any?>, version: String?, complete: (Boolean) -> Unit) = edit({ operations.saveSale(it, key, id, fields, version) }, complete)
+    fun deleteSale(key: String, id: String, version: String?, complete: (Boolean) -> Unit) = edit({ operations.deleteSale(it, key, id, version) }, complete)
+    fun addManualReturn(id: String, plate: String, at: String, complete: (Boolean) -> Unit) = edit({ operations.addManualReturn(it, id, plate, at) }, complete)
     fun deletePaymentLog(key: String) = edit({ operations.deletePaymentLog(it, key) })
     fun loadSettings() = edit({ session ->
         val result = operations.settings(session)
@@ -398,8 +403,22 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
             older.remove(id)
             val messages = JSONObject(_state.value.chat.toString()); messages.remove(id)
             _state.value = _state.value.copy(chat = messages)
+            _state.value.chatHistory?.let { history -> val copy = JSONObject(history.toString()); copy.remove(id); _state.value = _state.value.copy(chatHistory = copy) }
         }
     })
+    fun searchChat(query: String, complete: (JSONObject?) -> Unit) = edit({ session ->
+        val result = operations.searchChat(session, query)
+        if (_state.value.session?.cacheKey == session.cacheKey) complete(result)
+    }) { if (!it) complete(null) }
+    fun jumpChat(id: String, complete: (Boolean) -> Unit) = edit({ session ->
+        val result = operations.chatContext(session, id)
+        if (_state.value.session?.cacheKey == session.cacheKey) _state.value = _state.value.copy(chatHistory = result)
+    }, complete)
+    fun recentChat() { _state.value = _state.value.copy(chatHistory = null) }
+    fun backupChat(complete: (java.io.File?) -> Unit) = edit({ session ->
+        val file = operations.backupChat(session, getApplication())
+        if (_state.value.session?.cacheKey == session.cacheKey) complete(file) else file.delete()
+    }) { if (!it) complete(null) }
     fun loadOlderChat() {
         val session = _state.value.session ?: return
         if (_state.value.loadingOlder || _state.value.noOlder) return

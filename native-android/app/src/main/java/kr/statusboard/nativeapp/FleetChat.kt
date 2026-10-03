@@ -56,37 +56,48 @@ internal val WebAmber = androidx.compose.ui.graphics.Color(0xFFF5A623)
 
 @Composable internal fun FleetChatDialog(state: FleetUiState, model: FleetViewModel, close: () -> Unit) {
     val context = LocalContext.current
+    DisposableEffect(Unit) { onDispose { model.recentChat() } }
     var input by rememberSaveable { mutableStateOf("") }
     var searchOpen by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
     var photos by remember { mutableStateOf<List<Uri>>(emptyList()) }
     var openedPhoto by remember { mutableStateOf<String?>(null) }
     var deleting by remember { mutableStateOf<String?>(null) }
+    var searchHits by remember { mutableStateOf<org.json.JSONObject?>(null) }
+    var jumpTarget by remember { mutableStateOf<String?>(null) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(12)) { if (it.isNotEmpty()) photos = it }
     var cameraUri by rememberSaveable { mutableStateOf<String?>(null) }
     val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
         if (ok) cameraUri?.let { photos = (photos + Uri.parse(it)).take(12) }
         cameraUri = null
     }
-    val messages = state.chat.keys().asSequence().mapNotNull { key -> state.chat.optJSONObject(key)?.let { key to it } }
+    val source = state.chatHistory ?: state.chat
+    val messages = source.keys().asSequence().mapNotNull { key -> source.optJSONObject(key)?.let { key to it } }
         .sortedBy { it.second.optString("at") }.toList()
-    LaunchedEffect(messages.lastOrNull()?.first, state.session?.cacheKey) { model.markChatRead() }
-    val visible = if (query.isBlank()) messages else messages.filter { it.second.optString("text").contains(query, true) }
+    LaunchedEffect(messages.lastOrNull()?.first, state.session?.cacheKey) { if (state.chatHistory == null) model.markChatRead() }
+    val visible = searchHits?.let { result -> result.keys().asSequence().mapNotNull { key -> result.optJSONObject(key)?.let { key to it } }.sortedByDescending { it.second.optString("at") }.toList() }
+        ?: if (query.isBlank()) messages else messages.filter { it.second.optString("text").contains(query, true) }
     val list = rememberLazyListState()
-    LaunchedEffect(messages.lastOrNull()?.first) { if (visible.isNotEmpty() && query.isBlank()) list.animateScrollToItem(visible.size) }
+    LaunchedEffect(messages.lastOrNull()?.first) { if (visible.isNotEmpty() && query.isBlank() && state.chatHistory == null && searchHits == null) list.animateScrollToItem(visible.size) }
+    LaunchedEffect(jumpTarget, state.chatHistory) { if (state.chatHistory != null) jumpTarget?.let { id ->
+        val index = visible.indexOfFirst { it.first == id }; if (index >= 0) { list.animateScrollToItem(index + 1); jumpTarget = null }
+    } }
     WebSheet(close) {
         Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 18.dp)) {
             Text("💬 직원 메신저", fontSize = 16.sp)
             OutlinedButton(onClick = {
-                val text = messages.joinToString("\n\n") { (_, m) -> "${m.optString("at")} · ${m.optString("email")}\n${m.optString("text")}" }
-                context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), "현재 불러온 대화 백업"))
-            }, contentPadding = PaddingValues(10.dp, 4.dp)) { Text("💾 백업", fontSize = 12.sp) }
-            Text("이전 대화는 위에서 더 불러올 수 있어요 · 검색·백업은 불러온 대화 기준", color = WebSub, fontSize = 12.sp)
+                model.backupChat { file -> if (file != null) {
+                    val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.photos", file)
+                    context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), "최근 2년 대화 백업"))
+                } }
+            }, enabled = !state.sending && !state.cached, contentPadding = PaddingValues(10.dp, 4.dp)) { Text("💾 백업", fontSize = 12.sp) }
+            Text("최근 50개 · 이전 대화 더 보기 · 최근 2년 전체 검색·백업", color = WebSub, fontSize = 12.sp)
         }
         LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp), state = list,
             contentPadding = PaddingValues(vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
-                if (!state.noOlder) TextButton(onClick = model::loadOlderChat, enabled = !state.loadingOlder, modifier = Modifier.fillMaxWidth()) {
+                if (state.chatHistory != null || searchHits != null) TextButton(onClick = { model.recentChat(); searchHits = null; query = ""; jumpTarget = null }, modifier = Modifier.fillMaxWidth()) { Text("최근 대화로 돌아가기") }
+                else if (!state.noOlder) TextButton(onClick = model::loadOlderChat, enabled = !state.loadingOlder, modifier = Modifier.fillMaxWidth()) {
                     Text(if (state.loadingOlder) "불러오는 중…" else "이전 대화 더 보기", fontSize = 12.sp)
                 }
             }
@@ -105,6 +116,7 @@ internal val WebAmber = androidx.compose.ui.graphics.Color(0xFFF5A623)
                             row.forEach { id -> FleetChatPhoto(state, id, Modifier.weight(1f).height(95.dp).clickable { openedPhoto = id }) }
                         } }
                         Text(message.optString("text"), fontSize = if (system) 13.sp else 14.sp)
+                        if (searchHits != null) TextButton(onClick = { model.jumpChat(key) { ok -> if (ok) { searchHits = null; searchOpen = false; query = ""; jumpTarget = key } } }, enabled = !state.sending) { Text("그때 대화 보기", fontSize = 11.sp) }
                     }
                     if (mine || state.session?.isAdmin == true) TextButton(onClick = { deleting = key }, enabled = !state.sending,
                         contentPadding = PaddingValues(2.dp)) { Text("삭제", color = WebSub, fontSize = 10.sp) }
@@ -112,7 +124,11 @@ internal val WebAmber = androidx.compose.ui.graphics.Color(0xFFF5A623)
             }
         }
         Column(Modifier.fillMaxWidth().background(WebPanel).border(1.dp, WebLine).padding(16.dp, 10.dp)) {
-            if (searchOpen) OutlinedTextField(query, { query = it }, placeholder = { Text("검색어 (현재 불러온 대화)") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+            if (searchOpen) {
+                OutlinedTextField(query, { query = it; searchHits = null }, placeholder = { Text("대화 검색어") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
+                TextButton(onClick = { model.searchChat(query) { if (it != null) searchHits = it } }, enabled = query.isNotBlank() && !state.sending && !state.cached) { Text("최근 2년 전체 검색") }
+                searchHits?.let { Text("검색 ${it.length()}건${if (it.length() == 100) " · 최근 100건 표시" else ""}", color = WebSub, fontSize = 11.sp) }
+            }
             if (photos.isNotEmpty()) Row(Modifier.fillMaxWidth().background(WebPanel2).padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("사진 ${photos.size}장 · 아래에 명령 입력", fontSize = 12.sp, modifier = Modifier.weight(1f))
                 TextButton(onClick = { photos = emptyList() }, enabled = !state.sending) { Text("✕") }
@@ -180,4 +196,10 @@ internal val WebAmber = androidx.compose.ui.graphics.Color(0xFFF5A623)
         bitmap?.let { Image(it, contentDescription = "첨부 사진", contentScale = scale, modifier = Modifier.fillMaxSize()) }
             ?: Text(if (failed) "사진 확인 불가" else "사진 불러오는 중", fontSize = 10.sp, color = WebSub)
     }
+}
+@Composable internal fun FleetPhotoViewer(state: FleetUiState, id: String, close: () -> Unit) {
+    Dialog(onDismissRequest = close) { Column(Modifier.fillMaxWidth().background(WebPanel).padding(12.dp)) {
+        FleetChatPhoto(state, id, Modifier.fillMaxWidth().height(400.dp), ContentScale.Fit)
+        TextButton(onClick = close) { Text("닫기") }
+    } }
 }

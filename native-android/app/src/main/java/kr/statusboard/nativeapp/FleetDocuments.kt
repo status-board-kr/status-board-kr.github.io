@@ -28,11 +28,13 @@ import java.util.UUID
     val tabs = schema.getJSONArray("tabs").let { list -> (0 until list.length()).map(list::getJSONObject) }
     var editor by remember { mutableStateOf<JSONObject?>(null) }; var record by remember { mutableStateOf<JSONObject?>(null) }; var key by remember { mutableStateOf<String?>(null) }
     var query by remember { mutableStateOf("") }; var removing by remember { mutableStateOf<String?>(null) }
+    var ratesOpen by remember { mutableStateOf(false) }
     LaunchedEffect(state.session?.cacheKey) { model.loadDocuments() }
     DisposableEffect(Unit) { onDispose { model.clearDocuments() } }
     WebSheet(close) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
             Text("견적·계약서", fontSize = 18.sp)
+            TextButton(onClick = { ratesOpen = true }, enabled = state.session?.isAdmin == true && !state.cached) { Text("신차 렌트 계산 기준 · 가격표") }
             tabs.chunked(2).forEach { row -> Row { row.forEach { tab ->
                 OutlinedButton(onClick = { editor = tab; record = null; key = model.newDocumentKey() }, enabled = state.session?.isAdmin == true && !state.sending && !state.cached, modifier = Modifier.weight(1f).padding(3.dp)) { Text(tab.getString("label"), fontSize = 11.sp) }
             } } }
@@ -53,6 +55,7 @@ import java.util.UUID
         }
         OutlinedButton(onClick = close, modifier = Modifier.fillMaxWidth().padding(16.dp)) { Text("닫기") }
     }
+    if (ratesOpen) FleetDocumentRates(state, model, schema) { ratesOpen = false }
     editor?.let { tab -> key?.let { id -> FleetDocumentEditor(state, model, schema, tab, record, id, {
         editor = null; model.loadDocuments()
     }, { draft ->
@@ -85,7 +88,10 @@ import java.util.UUID
     var request by remember(key) { mutableStateOf(UUID.randomUUID().toString()) }; var lastRequestFields by remember(key) { mutableStateOf("") }
     var error by remember(key) { mutableStateOf("") }; var pdf by remember(key) { mutableStateOf<File?>(null) }; var rendering by remember { mutableStateOf(false) }
     val definitions = tab.getJSONArray("fields").let { list -> (0 until list.length()).map(list::getJSONObject) }
-    val rates = jsonMap(state.documents?.optJSONObject("_newcarRates")).ifEmpty { jsonMap(schema.getJSONObject("newcarRates")) }
+    val rates = jsonMap(schema.getJSONObject("newcarRates")) + jsonMap(state.documents?.optJSONObject("_newcarRates"))
+    LaunchedEffect(key) { if (type == "newcar" && original == null) listOf("d2", "d3").forEachIndexed { index, value ->
+        fields["n_p${index + 2}_deposit"] = rates[value]?.toString()?.takeUnless { Calc.number(it) == 0.0 }.orEmpty()
+    } }
     val editable = !state.sending && !state.cached && !rendering && state.session?.isAdmin == true
     fun change(id: String, value: String) {
         fields[id] = value; error = ""
@@ -105,6 +111,26 @@ import java.util.UUID
             .put("date", fields["${prefix}_date"].orEmpty().ifBlank { fields["${prefix}_start"].orEmpty() })
         return result
     }
+    @Composable fun driverRows() {
+                TextButton(onClick = { drivers += mutableStateMapOf("name" to "", "phone" to "", "license" to "", "birth" to "") }, enabled = editable && drivers.size < 10) { Text("+ 운전자 추가") }
+                drivers.toList().forEachIndexed { index, driver ->
+                    Text("운전자 ${index + 1}", modifier = Modifier.padding(top = 14.dp))
+                    listOf("name" to "이름", "phone" to "연락처", "license" to "면허번호", "birth" to "주민번호").forEach { (field, title) -> WebField(title, driver[field].orEmpty(), { driver[field] = it }, editable) }
+                    TextButton(onClick = { drivers.remove(driver) }, enabled = editable) { Text("운전자 삭제") }
+                }
+            }
+    @Composable fun itemRows() {
+                TextButton(onClick = { items += mutableStateMapOf("name" to "", "qty" to "1", "unit" to "", "amt" to "") }, enabled = editable && items.size < 100) { Text("+ 품목 추가") }
+                items.toList().forEachIndexed { index, item ->
+                    Text("품목 ${index + 1}", modifier = Modifier.padding(top = 14.dp))
+                    listOf("name" to "품목명", "qty" to "수량", "unit" to "단가 (원)").forEach { (field, title) -> WebField(title, item[field].orEmpty(), { value ->
+                        item[field] = value; item["amt"] = Calc.won(Calc.number(item["qty"]) * Calc.number(item["unit"])) + "원"
+                        val sum = items.sumOf { Calc.number(it["amt"]) }; fields["st_total"] = Calc.won(sum * if (fields["st_tax_type"] == "add") 1.1 else 1.0) + "원"
+                    }, editable) }
+                    Text(item["amt"].orEmpty(), color = WebSub, fontSize = 12.sp)
+                    TextButton(onClick = { items.remove(item); val sum = items.sumOf { Calc.number(it["amt"]) }; fields["st_total"] = Calc.won(sum * if (fields["st_tax_type"] == "add") 1.1 else 1.0) + "원" }, enabled = editable) { Text("품목 삭제") }
+                }
+            }
     WebSheet(close) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
             Text(tab.getString("label"), fontSize = 18.sp)
@@ -121,6 +147,28 @@ import java.util.UUID
                 !(id.endsWith("_birth") && business) && !((id.endsWith("_biznum") || id.endsWith("_corpnum") || id.endsWith("_ceo")) && !business)
             }.forEach { field ->
                 val id = field.getString("id"); val label = field.getString("label"); val options = field.getJSONArray("options")
+                if (id == "c_model") driverRows()
+                if (id == "st_tax_type") itemRows()
+                if (id == "n_maker") {
+                    var catalog by remember { mutableStateOf(false) }
+                    val cars = rates["cars"]?.toString().orEmpty().lines().mapNotNull { line ->
+                        val parts = line.trim().split(Regex("\\s+")); if (parts.size < 5) null else {
+                            val price = parts.last().replace(",", "").toDoubleOrNull()?.times(10000) ?: 0.0
+                            if (price !in 5_000_000.0..300_000_000.0) null else parts to price
+                        }
+                    }
+                    Box { OutlinedButton(onClick = { catalog = true }, enabled = editable) { Text("가격표에서 고르기") }
+                        DropdownMenu(catalog, { catalog = false }) { cars.forEach { (parts, price) -> DropdownMenuItem(text = { Text("${parts.dropLast(1).joinToString(" ")} · ${Calc.won(price / 10000)}만원") }, onClick = {
+                            fields["n_maker"] = parts[0]; fields["n_model"] = parts[1] + when {
+                                parts[2] == "하이브리드" -> " 하이브리드"
+                                parts[2] == "전기" && !Regex("^(ev|아이오닉)", RegexOption.IGNORE_CASE).containsMatchIn(parts[1]) -> if (parts[1] == "레이") " EV" else " 일렉트릭"
+                                else -> ""
+                            }
+                            fields["n_fuel"] = parts[2]; fields["n_trim"] = parts.subList(3, parts.lastIndex).joinToString(" ")
+                            change("n_carprice", Calc.won(price)); catalog = false
+                        }) } }
+                    }
+                }
                 if (options.length() > 0) {
                     var expanded by remember(key, id) { mutableStateOf(false) }
                     val selected = (0 until options.length()).map(options::getJSONObject).firstOrNull { it.optString("value") == fields[id] }
@@ -129,25 +177,13 @@ import java.util.UUID
                         DropdownMenu(expanded, { expanded = false }) { (0 until options.length()).forEach { index -> val option = options.getJSONObject(index); DropdownMenuItem(text = { Text(option.getString("label")) }, onClick = { change(id, option.getString("value")); expanded = false }) } }
                     }
                 } else WebField(label, fields[id].orEmpty(), { change(id, it) }, editable && !field.optBoolean("readonly"))
-            }
-            if (type == "contract") {
-                TextButton(onClick = { drivers += mutableStateMapOf("name" to "", "phone" to "", "license" to "", "birth" to "") }, enabled = editable && drivers.size < 10) { Text("+ 운전자 추가") }
-                drivers.toList().forEachIndexed { index, driver ->
-                    Text("운전자 ${index + 1}", modifier = Modifier.padding(top = 14.dp))
-                    listOf("name" to "이름", "phone" to "연락처", "license" to "면허번호", "birth" to "주민번호").forEach { (field, title) -> WebField(title, driver[field].orEmpty(), { driver[field] = it }, editable) }
-                    TextButton(onClick = { drivers.remove(driver) }, enabled = editable) { Text("운전자 삭제") }
-                }
-            }
-            if (type == "statement") {
-                TextButton(onClick = { items += mutableStateMapOf("name" to "", "qty" to "1", "unit" to "", "amt" to "") }, enabled = editable && items.size < 100) { Text("+ 품목 추가") }
-                items.toList().forEachIndexed { index, item ->
-                    Text("품목 ${index + 1}", modifier = Modifier.padding(top = 14.dp))
-                    listOf("name" to "품목명", "qty" to "수량", "unit" to "단가 (원)").forEach { (field, title) -> WebField(title, item[field].orEmpty(), { value ->
-                        item[field] = value; item["amt"] = Calc.won(Calc.number(item["qty"]) * Calc.number(item["unit"])) + "원"
-                        val sum = items.sumOf { Calc.number(it["amt"]) }; fields["st_total"] = Calc.won(sum * if (fields["st_tax_type"] == "add") 1.1 else 1.0) + "원"
-                    }, editable) }
-                    Text(item["amt"].orEmpty(), color = WebSub, fontSize = 12.sp)
-                    TextButton(onClick = { items.remove(item); val sum = items.sumOf { Calc.number(it["amt"]) }; fields["st_total"] = Calc.won(sum * if (fields["st_tax_type"] == "add") 1.1 else 1.0) + "원" }, enabled = editable) { Text("품목 삭제") }
+                if (type == "newcar" && id.matches(Regex("n_p[123]_price"))) {
+                    val option = id.substring(3, 4); val base = "n_p${option}_"
+                    if (Calc.number(fields["n_carprice"]) > 0 && Calc.number(fields["n_period"]) > 0) {
+                        val cost = runCatching { Calc.newcarCost(Calc.number(fields["n_carprice"]), Calc.number(fields["n_period"]), Calc.number(fields[base + "deposit"]), Calc.number(fields[base + "prepay"]), fields["n_age"] == "21", rates) }.getOrNull()
+                        if (cost != null && fields[id]?.isNotBlank() == true) Text("원가 ${Calc.won(cost)}원 · 마진 ${Calc.won(Calc.number(fields[id]) - cost)}원${if (Calc.number(fields[id]) < cost) " · 원가보다 낮습니다" else ""}", color = WebSub, fontSize = 11.sp)
+                    }
+                    if (fields[base + "manual"] == "1") TextButton(onClick = { fields[base + "manual"] = ""; change("n_period", fields["n_period"].orEmpty()) }, enabled = editable) { Text("직접 입력 → 자동 계산으로") }
                 }
             }
             if (type in setOf("simple", "quote", "newcar")) TextButton(onClick = { toContract(record()) }, enabled = editable) { Text("이 견적으로 계약서 만들기") }
@@ -172,7 +208,10 @@ import java.util.UUID
                     model.saveDocument(key, request, jsonMap(draft), version) { saved -> if (saved) {
                         rendering = true
                         scope.launch {
-                            try { pdf = withContext(Dispatchers.IO) { FleetDocumentPdf.create(context, schema, tab, draft, state.companyName) }; model.loadDocuments() }
+                            try {
+                                val file = withContext(Dispatchers.IO) { FleetDocumentPdf.create(context, schema, tab, draft, state.companyName) { model.state.value.session?.cacheKey == state.session?.cacheKey && model.state.value.session?.isAdmin == true } }
+                                if (model.state.value.session?.cacheKey == state.session?.cacheKey && model.state.value.session?.isAdmin == true) { pdf = file; model.loadDocuments() } else file.delete()
+                            }
                             catch (failure: Exception) { if (failure is CancellationException) throw failure; error = "저장했지만 PDF를 만들지 못했습니다. 다시 시도해주세요." }
                             finally { rendering = false }
                         }
@@ -189,7 +228,8 @@ import java.util.UUID
 
 @Composable private fun FleetDocumentPreview(file: File, title: String, close: () -> Unit) {
     val context = LocalContext.current; var pages by remember(file) { mutableIntStateOf(0) }
-    LaunchedEffect(file) { pages = withContext(Dispatchers.IO) { FleetDocumentPdf.pages(file) } }
+    var error by remember(file) { mutableStateOf("") }
+    LaunchedEffect(file) { try { pages = withContext(Dispatchers.IO) { FleetDocumentPdf.pages(file) } } catch (failure: Exception) { if (failure is CancellationException) throw failure; error = "문서 미리보기를 열지 못했습니다." } }
     WebSheet(close) {
         Row(Modifier.padding(12.dp)) { Text(title, modifier = Modifier.weight(1f)); TextButton(onClick = { FleetDocumentPdf.print(context, file, title) }) { Text("인쇄") }
             TextButton(onClick = {
@@ -198,9 +238,10 @@ import java.util.UUID
             }) { Text("PDF 공유") }
         }
         LazyColumn(Modifier.weight(1f).fillMaxWidth()) {
+            if (error.isNotBlank()) item { Text(error, color = WebSub) }
             items((0 until pages).toList(), key = { it }) { index ->
                 var image by remember(file, index) { mutableStateOf<Bitmap?>(null) }
-                LaunchedEffect(file, index) { image = withContext(Dispatchers.IO) { FleetDocumentPdf.page(file, index) } }
+                LaunchedEffect(file, index) { try { image = withContext(Dispatchers.IO) { FleetDocumentPdf.page(file, index) } } catch (failure: Exception) { if (failure is CancellationException) throw failure; error = "${index + 1}쪽을 표시하지 못했습니다." } }
                 image?.let { Image(it.asImageBitmap(), "${index + 1}쪽", modifier = Modifier.fillMaxWidth().padding(8.dp)) }
             }
         }

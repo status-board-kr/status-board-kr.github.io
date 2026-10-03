@@ -41,7 +41,10 @@ object FleetDocumentSchema {
             for (option in 1..3) {
                 val key = "n_p${option}_"
                 if (changed == key + "price") next[key + "manual"] = if (value(key + "price").isBlank()) "" else "1"
-                if (value(key + "manual") != "1") {
+                if (option > 1 && value(key + "deposit").isBlank() && value(key + "prepay").isBlank()) {
+                    next[key + "price"] = ""; continue
+                }
+                if (changed != key + "price" && value(key + "manual") != "1") {
                     val cost = Calc.newcarCost(number("n_carprice"), number("n_period"), number(key + "deposit"), number(key + "prepay"), value("n_age") == "21", rates)
                     next[key + "price"] = Calc.won(Calc.newcarPrice(cost, rates["margin"]?.toString()?.toDoubleOrNull() ?: 0.0))
                 }

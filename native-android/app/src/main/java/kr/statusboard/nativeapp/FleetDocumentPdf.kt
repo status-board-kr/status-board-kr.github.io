@@ -17,7 +17,7 @@ import java.util.UUID
 
 /** Native Canvas/PDF renderer. No WebView, browser engine or remote document upload. */
 object FleetDocumentPdf {
-    fun create(context: Context, schema: JSONObject, tab: JSONObject, record: JSONObject, company: String): File {
+    fun create(context: Context, schema: JSONObject, tab: JSONObject, record: JSONObject, company: String, stillAllowed: () -> Boolean = { true }): File {
         val pdf = PdfDocument(); val fields = record.optJSONObject("fields") ?: JSONObject()
         val radios = record.optJSONObject("radios") ?: JSONObject(); val prefix = tab.getString("prefix")
         val assets = JSONObject(context.assets.open("documents-brand.json").bufferedReader().use { it.readText() })
@@ -38,9 +38,16 @@ object FleetDocumentPdf {
             val masked = FleetDocumentCalculation.maskIdentity(text)
             val paint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(30, 41, 59); textSize = size; typeface = if (bold) Typeface.DEFAULT_BOLD else Typeface.DEFAULT }
             masked.split('\n').forEach { line ->
-                val layout = StaticLayout.Builder.obtain(line.ifBlank { " " }, 0, line.ifBlank { " " }.length, paint, 523).setAlignment(Layout.Alignment.ALIGN_NORMAL).setLineSpacing(3f, 1f).build()
-                if (y + layout.height > 787) start()
-                page!!.canvas.save(); page!!.canvas.translate(36f, y); layout.draw(page!!.canvas); page!!.canvas.restore(); y += layout.height + 6f
+                val value = line.ifBlank { " " }
+                val layout = StaticLayout.Builder.obtain(value, 0, value.length, paint, 523).setAlignment(Layout.Alignment.ALIGN_NORMAL).setLineSpacing(3f, 1f).build()
+                for (index in 0 until layout.lineCount) {
+                    val top = layout.getLineTop(index); val bottom = layout.getLineBottom(index)
+                    if (y + bottom - top > 787) start()
+                    val canvas = page!!.canvas
+                    canvas.save(); canvas.clipRect(36f, y, 559f, y + bottom - top); canvas.translate(36f, y - top)
+                    layout.draw(canvas); canvas.restore(); y += bottom - top
+                }
+                y += 6f
             }
         }
         start()
@@ -78,22 +85,44 @@ object FleetDocumentPdf {
         val directory = File(context.cacheDir, "documents").apply { mkdirs() }
         val file = File(directory, "document-${UUID.randomUUID()}.pdf")
         try { file.outputStream().use(pdf::writeTo) } finally { pdf.close(); logo?.recycle(); stamp?.recycle() }
+        if (!stillAllowed()) { file.delete(); error("문서 접근 권한이 변경되었습니다.") }
         return file
     }
     fun print(context: Context, file: File, title: String) {
+        val total = pages(file)
         context.getSystemService(PrintManager::class.java).print(title, object : PrintDocumentAdapter() {
             override fun onLayout(oldAttributes: PrintAttributes?, newAttributes: PrintAttributes?, cancellationSignal: CancellationSignal?, callback: LayoutResultCallback, extras: Bundle?) {
                 if (cancellationSignal?.isCanceled == true) { callback.onLayoutCancelled(); return }
-                callback.onLayoutFinished(PrintDocumentInfo.Builder("$title.pdf").setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT).setPageCount(PrintDocumentInfo.PAGE_COUNT_UNKNOWN).build(), true)
+                callback.onLayoutFinished(PrintDocumentInfo.Builder("$title.pdf").setContentType(PrintDocumentInfo.CONTENT_TYPE_DOCUMENT).setPageCount(total).build(), true)
             }
             override fun onWrite(pages: Array<out PageRange>?, destination: ParcelFileDescriptor, cancellationSignal: CancellationSignal?, callback: WriteResultCallback) {
-                try {
-                    file.inputStream().use { input -> java.io.FileOutputStream(destination.fileDescriptor).use { output ->
-                        val buffer = ByteArray(16 * 1024)
-                        while (true) { if (cancellationSignal?.isCanceled == true) { callback.onWriteCancelled(); return }; val size = input.read(buffer); if (size < 0) break; output.write(buffer, 0, size) }
-                    } }
-                    callback.onWriteFinished(arrayOf(PageRange.ALL_PAGES))
-                } catch (_: Exception) { callback.onWriteFailed("문서를 인쇄하지 못했습니다.") }
+                val ranges = pages ?: arrayOf(PageRange.ALL_PAGES)
+                Thread({
+                    val main = Handler(Looper.getMainLooper())
+                    try {
+                        val selected = (0 until total).filter { index -> ranges.any { index in it.start..it.end } }
+                        val result = PdfDocument()
+                        try {
+                            ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY).use { descriptor -> PdfRenderer(descriptor).use { renderer ->
+                                selected.forEach { index ->
+                                    if (cancellationSignal?.isCanceled == true) throw java.util.concurrent.CancellationException()
+                                    renderer.openPage(index).use { source ->
+                                        val bitmap = Bitmap.createBitmap(source.width * 2, source.height * 2, Bitmap.Config.ARGB_8888)
+                                        try {
+                                            bitmap.eraseColor(Color.WHITE); source.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_PRINT)
+                                            val target = result.startPage(PdfDocument.PageInfo.Builder(source.width, source.height, index + 1).create())
+                                            target.canvas.drawBitmap(bitmap, null, RectF(0f, 0f, source.width.toFloat(), source.height.toFloat()), null); result.finishPage(target)
+                                        } finally { bitmap.recycle() }
+                                    }
+                                }
+                            } }
+                            if (cancellationSignal?.isCanceled == true) throw java.util.concurrent.CancellationException()
+                            java.io.FileOutputStream(destination.fileDescriptor).use(result::writeTo)
+                            main.post { callback.onWriteFinished(selected.map { PageRange(it, it) }.toTypedArray()) }
+                        } finally { result.close() }
+                    } catch (_: java.util.concurrent.CancellationException) { main.post { callback.onWriteCancelled() } }
+                    catch (_: Exception) { main.post { callback.onWriteFailed("문서를 인쇄하지 못했습니다.") } }
+                }, "fleet-document-print").start()
             }
         }, PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4).build())
     }

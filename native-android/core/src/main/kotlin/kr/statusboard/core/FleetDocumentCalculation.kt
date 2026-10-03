@@ -34,5 +34,5 @@ object FleetDocumentCalculation {
         return maxOf(0.0, base - car * deposit / 100 * interest - car * prepay / 100 / period + if (age21) value("age21") else 0.0)
     }
     fun newcarPrice(cost: Double, margin: Double): Double = maxOf(0.0, floor((cost + margin) / 1000 + .5) * 1000)
-    fun maskIdentity(text: String) = text.replace(Regex("(\\d{6})\\s*-\\s*([1-8])\\d{6}(?!\\d)"), "$1-$2******")
+    fun maskIdentity(text: String) = text.replace(Regex("(?<!\\d)(\\d{6})\\s*-?\\s*([1-8])\\d{6}(?!\\d)"), "$1-$2******")
 }
