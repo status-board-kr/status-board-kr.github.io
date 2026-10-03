@@ -31,9 +31,12 @@ jobs:
           aapt="$ANDROID_HOME/build-tools/35.0.0/aapt"
           "$aapt" dump badging "$apk" > native-android/app/build/pilot-package.txt
           grep -q "package: name='com.jangsung.fleet.nativepilot'" native-android/app/build/pilot-package.txt
+          grep -q "versionCode='3' versionName='0.2.0-pilot'" native-android/app/build/pilot-package.txt
           mkdir -p pilot-download
-          cp "$apk" pilot-download/status-board-native-pilot-0.1.1.apk
+          cp "$apk" pilot-download/status-board-native-pilot-0.2.0.apk
           cp native-android/docs/PILOT-VERIFY.md pilot-download/READ-ME.md
+          cp native-android/app/build/pilot-package.txt pilot-download/
+
           sha256sum pilot-download/*.apk > pilot-download/SHA256.txt
       - uses: actions/upload-artifact@v4
         with:

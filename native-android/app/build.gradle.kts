@@ -11,8 +11,8 @@ android {
         applicationId = "com.jangsung.fleet.nativepilot"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.1.1-pilot"
+        versionCode = 3
+        versionName = "0.2.0-pilot"
     }
     buildFeatures { compose = true; buildConfig = true }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
