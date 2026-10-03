@@ -39,7 +39,7 @@ object FleetWidgetSnapshot {
                     val time = item["time"]?.toString() ?: item["date"]?.toString()?.drop(11)?.take(5).orEmpty()
                     mapOf("time" to time.takeIf { Regex("\\d{2}:\\d{2}").matches(it) }.orEmpty(),
                         "title" to if (item["auto"] == true && item["plate"] != null) item["plate"] else item["title"] ?: "일정",
-                        "note" to item["memo"]?.toString()?.takeIf(String::isNotBlank) ?: vehicle?.note ?: vehicle?.rawFields?.get("customerName") ?: "",
+                        "note" to (item["memo"]?.toString()?.takeIf(String::isNotBlank) ?: vehicle?.note ?: vehicle?.rawFields?.get("customerName") ?: ""),
                         "kind" to if (item["auto"] == true) "회수" else "일정")
                 } })
         }

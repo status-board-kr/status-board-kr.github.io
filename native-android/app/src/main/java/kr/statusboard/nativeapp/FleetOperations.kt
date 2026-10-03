@@ -61,7 +61,7 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
         check(verify(session).isAdmin) { "관리자만 초대할 수 있습니다." }
         val alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; val random = java.security.SecureRandom()
         repeat(5) {
-            val code = (1..8).map { alphabet[random.nextInt(alphabet.length)] }.joinToString("")
+            val code = (1..6).map { alphabet[random.nextInt(alphabet.length)] }.joinToString("")
             var created = false
             transact(db.getReference("inviteIndex/$code")) { value ->
                 created = value == null
