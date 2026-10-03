@@ -8,6 +8,7 @@
 // 배포 때 환경 변수: FIREBASE_CONFIG (sendchatpush와 같은 값)
 
 const functions = require('@google-cloud/functions-framework');
+const { sendInquiryPush } = require('./inquiry-push');
 const admin = require('firebase-admin');
 
 // ── 설정 ──
@@ -345,14 +346,7 @@ async function saveInquiry(companyId, sessionId, inquiry, messages){
 
   try{
     const members = (await base.child('members').once('value')).val() || {};
-    const tokens = Object.values(members).map(m => m && m.pushToken).filter(Boolean);
-    if(tokens.length && deps.messaging){
-      await deps.messaging.sendEachForMulticast({
-        tokens,
-        notification: { title: '📞 새 상담 신청', body: line.slice(0, 100) },
-        android: { priority: 'high', notification: { channelId: 'fleet_alerts_v2', sound: 'default' } }
-      });
-    }
+    await sendInquiryPush(deps.messaging, members, companyId, 'inquiry_' + sessionId, line);
   }catch(e){ console.warn('push failed', e && e.message); }
   return true;
 }

@@ -4,6 +4,24 @@ on:
 permissions:
   contents: read
 jobs:
+  rules:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Firebase 규칙 검사 도구 설치
+        working-directory: native-android/rules-check
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: 가상 자료로 기존 권한과 저장 경로 검사 (운영 DB 접근 없음)
+        working-directory: native-android/rules-check
+        run: npm test
   native:
     runs-on: ubuntu-24.04
     steps:

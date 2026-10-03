@@ -1,0 +1,136 @@
+{
+  "rules": {
+    "userIndex": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "inviteIndex": {
+      "$code": {
+        ".read": "auth != null",
+        ".write": "auth != null && ((!data.exists() && root.child('companies').child(newData.child('companyId').val()).child('members').child(auth.uid).child('role').val() === 'owner') || (data.exists() && root.child('companies').child(data.child('companyId').val()).child('members').child(auth.uid).child('role').val() === 'owner'))"
+      }
+    },
+    "companies": {
+      "$companyId": {
+        ".read": "auth != null && data.child('members').child(auth.uid).exists()",
+        ".write": "auth != null && !data.exists() && newData.child('members').child(auth.uid).child('role').val() === 'owner'",
+        "members": {
+          "$uid": {
+            ".write": "auth != null && (root.child('companies').child($companyId).child('members').child(auth.uid).child('role').val() === 'owner' || (auth.uid === $uid && !data.exists() && newData.child('role').val() === 'staff' && root.child('inviteIndex').child(newData.child('viaCode').val()).child('companyId').val() === $companyId) || (auth.uid === $uid && data.exists() && newData.exists() && newData.child('role').val() === data.child('role').val() && newData.child('email').val() === data.child('email').val()))"
+          }
+        },
+        "profile": {
+          ".write": "auth != null && root.child('companies').child($companyId).child('members').child(auth.uid).child('role').val() === 'owner'"
+        },
+        "chat": {
+          "$msgId": {
+            ".write": "auth != null && root.child('companies').child($companyId).child('members').child(auth.uid).exists() && ((!data.exists() && (newData.child('uid').val() === auth.uid || newData.child('uid').val() === 'system')) || (data.exists() && (data.child('uid').val() === auth.uid || root.child('companies').child($companyId).child('members').child(auth.uid).child('role').val() === 'owner')))",
+            ".validate": "!newData.exists() || (newData.hasChildren(['text','uid','at']) && newData.child('text').isString() && newData.child('text').val().length <= 2000)"
+          },
+          ".indexOn": [
+            "at"
+          ]
+        },
+        "chatReads": {
+          "$uid": {
+            ".write": "auth != null && auth.uid === $uid && root.child('companies').child($companyId).child('members').child(auth.uid).exists()"
+          }
+        },
+        "locations": {
+          "$uid": {
+            ".write": "auth != null && ((auth.uid === $uid && root.child('companies').child($companyId).child('members').child(auth.uid).exists()) || (!newData.exists() && root.child('companies').child($companyId).child('members').child(auth.uid).child('role').val() === 'owner'))",
+            ".validate": "!newData.exists() || (newData.child('lat').isNumber() && newData.child('lng').isNumber() && newData.child('at').isString())"
+          }
+        },
+        "inquiries": {
+          ".write": "auth != null && root.child('companies').child($companyId).child('members').child(auth.uid).exists()"
+        },
+        "generalSales": {
+          ".write": "auth != null && root.child('companies').child($companyId).child('members').child(auth.uid).exists()"
+        },
+        "vehicles": {
+          ".write": "auth != null && root.child('companies').child($companyId).child('members').child(auth.uid).exists()"
+        },
+        "schedules": {
+          ".write": "auth != null && root.child('companies').child($companyId).child('members').child(auth.uid).exists()"
+        },
+        "history": {
+          ".write": "auth != null && root.child('companies').child($companyId).child('members').child(auth.uid).exists()"
+        },
+        "plateHistory": {
+          ".write": "auth != null && root.child('companies').child($companyId).child('members').child(auth.uid).exists()"
+        },
+        "paymentSettings": {
+          ".write": "auth != null && root.child('companies').child($companyId).child('members').child(auth.uid).exists()"
+        },
+        "paymentOverrides": {
+          ".write": "auth != null && root.child('companies').child($companyId).child('members').child(auth.uid).exists()"
+        },
+        "paymentSendLog": {
+          ".write": "auth != null && root.child('companies').child($companyId).child('members').child(auth.uid).exists()"
+        },
+        "paymentAutorunStatus": {
+          ".write": "auth != null && root.child('companies').child($companyId).child('members').child(auth.uid).exists()"
+        },
+        "locationSettings": {
+          ".write": "auth != null && root.child('companies').child($companyId).child('members').child(auth.uid).child('role').val() === 'owner'",
+          ".validate": "!newData.exists() || (newData.child('start').isString() && newData.child('end').isString() && newData.child('start').val().length === 5 && newData.child('end').val().length === 5)"
+        },
+        "photos": {
+          "$pid": {
+            ".write": "auth != null && root.child('companies').child($companyId).child('members').child(auth.uid).exists() && (!data.exists() || data.child('uid').val() === auth.uid || root.child('companies').child($companyId).child('members').child(auth.uid).child('role').val() === 'owner')",
+            ".validate": "!newData.exists() || (newData.child('data').isString() && newData.child('data').val().beginsWith('data:image/') && newData.child('data').val().length <= 600000 && newData.child('uid').val() === auth.uid)"
+          },
+          ".indexOn": [
+            "at"
+          ]
+        },
+        "aiSettings": {
+          ".write": "auth != null && root.child('companies').child($companyId).child('members').child(auth.uid).child('role').val() === 'owner'",
+          ".validate": "!newData.exists() || newData.hasChildren(['geminiKey']) || newData.hasChildren(['grokKey']) || newData.hasChildren(['key'])"
+        },
+        "quickApp": {
+          ".write": "auth != null && root.child('companies').child($companyId).child('members').child(auth.uid).child('role').val() === 'owner'",
+          ".validate": "!newData.exists() || (newData.child('label').isString() && newData.child('label').val().length <= 20 && newData.child('url').isString() && (newData.child('url').val().beginsWith('https://') || newData.child('url').val().beginsWith('http://')) && newData.child('url').val().length <= 500)"
+        },
+        "quickApps": {
+          "$qid": {
+            ".write": "auth != null && root.child('companies').child($companyId).child('members').child(auth.uid).child('role').val() === 'owner'",
+            ".validate": "!newData.exists() || (newData.child('label').isString() && newData.child('label').val().length <= 20 && newData.child('url').isString() && (newData.child('url').val().beginsWith('https://') || newData.child('url').val().beginsWith('http://')) && newData.child('url').val().length <= 500)"
+          }
+        },
+        "wookyJobs": {
+          ".read": true,
+          "$job": {
+            ".write": true,
+            ".validate": "newData.hasChildren(['plate','status']) || !newData.exists()"
+          },
+          ".indexOn": [
+            "status",
+            "at"
+          ]
+        }
+      }
+    },
+    "companyDocs": {
+      "$companyId": {
+        ".read": "auth != null && root.child('companies').child($companyId).child('members').child(auth.uid).child('role').val() === 'owner'",
+        ".write": "auth != null && root.child('companies').child($companyId).child('members').child(auth.uid).child('role').val() === 'owner'"
+      }
+    },
+    "wookyCreds": {
+      ".read": false,
+      ".write": false
+    },
+    "privateAiSettings": {
+      ".read": false,
+      ".write": false
+    },
+    "privateAiUsage": {
+      ".read": false,
+      ".write": false
+    }
+  }
+}

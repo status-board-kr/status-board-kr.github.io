@@ -57,6 +57,7 @@ private data class MenuItem(val title: String, val icon: Int)
     LaunchedEffect(widgetOpen, state.scheduleLoaded) {
         if (widgetOpen == "chat") { chatOpen = true; acknowledgeOpen() }
         else if (widgetOpen == "location") { locationOpen = true; acknowledgeOpen() }
+        else if (widgetOpen == "inquiries") { inquiriesOpen = true; acknowledgeOpen() }
         else if (widgetOpen == "payment") { paymentOpen = true; acknowledgeOpen() }
         else if (widgetOpen?.startsWith("date:") == true && state.scheduleLoaded) {
             runCatching { LocalDate.parse(widgetOpen.removePrefix("date:")) }.getOrNull()?.let {

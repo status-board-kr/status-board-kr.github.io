@@ -1,0 +1,6 @@
+{
+  "name": "native-fleet-rules-check",
+  "private": true,
+  "scripts": { "test": "firebase emulators:exec --only database --project demo-native-fleet --config firebase.json \"node rules-check.cjs\"" },
+  "devDependencies": { "firebase-tools": "15.32.1", "@firebase/rules-unit-testing": "5.0.2", "firebase": "12.19.0" }
+}

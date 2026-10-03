@@ -103,7 +103,10 @@ object FleetPush {
         if (id in seen) return
         // Same identifier replaces an earlier delivery; no private message body in notification storage.
         if (auth.currentUser?.uid != uid || p.getString("owner", null) != expected) return
-        FleetNotifications.show(context, "push:$id", "현황판 메신저", "새 메시지가 도착했습니다. 눌러서 대화를 확인하세요.", "chat")
+        val inquiry = params.extras.getString("kind") == "inquiry"
+        FleetNotifications.show(context, "push:$id", if (inquiry) "현황판 상담 신청" else "현황판 메신저",
+            if (inquiry) "새 상담 신청이 도착했습니다. 눌러서 상담 목록을 확인하세요." else "새 메시지가 도착했습니다. 눌러서 대화를 확인하세요.",
+            if (inquiry) "inquiries" else "chat")
         p.edit().putStringSet("seen", (seen.takeLastSafe(199) + id).toSet()).apply()
     }
     private fun Set<String>.takeLastSafe(limit: Int) = toList().takeLast(limit)
