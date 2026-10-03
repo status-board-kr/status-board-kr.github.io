@@ -1,6 +1,6 @@
-# 현황판 전용 앱 검증용 0.1.0
+# 현황판 전용 앱 검증용 0.1.1
 
-파일: status-board-native-pilot-0.1.0.apk
+파일: status-board-native-pilot-0.1.1.apk
 앱 이름: 현황판 전용앱 시험판
 패키지: com.jangsung.fleet.nativepilot
 

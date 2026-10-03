@@ -64,7 +64,7 @@ private fun palette(type: String): Pair<Color, Color> = when (type) {
     "장기" -> Color(0xFF332D43) to Color(0xFFB7A1D1)
     else -> Color(0xFF20374F) to Color(0xFFCFDBEC)
 }
-@Composable internal fun FleetBoard(state: FleetUiState, refresh: () -> Unit, logout: () -> Unit, model: FleetViewModel) {
+@Composable internal fun FleetBoard(state: FleetUiState, model: FleetViewModel) {
     var filter by rememberSaveable { mutableStateOf("전체") }
     var selected by remember { mutableStateOf<FleetVehicle?>(null) }
     var scheduleOpen by remember { mutableStateOf(false) }
@@ -77,12 +77,6 @@ private fun palette(type: String): Pair<Color, Color> = when (type) {
             item {
                 Text("${state.companyName} · 전용 앱 시험판", color = Muted, fontSize = 12.sp)
                 Text("차량 현황", fontSize = 24.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    OutlinedButton(onClick = { scheduleOpen = true }, modifier = Modifier.weight(1f)) { Text("일정") }
-                    OutlinedButton(onClick = refresh, enabled = !state.busy, modifier = Modifier.weight(1f)) { Text("새로고침") }
-                    OutlinedButton(onClick = logout, modifier = Modifier.weight(1f)) { Text("로그아웃") }
-                }
-                Text("차량·일정 조회용 시험판 · 업무 처리는 기존 앱을 이용해주세요.", color = Muted, fontSize = 11.sp, modifier = Modifier.padding(vertical = 6.dp))
                 if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                 if (state.cached) Text("저장된 자료 · 최신 자료 확인 필요", color = Color(0xFFEAC483), fontSize = 12.sp)
                 if (state.message.isNotBlank()) Text(state.message, color = Color(0xFFEAC483), fontSize = 12.sp)
@@ -96,7 +90,19 @@ private fun palette(type: String): Pair<Color, Color> = when (type) {
                     }
                 }
                 OutlinedTextField(query, { query = it }, placeholder = { Text("차량번호 · 차종 · 메모 검색") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedButton(onClick = { scheduleOpen = true }, modifier = Modifier.fillMaxWidth()) { Text("오늘 일정 확인") }
+                val todayItems = state.schedules.keys().asSequence().mapNotNull { state.schedules.optJSONObject(it) }.filter { item ->
+                    val date = item.optString("date").take(10)
+                    val matches = if (item.optBoolean("repeat")) date.takeLast(2) == today.toString().takeLast(2) else date == today.toString()
+                    val mark = item.optJSONObject("completedDates")?.opt(today.toString())
+                    val done = if (item.optBoolean("repeat")) mark != null && mark != org.json.JSONObject.NULL && mark != false else item.optBoolean("done")
+                    matches && !done
+                }.toList()
+                todayItems.take(3).forEach { item ->
+                    Text("오늘 · ${item.optString("title")}${item.optString("memo").takeIf(String::isNotBlank)?.let { " · $it" }.orEmpty()}",
+                        color = Color(0xFFF5A623), fontSize = 12.sp, modifier = Modifier.fillMaxWidth().padding(top = 6.dp)
+                            .background(Color(0xFFF5A623).copy(alpha = .10f), RoundedCornerShape(7.dp))
+                            .border(1.dp, Color(0xFFF5A623), RoundedCornerShape(7.dp)).clickable { scheduleOpen = true }.padding(9.dp))
+                }
             }
             if (filtered.isEmpty()) item { Text(if (state.vehicles.isEmpty()) "등록된 차량이 없습니다." else "해당하는 차량이 없습니다.", color = Muted, modifier = Modifier.padding(16.dp)) }
             groups.forEach { (branch, vehicles) ->
@@ -104,7 +110,6 @@ private fun palette(type: String): Pair<Color, Color> = when (type) {
                 items(vehicles, key = { "${it.sourceIndex}:${it.plate}" }) { vehicle -> VehicleCard(vehicle, state.longBranch, today) { selected = vehicle } }
             }
         }
-        Text("조회 시험판 · 기존 앱의 알림과 위젯을 계속 이용하세요.", color = Muted, fontSize = 11.sp, modifier = Modifier.fillMaxWidth().background(Color(0xFF18243A)).padding(12.dp))
     }
     selected?.let { vehicle -> FleetVehicleEditor(state, vehicle, model) { selected = null } }
     if (scheduleOpen) FleetScheduleDialog(state, today, model) { scheduleOpen = false }
@@ -125,32 +130,4 @@ private fun palette(type: String): Pair<Color, Color> = when (type) {
         vehicle.returnDate?.takeIf(String::isNotBlank)?.let { Text("회수일: $it", fontSize = 11.sp, color = if (due) Color(0xFFFFD8A0) else TextColor, modifier = Modifier.padding(top = 7.dp).alpha(if (due) opacity else 1f)) }
         FleetPresentation.warnings(vehicle, today).forEach { Text(it, color = Color(0xFFEAC483), fontSize = 11.sp, modifier = Modifier.padding(top = 7.dp)) }
     }
-}
-@Composable internal fun ScheduleDialog(state: FleetUiState, initialDate: LocalDate, close: () -> Unit) {
-    var day by remember { mutableStateOf(initialDate) }
-    val dayString = day.toString()
-    val schedules = state.schedules.keys().asSequence().mapNotNull { state.schedules.optJSONObject(it) }.filter { item ->
-        val date = item.optString("date")
-        if (item.optBoolean("repeat")) date.takeLast(2) == dayString.takeLast(2) else date.take(10) == dayString
-    }.sortedBy { it.optString("date") }.toList()
-    AlertDialog(onDismissRequest = close, title = { Text("$dayString 일정") }, text = {
-        Column {
-            Row {
-                TextButton(onClick = { day = day.minusDays(1) }) { Text("이전") }
-                TextButton(onClick = { day = initialDate }) { Text("오늘") }
-                TextButton(onClick = { day = day.plusDays(1) }) { Text("다음") }
-            }
-            if (!state.scheduleLoaded) Text("일정 자료 확인 중…")
-            else if (schedules.isEmpty()) Text("등록된 일정이 없습니다.")
-            LazyColumn(Modifier.heightIn(max = 350.dp)) {
-                items(schedules) { item ->
-                    val done = if (item.optBoolean("repeat")) item.optJSONObject("completedDates")?.has(dayString) == true else item.optBoolean("done")
-                    Column(Modifier.padding(vertical = 9.dp)) {
-                        Text((if (done) "✓ " else "") + item.optString("title", item.optString("plate", "일정")))
-                        Text(item.optString("memo"), color = Muted, fontSize = 12.sp)
-                    }
-                }
-            }
-        }
-    }, confirmButton = { TextButton(onClick = close) { Text("닫기") } })
 }

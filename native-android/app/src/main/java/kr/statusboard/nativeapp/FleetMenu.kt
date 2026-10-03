@@ -55,7 +55,7 @@ private data class MenuItem(val title: String, val icon: Int)
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f)) {
             if (menu) FleetMenu(state, open)
-            else screens.SaveableStateProvider("fleet") { FleetBoard(state, refresh, logout, model) }
+            else screens.SaveableStateProvider("fleet") { FleetBoard(state, model) }
         }
         MaterialTheme(colorScheme = lightColorScheme(onSurface = Ink, surface = Color.White, primary = Accent)) {
             Row(Modifier.fillMaxWidth().background(Color.White).border(1.dp, Line)
@@ -126,7 +126,7 @@ private data class MenuItem(val title: String, val icon: Int)
             }
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(15.dp)) {
                 Panel {
-                    listOf(MenuItem("메신저", R.drawable.menu_chat), MenuItem("일정", R.drawable.menu_calendar), MenuItem("결제·미청구", R.drawable.menu_payment),
+                    listOf(MenuItem("결제·미청구", R.drawable.menu_payment),
                         MenuItem("위치보기", R.drawable.menu_location), MenuItem("카카오톡", R.drawable.menu_kakao), MenuItem("자주 쓰는 앱", R.drawable.menu_star))
                         .chunked(3).forEach { row ->
                             Row(Modifier.fillMaxWidth()) {
@@ -138,6 +138,7 @@ private data class MenuItem(val title: String, val icon: Int)
                                         Text(item.title, fontSize = 11.sp, modifier = Modifier.padding(top = 7.dp))
                                     }
                                 }
+                                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
                             }
                         }
                 }
@@ -174,7 +175,7 @@ private data class MenuItem(val title: String, val icon: Int)
                     TextButton(onClick = { open("새로고침") }, enabled = !state.busy) { Text("새로고침", color = Soft, fontSize = 10.sp) }
                     TextButton(onClick = { open("로그아웃") }) { Text("로그아웃", color = Soft, fontSize = 10.sp) }
                 }
-                Text("전용 앱 시험판 · 차량·일정 조회 연결 / 나머지 기능 준비 중", color = Soft, fontSize = 10.sp,
+                Text("전용 앱 시험판 · 이전 중인 기능은 기존 앱을 이용해주세요.", color = Soft, fontSize = 10.sp,
                     modifier = Modifier.padding(bottom = 8.dp))
             }
         }
