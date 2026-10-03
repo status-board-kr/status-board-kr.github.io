@@ -1,0 +1,11 @@
+const fs=require('fs'),path=require('path');
+const root=path.resolve(__dirname,'../..');
+const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
+const block=html.match(/const firebaseConfig = (\{[\s\S]*?\});/);
+if(!block)throw new Error('Existing Firebase configuration missing');
+const vm=require('vm');const config=vm.runInNewContext('('+block[1]+')');
+for(const key of ['apiKey','appId','projectId','databaseURL'])if(typeof config[key]!=='string'||!config[key])throw new Error('Incomplete client config');
+if(!config.databaseURL.startsWith('https://'))throw new Error('HTTPS required');
+const dir=path.resolve(__dirname,'../app/src/main/assets');fs.mkdirSync(dir,{recursive:true});
+fs.writeFileSync(path.join(dir,'firebase-client.json'),JSON.stringify(config));
+console.log('Public Firebase client configuration prepared; no server credentials');
