@@ -72,6 +72,7 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { FleetWidgets.publish(getApplication(), _state.value) { _state.value.session?.cacheKey } }
     }
     fun locationChanged() { _state.value = _state.value.copy(locationRevision = _state.value.locationRevision + 1) }
+    fun saveLocationHours(start: String, end: String, complete: (Boolean) -> Unit) = edit({ operations.saveLocationHours(it, start, end) }, complete)
 
     fun login(email: String, password: String) {
         if (_state.value.busy) return

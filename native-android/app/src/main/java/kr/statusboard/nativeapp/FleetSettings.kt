@@ -29,7 +29,7 @@ import java.time.Instant
     val editable = source != null && state.session?.isAdmin == true && !state.sending && !state.cached
     WebSheet(close) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
-            Text("회사 설정", fontSize = 18.sp)
+            Text("회사 설정", fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
             if (source == null) Text("설정 불러오는 중…", color = WebSub, fontSize = 12.sp)
             listOf("name" to "회사명", "homeBranch" to "기본 지점", "longTermBranch" to "장기 구분 이름").forEach { (key, title) -> WebField(title, fields[key].orEmpty(), { fields[key] = it }, editable && key != "longTermBranch") }
             Text("기존 차량의 지점과 배열 순서는 변경하지 않습니다.", color = WebSub, fontSize = 11.sp)

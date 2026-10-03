@@ -45,7 +45,7 @@ internal val WebAmber get() = FleetAppearance.amber
     Dialog(onDismissRequest = close, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         MaterialTheme(colorScheme = FleetAppearance.scheme()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-            Column(Modifier.fillMaxWidth().widthIn(max = 480.dp).fillMaxHeight(.94f)
+            Column(Modifier.widthIn(max = 480.dp).fillMaxWidth().fillMaxHeight(.94f)
                 .background(WebPanel, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
                 .border(1.dp, WebLine, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)).imePadding(), content = content)
         }
@@ -88,13 +88,15 @@ internal val WebAmber get() = FleetAppearance.amber
     } }
     WebSheet(close) {
         Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 18.dp)) {
-            Text("💬 직원 메신저", fontSize = 16.sp)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("💬 직원 메신저", fontSize = 16.sp, modifier = Modifier.weight(1f))
             OutlinedButton(onClick = {
                 model.backupChat { file -> if (file != null) {
                     val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.photos", file)
                     context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), "최근 2년 대화 백업"))
                 } }
             }, enabled = !state.sending && !state.cached, contentPadding = PaddingValues(10.dp, 4.dp)) { Text("💾 백업", fontSize = 12.sp) }
+            }
             Text("최근 50개 · 이전 대화 더 보기 · 최근 2년 전체 검색·백업", color = WebSub, fontSize = 12.sp)
         }
         LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp), state = list,
@@ -111,7 +113,7 @@ internal val WebAmber get() = FleetAppearance.amber
                 val edge = when { system -> androidx.compose.ui.graphics.Color(0xFF34D399); mine -> WebAmber; else -> WebLine }
                 val fill = when { system -> edge.copy(alpha = .10f); mine -> edge.copy(alpha = .16f); else -> WebPanel2 }
                 Column(Modifier.fillMaxWidth(), horizontalAlignment = if (system) Alignment.CenterHorizontally else if (mine) Alignment.End else Alignment.Start) {
-                    if (!system) Text("${message.optString("email")} · ${message.optString("at").take(16).replace('T', ' ')}", color = WebSub, fontSize = 11.sp)
+                    if (!system) Text("${state.members.optJSONObject(message.optString("uid"))?.optString("name").orEmpty().ifBlank { message.optString("email") }} · ${runCatching { java.time.Instant.parse(message.optString("at")).atZone(java.time.ZoneId.of("Asia/Seoul")).format(java.time.format.DateTimeFormatter.ofPattern("a h:mm", java.util.Locale.KOREAN)) }.getOrDefault(message.optString("at"))}", color = WebSub, fontSize = 11.sp)
                     Column(Modifier.fillMaxWidth(if (system) .92f else .85f).background(fill, RoundedCornerShape(12.dp))
                         .border(1.dp, edge, RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 9.dp)) {
                         val ids = message.optJSONArray("photoIds")?.let { array -> (0 until array.length()).map { array.optString(it) } }
@@ -123,7 +125,7 @@ internal val WebAmber get() = FleetAppearance.amber
                         if (searchHits != null) TextButton(onClick = { model.jumpChat(key) { ok -> if (ok) { searchHits = null; searchOpen = false; query = ""; jumpTarget = key } } }, enabled = !state.sending) { Text("그때 대화 보기", fontSize = 11.sp) }
                     }
                     if (mine || state.session?.isAdmin == true) TextButton(onClick = { deleting = key }, enabled = !state.sending,
-                        contentPadding = PaddingValues(2.dp)) { Text("삭제", color = WebSub, fontSize = 10.sp) }
+                        contentPadding = PaddingValues(2.dp)) { Text("삭제", color = androidx.compose.ui.graphics.Color(0xFFF87171), fontSize = 11.sp) }
                 }
             }
         }
@@ -137,7 +139,7 @@ internal val WebAmber get() = FleetAppearance.amber
                 Text("사진 ${photos.size}장 · 아래에 명령 입력", fontSize = 12.sp, modifier = Modifier.weight(1f))
                 TextButton(onClick = { photos = emptyList() }, enabled = !state.sending) { Text("✕") }
             }
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().background(WebPanel2, RoundedCornerShape(24.dp)).border(1.dp, WebLine, RoundedCornerShape(24.dp)).padding(horizontal = 6.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = {
                     val directory = java.io.File(context.cacheDir, "camera").apply { mkdirs() }
                     val file = java.io.File(directory, "chat-${System.nanoTime()}.jpg")
@@ -146,8 +148,10 @@ internal val WebAmber get() = FleetAppearance.amber
                 }, enabled = !state.sending, contentPadding = PaddingValues(0.dp), modifier = Modifier.width(34.dp)) { Icon(painterResource(R.drawable.chat_camera), "카메라로 찍기", tint = WebSub, modifier = Modifier.size(21.dp)) }
                 TextButton(onClick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, enabled = !state.sending, contentPadding = PaddingValues(0.dp), modifier = Modifier.width(34.dp)) { Icon(painterResource(R.drawable.chat_album), "사진 고르기", tint = WebSub, modifier = Modifier.size(21.dp)) }
                 TextButton(onClick = { searchOpen = !searchOpen; if (!searchOpen) query = "" }, contentPadding = PaddingValues(0.dp), modifier = Modifier.width(30.dp)) { Icon(painterResource(R.drawable.chat_search), "대화 검색", tint = WebSub, modifier = Modifier.size(20.dp)) }
-                OutlinedTextField(input, { if (it.length <= 2000) input = it }, placeholder = { Text("메시지를 입력하세요", fontSize = 12.sp) },
-                    singleLine = true, enabled = !state.sending, shape = RoundedCornerShape(24.dp), modifier = Modifier.weight(1f))
+                androidx.compose.foundation.text.BasicTextField(input, { if (it.length <= 2000) input = it },
+                    textStyle = androidx.compose.ui.text.TextStyle(color = FleetAppearance.text, fontSize = 15.sp),
+                    cursorBrush = androidx.compose.ui.graphics.SolidColor(WebAmber), singleLine = true, enabled = !state.sending, modifier = Modifier.weight(1f).padding(horizontal = 6.dp, vertical = 11.dp),
+                    decorationBox = { field -> Box { if (input.isEmpty()) Text("메시지를 입력하세요", color = WebSub, fontSize = 14.sp); field() } })
                 Button(onClick = {
                     val done: (Boolean) -> Unit = { ok -> if (ok) { input = ""; photos = emptyList() } }
                     if (photos.isEmpty()) model.sendText(input, done) else model.sendPhotos(input, photos, done)

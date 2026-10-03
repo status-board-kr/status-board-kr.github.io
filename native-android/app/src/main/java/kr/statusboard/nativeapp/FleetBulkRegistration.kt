@@ -40,7 +40,7 @@ import java.util.UUID
     val addable = rows.filter { it["plate"] !in existing }
     WebSheet(close) {
         Column(Modifier.fillMaxWidth().padding(16.dp)) {
-            Text("차량 일괄 등록", fontSize = 18.sp)
+            Text("차량 일괄 등록", fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
             Row { OutlinedButton(onClick = { file.launch(arrayOf("text/*", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-excel", "application/octet-stream")) }, enabled = enabled, modifier = Modifier.weight(1f)) { Text("엑셀·CSV", fontSize = 12.sp) }
                 OutlinedButton(onClick = { photos.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, enabled = enabled, modifier = Modifier.weight(1f)) { Text("등록증 사진", fontSize = 12.sp) } }
             Text("사진은 회사에 설정된 AI로 읽고, 아래 내용을 확인한 뒤 등록합니다.", color = WebSub, fontSize = 11.sp)

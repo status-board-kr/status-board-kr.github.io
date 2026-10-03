@@ -33,7 +33,7 @@ import java.util.UUID
     DisposableEffect(Unit) { onDispose { model.clearDocuments() } }
     WebSheet(close) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
-            Text("견적·계약서", fontSize = 18.sp)
+            Text("견적·계약서", fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
             TextButton(onClick = { ratesOpen = true }, enabled = state.session?.isAdmin == true && !state.cached) { Text("신차 렌트 계산 기준 · 가격표") }
             tabs.chunked(2).forEach { row -> Row { row.forEach { tab ->
                 OutlinedButton(onClick = { editor = tab; record = null; key = model.newDocumentKey() }, enabled = state.session?.isAdmin == true && !state.sending && !state.cached, modifier = Modifier.weight(1f).padding(3.dp)) { Text(tab.getString("label"), fontSize = 11.sp) }

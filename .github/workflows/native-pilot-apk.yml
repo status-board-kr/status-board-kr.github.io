@@ -4,6 +4,24 @@ on:
 permissions:
   contents: read
 jobs:
+  rules:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Firebase 규칙 검사 도구 설치
+        working-directory: native-android/rules-check
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: 가상 자료로 기존 권한과 저장 경로 검사 (운영 DB 접근 없음)
+        working-directory: native-android/rules-check
+        run: npm test
   pilot:
     runs-on: ubuntu-24.04
     steps:
@@ -31,9 +49,9 @@ jobs:
           aapt="$ANDROID_HOME/build-tools/35.0.0/aapt"
           "$aapt" dump badging "$apk" > native-android/app/build/pilot-package.txt
           grep -q "package: name='com.jangsung.fleet.nativepilot'" native-android/app/build/pilot-package.txt
-          grep -q "versionCode='4' versionName='0.2.1-pilot'" native-android/app/build/pilot-package.txt
+          grep -q "versionCode='5' versionName='0.2.2-pilot'" native-android/app/build/pilot-package.txt
           mkdir -p pilot-download
-          cp "$apk" pilot-download/status-board-native-pilot-0.2.1.apk
+          cp "$apk" pilot-download/status-board-native-pilot-0.2.2.apk
           cp native-android/docs/PILOT-VERIFY.md pilot-download/READ-ME.md
           cp native-android/app/build/pilot-package.txt pilot-download/
 
@@ -50,3 +68,39 @@ jobs:
           path: |
             native-android/app/build/reports/
             native-android/app/build/pilot-package.txt
+  device:
+    needs: pilot
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - run: node native-android/scripts/prepare-client.cjs
+      - name: KVM 활성화
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: 실제 Android 렌더링·메뉴 순서·위치 수신 검사 (가상 자료)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: bash native-android/scripts/device-check.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: native-device-verification
+          path: |
+            native-android/app/build/reports/androidTests/
+            native-android/app/build/outputs/androidTest-results/
+            native-device-proof/

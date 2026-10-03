@@ -17,7 +17,7 @@ import java.util.UUID
     val id = remember(restoring) { UUID.randomUUID().toString() }
     WebSheet(close) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
-            Text("변경기록", fontSize = 18.sp)
+            Text("변경기록", fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
             Text("최근 30개 차량 저장 기록. 복원 직전의 현재 자료도 기록으로 남깁니다.", color = WebSub, fontSize = 12.sp)
             val history = state.history
             if (history == null) Text("불러오는 중…", color = WebSub)

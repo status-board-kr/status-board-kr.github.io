@@ -15,10 +15,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -64,8 +67,8 @@ private fun palette(type: String): Pair<Color, Color> {
                         HeaderIcon(R.drawable.menu_settings, "설정") { open("전체 메뉴") }
                     }
                     Column(Modifier.weight(2f), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("${state.companyName} 현황판", fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(today.toString(), color = WebSub, fontSize = 11.sp)
+                        Text("🚗 ${state.companyName} 현황판", fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(today.format(java.time.format.DateTimeFormatter.ofPattern("M월 d일 E요일", java.util.Locale.KOREAN)), color = WebSub, fontSize = 11.sp)
                     }
                     Row(Modifier.weight(1f), horizontalArrangement = Arrangement.End) {
                         if (state.session?.isAdmin == true) HeaderIcon(R.drawable.menu_history, "변경기록") { open("변경기록") }
@@ -158,13 +161,16 @@ private fun palette(type: String): Pair<Color, Color> {
     val due = FleetPresentation.isDue(vehicle, today)
     val transition = rememberInfiniteTransition(label = "return-warning")
     val opacity by transition.animateFloat(1f, .45f, infiniteRepeatable(tween(750), RepeatMode.Reverse), label = "return-opacity")
-    Row(Modifier.fillMaxWidth().background(background, RoundedCornerShape(12.dp)).border(1.dp, edge, RoundedCornerShape(12.dp)).clickable(onClick = click).padding(11.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.width(3.dp).height(48.dp).background(edge, RoundedCornerShape(2.dp)))
-        Column(Modifier.weight(1f).padding(start = 8.dp)) {
+    val warning = if (due) Color(0xFFF87171) else edge
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(background)
+        .drawBehind { drawRect(warning, size = androidx.compose.ui.geometry.Size(4.dp.toPx(), size.height)) }
+        .border(if (due) 2.dp else 1.dp, if (due) warning.copy(alpha = opacity) else edge, RoundedCornerShape(12.dp)).clickable(onClick = click).padding(horizontal = 12.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(vehicle.plate, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Text(vehicle.plate, fontSize = 15.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, letterSpacing = .5.sp)
                 if (type.isNotBlank()) Text(type, fontSize = 10.sp, color = edge, modifier = Modifier.background(edge.copy(alpha = .12f), RoundedCornerShape(6.dp)).padding(horizontal = 5.dp, vertical = 2.dp))
-                Text(statusLabel(vehicle, today), fontSize = 10.sp, color = WebSub, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(statusLabel(vehicle, today), fontSize = 10.sp, color = if (due) warning else WebSub, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.background(if (due) warning.copy(alpha = .18f) else WebPanel2, RoundedCornerShape(20.dp)).padding(horizontal = 7.dp, vertical = 2.dp).alpha(if (due) opacity else 1f))
             }
             Text(listOf(vehicle.rawFields["cls"]?.toString(), vehicle.model, vehicle.rawFields["fuel"]?.toString()).filterNot { it.isNullOrBlank() }.joinToString(" · "), color = WebSub, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
             if (vehicle.type == "일반") ReturnLine(vehicle, today, due, opacity)
@@ -205,6 +211,6 @@ private fun statusLabel(vehicle: FleetVehicle, today: LocalDate): String {
         val days = ChronoUnit.DAYS.between(today, date)
         val label = when { days == 0L -> "D-day"; days > 0 -> "D-$days"; else -> "D+${-days}" }
         Text("반납일자: ${date.year}년 ${date.monthValue}월 ${date.dayOfMonth}일 ($label)", fontSize = 11.sp,
-            color = if (due || days == 1L) WebAmber else WebSub, modifier = Modifier.padding(top = 3.dp).alpha(if (due) opacity else 1f))
+            color = if (due) Color(0xFFF87171) else if (days == 1L) WebAmber else WebSub, modifier = Modifier.padding(top = 3.dp).alpha(if (due) opacity else 1f))
     }
 }

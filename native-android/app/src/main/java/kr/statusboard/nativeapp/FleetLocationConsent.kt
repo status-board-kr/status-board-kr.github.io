@@ -20,6 +20,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.time.Instant
 
 @Composable internal fun FleetLocationConsent(state: FleetUiState) {
@@ -69,36 +70,97 @@ import java.time.Instant
 
 @Composable internal fun FleetLocationDialog(state: FleetUiState, model: FleetViewModel, close: () -> Unit) {
     val context = LocalContext.current; val session = state.session ?: return
-    var consent by remember { mutableStateOf(FleetLocation.consent(context, session.cacheKey)) }
+    var consent by remember(session.cacheKey) { mutableStateOf(FleetLocation.consent(context, session.cacheKey)) }
+    var checked by remember { mutableStateOf(false) }
+    var now by remember { mutableStateOf(Instant.now()) }
+    var selected by remember { mutableStateOf<String?>(null) }
+    var mapError by remember { mutableStateOf("") }
+    var addresses by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var startHour by remember(state.locationSettings.toString()) { mutableStateOf(state.locationSettings.optString("start", "09:00")) }
+    var endHour by remember(state.locationSettings.toString()) { mutableStateOf(state.locationSettings.optString("end", "18:00")) }
+    val scope = rememberCoroutineScope()
+    val lifecycle = LocalLifecycleOwner.current
+    val permissions = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        now = Instant.now(); model.locationChanged()
+    }
+    DisposableEffect(lifecycle) {
+        val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_RESUME) { now = Instant.now(); model.locationChanged() } }
+        lifecycle.lifecycle.addObserver(observer)
+        onDispose { lifecycle.lifecycle.removeObserver(observer) }
+    }
+    LaunchedEffect(session.cacheKey) { while (true) { delay(10_000); now = Instant.now() } }
+    val decision = FleetLocation.decide(context, session, state.locationSettings, now)
+    val points = state.locations.keys().asSequence().mapNotNull { uid ->
+        if (!session.isAdmin && !consent && uid != session.uid) return@mapNotNull null
+        val location = state.locations.optJSONObject(uid) ?: return@mapNotNull null
+        val member = state.members.optJSONObject(uid) ?: return@mapNotNull null
+        val lat = location.optDouble("lat"); val lng = location.optDouble("lng")
+        if (!lat.isFinite() || !lng.isFinite() || lat !in -90.0..90.0 || lng !in -180.0..180.0) null
+        else FleetStaffPoint(uid, if (uid == session.uid) "나" else member.optString("name").ifBlank { member.optString("email") }, lat, lng, location.optString("at"))
+    }.sortedBy { if (it.uid == session.uid) 0 else 1 }.toList()
+    val status = when {
+        !state.locationSettingsLoaded -> "회사 근무시간을 확인 중입니다…"
+        !decision.collect -> FleetLocationHealth.label(decision.reason)
+        !FleetLocation.enabled(context) -> "휴대전화 위치 기능이 꺼져 있습니다. 위치 설정에서 켜주세요."
+        FleetLocationHealth.owner == session.cacheKey && FleetLocationHealth.message.isNotBlank() -> FleetLocationHealth.message
+        else -> "위치 공유 준비 중…"
+    }
     WebSheet(close) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp, 18.dp)) {
-            Text("직원 위치", fontSize = 16.sp)
-            Text("근무시간 중 동의한 직원의 마지막 위치를 보여줍니다.", color = WebSub, fontSize = 12.sp)
-            if (!session.isAdmin) Row {
-                TextButton(onClick = { FleetLocation.revoke(context, session); consent = false; model.locationChanged() }) { Text("내 위치 공유 동의 해제") }
-                Text(if (consent) "동의됨" else "동의하지 않음", color = WebSub, fontSize = 12.sp, modifier = Modifier.padding(top = 14.dp))
-            }
-            state.locations.keys().asSequence().forEach { uid ->
-                state.locations.optJSONObject(uid)?.let { location ->
-                    val member = state.members.optJSONObject(uid)
-                    if (member != null) {
-                        val lat = location.optDouble("lat"); val lng = location.optDouble("lng")
-                        if (lat.isFinite() && lng.isFinite() && lat in -90.0..90.0 && lng in -180.0..180.0) Row(Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
-                            Column(Modifier.weight(1f)) {
-                                Text(member.optString("name").ifBlank { member.optString("email") }, fontSize = 14.sp)
-                                Text(location.optString("at"), color = WebSub, fontSize = 10.sp)
-                            }
-                            TextButton(onClick = {
-                                val map = Intent(Intent.ACTION_VIEW, Uri.parse("geo:$lat,$lng?q=$lat,$lng"))
-                                if (map.resolveActivity(context.packageManager) != null) context.startActivity(map)
-                                else context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://map.naver.com/p/search/$lat,$lng")))
-                            }) { Text("지도") }
-                        }
+            Text("📍 직원 위치", fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+            Text("위치 공유를 켠 직원끼리만 서로 위치가 보여요. 🟢 실시간 · ⚪ 마지막으로 확인된 위치", color = WebSub, fontSize = 12.sp)
+            Text("근무시간 ${state.locationSettings.optString("start", "09:00")}~${state.locationSettings.optString("end", "18:00")} · 주말·공휴일 제외", color = WebSub, fontSize = 12.sp)
+            Text(status, modifier = Modifier.padding(vertical = 10.dp), fontSize = 12.sp)
+            if (!session.isAdmin) {
+                if (!consent) {
+                    Row { Checkbox(checked, { checked = it }); Text("근무 중 위치 공유에 동의합니다", modifier = Modifier.padding(top = 13.dp), fontSize = 12.sp) }
+                    TextButton(onClick = {
+                        FleetLocation.accept(context, session); consent = true; model.locationChanged(); now = Instant.now()
+                        if (!FleetLocation.permission(context)) permissions.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                    }, enabled = checked) { Text("동의하고 공유 시작") }
+                }
+                if (consent && !FleetLocation.permission(context)) TextButton(onClick = {
+                    context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}")))
+                }) { Text("위치 권한 설정") }
+                if (!FleetLocation.enabled(context)) TextButton(onClick = { context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)) }) { Text("휴대전화 위치 켜기") }
+                if (decision.collect && FleetLocation.enabled(context)) TextButton(onClick = {
+                    scope.launch {
+                        FleetLocation.stop(context); delay(500)
+                        FleetLocationHealth.report(session.cacheKey, "위치 공유 다시 연결 중…")
+                        runCatching { FleetLocation.start(context, session) }.onFailure { FleetLocationHealth.report(session.cacheKey, "위치 공유 시작 실패 · 위치 권한을 확인해주세요.") }
+                        now = Instant.now(); model.locationChanged()
                     }
+                }) { Text("위치 공유 다시 연결") }
+            }
+            if (session.isAdmin) {
+                Text("⚙️ 위치 공유 시간 (관리자만 변경)", color = WebSub, fontSize = 12.sp, modifier = Modifier.padding(top = 10.dp, bottom = 8.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(Modifier.weight(1f)) { WebInput(startHour, { startHour = it }, placeholder = "09:00") }
+                    Text("~", modifier = Modifier.padding(top = 10.dp))
+                    Box(Modifier.weight(1f)) { WebInput(endHour, { endHour = it }, placeholder = "18:00") }
+                    Button(onClick = { model.saveLocationHours(startHour, endHour) {} }, enabled = !state.cached && !state.sending && state.locationSettingsLoaded) { Text("저장") }
+                }
+                Spacer(Modifier.height(12.dp))
+            }
+            if (session.isAdmin || consent) {
+            FleetLocationMap(points, selected, Modifier.fillMaxWidth().height(220.dp), { addresses = it }) { mapError = it }
+            if (mapError.isNotBlank()) Text(mapError, color = WebSub, fontSize = 12.sp)
+            points.forEach { point ->
+                val age = runCatching { java.time.Duration.between(Instant.parse(point.at), now).toMinutes() }.getOrNull()
+                val stamp = runCatching { Instant.parse(point.at).atZone(java.time.ZoneId.of("Asia/Seoul")).format(java.time.format.DateTimeFormatter.ofPattern("M/d HH:mm:ss")) }.getOrDefault(point.at)
+                Row(Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
+                    Column(Modifier.weight(1f)) {
+                        Text("${if (age != null && age in 0L..10L) "🟢" else "⚪"} ${point.name}", fontSize = 14.sp)
+                        Text(addresses[point.uid]?.takeIf { it.isNotBlank() } ?: "위도 ${"%.4f".format(point.lat)}, 경도 ${"%.4f".format(point.lng)}", fontSize = 12.sp)
+                        Text("${if (age != null && age in 0L..10L) "최근 위치" else "마지막 위치"} · $stamp", color = WebSub, fontSize = 11.sp)
+                    }
+                    TextButton(onClick = { selected = point.uid }) { Text("지도에서 보기") }
                 }
             }
-            if (state.locations.length() == 0) Text("공유 중인 직원 위치가 없습니다.", color = WebSub, modifier = Modifier.padding(top = 20.dp))
+            if (points.isEmpty()) Text("공유 중인 직원 위치가 없습니다. 직원의 동의·위치 권한·근무시간을 확인해주세요.", color = WebSub, fontSize = 12.sp, modifier = Modifier.padding(top = 20.dp))
+            }
         }
+        if (!session.isAdmin && consent) Button(onClick = { FleetLocation.revoke(context, session); consent = false; model.locationChanged() }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) { Text("내 위치 공유 동의 해제") }
         OutlinedButton(onClick = close, modifier = Modifier.fillMaxWidth().padding(16.dp)) { Text("닫기") }
     }
 }

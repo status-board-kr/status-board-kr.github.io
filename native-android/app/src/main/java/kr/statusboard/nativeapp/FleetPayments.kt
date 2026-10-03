@@ -168,7 +168,7 @@ private fun localLogDate(raw: String): String = runCatching { java.time.Instant.
     } }
     WebSheet(close) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
-            Text("메시지 · 계좌 설정", fontSize = 18.sp)
+            Text("메시지 · 계좌 설정", fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
             WebField("회사명", company, { company = it }, !state.sending)
             WebField("메시지 템플릿", template, { template = it }, !state.sending)
             Text("{회사} {이름} {날짜} {차량정보} {계좌}를 안내문에 사용할 수 있습니다.", color = WebSub, fontSize = 11.sp)

@@ -25,10 +25,21 @@ class FleetLocationService : Service() {
     private var requesting = false; private var saving = false
     private var initializing = false
     private var last: android.location.Location? = null; private var lastSaved = 0L
+    private val firstFix = com.google.android.gms.tasks.CancellationTokenSource()
     private val callback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
-            val active = session ?: return; val location = result.lastLocation ?: return
-            if (!allowed() || saving || !location.latitude.isFinite() || !location.longitude.isFinite()) return
+            result.lastLocation?.let(::saveLocation)
+        }
+        override fun onLocationAvailability(value: LocationAvailability) {
+            if (!value.isLocationAvailable && last == null) report("GPS 위치를 기다리는 중입니다. 휴대전화 위치 기능과 신호를 확인해주세요.")
+        }
+    }
+    private fun report(text: String) { session?.let { FleetLocationHealth.report(it.cacheKey, text) } }
+    private fun saveLocation(location: android.location.Location) {
+            val active = session ?: return
+            val age = (android.os.SystemClock.elapsedRealtimeNanos() - location.elapsedRealtimeNanos) / 1_000_000
+            if (!allowed() || saving || age !in 0L..120_000L || !location.latitude.isFinite() || !location.longitude.isFinite()
+                || location.latitude !in -90.0..90.0 || location.longitude !in -180.0..180.0) return
             val now = System.currentTimeMillis()
             if (last != null && location.distanceTo(last!!) < 30 && now - lastSaved < 300_000) return
             saving = true
@@ -38,10 +49,13 @@ class FleetLocationService : Service() {
                     company!!.child("locations/${active.uid}").setValue(mapOf("lat" to location.latitude, "lng" to location.longitude,
                         "email" to FirebaseAuth.getInstance().currentUser?.email.orEmpty(), "at" to Instant.now().toString())).await()
                     last = location; lastSaved = now
-                } catch (error: Exception) { if (error is CancellationException) throw error; stopSelf() }
+                    report("위치 공유 중 · 최근 저장 ${Instant.now().atZone(java.time.ZoneId.of("Asia/Seoul")).toLocalTime().toString().take(8)}")
+                } catch (error: Exception) {
+                    if (error is CancellationException) throw error
+                    report("위치 저장 실패 · 회사 접근 권한과 인터넷 연결을 확인해주세요.")
+                }
                 finally { saving = false }
             }
-        }
     }
     private fun allowed(): Boolean {
         val current = session ?: return false
@@ -63,6 +77,7 @@ class FleetLocationService : Service() {
         if (session != null) { stopSelf(); return START_NOT_STICKY }
         val initial = runCatching { FleetSession(uid, companyId, "staff") }.getOrNull() ?: run { stopSelf(); return START_NOT_STICKY }
         initializing = true
+        FleetLocationHealth.report(initial.cacheKey, "직원 권한과 근무시간 확인 중…")
         scope.launch {
             try {
                 val resolved = kr.statusboard.core.FleetAccessResolver(NativeMembership(FleetTransport(FirebaseAuth.getInstance()))).resolve(uid)
@@ -70,7 +85,7 @@ class FleetLocationService : Service() {
                 session = resolved; company = FirebaseDatabase.getInstance().getReference(resolved.path(""))
                 val loaded = company!!.child("locationSettings").get().await()
                 settings = JSONObject((loaded.value as? Map<*, *>) ?: emptyMap<String, Any>())
-                if (!allowed()) { stopSelf(); return@launch }
+                if (!allowed()) { report(FleetLocationHealth.label(FleetLocation.decide(this@FleetLocationService, resolved, settings).reason)); stopSelf(); return@launch }
                 memberListener = object : ValueEventListener {
                     override fun onDataChange(value: DataSnapshot) { if (!value.exists() || value.child("role").value == "owner") stopSelf() }
                     override fun onCancelled(error: DatabaseError) { stopSelf() }
@@ -81,20 +96,27 @@ class FleetLocationService : Service() {
                 }.also { company!!.child("locationSettings").addValueEventListener(it) }
                 activeKey = resolved.cacheKey
                 requestLocation()
-                while (isActive) { delay(30_000); if (!allowed()) { stopSelf(); break } }
-            } catch (error: Exception) { if (error is CancellationException) throw error; stopSelf() }
+                while (isActive) { delay(30_000); if (!allowed() || !FleetLocation.enabled(this@FleetLocationService)) { if (!FleetLocation.enabled(this@FleetLocationService)) report("휴대전화 위치 기능이 꺼져 있습니다. 위치 설정에서 켜주세요."); stopSelf(); break } }
+            } catch (error: Exception) { if (error is CancellationException) throw error; FleetLocationHealth.report(initial.cacheKey, "위치 공유 시작 실패 · 회사 연결과 위치 권한을 확인해주세요."); stopSelf() }
             finally { initializing = false }
         }
         return START_NOT_STICKY
     }
     @Suppress("MissingPermission") private fun requestLocation() {
         if (!allowed()) { stopSelf(); return }
+        if (!FleetLocation.enabled(this)) { report("휴대전화 위치 기능이 꺼져 있습니다. 위치 설정에서 켜주세요."); stopSelf(); return }
+        report("GPS 위치를 확인 중…")
         val request = LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 60_000).setMinUpdateIntervalMillis(60_000).build()
         requesting = true
-        client.requestLocationUpdates(request, callback, Looper.getMainLooper()).addOnFailureListener { stopSelf() }
+        client.requestLocationUpdates(request, callback, Looper.getMainLooper()).addOnFailureListener { report("GPS 요청 실패 · 위치 권한과 Google Play 서비스를 확인해주세요."); stopSelf() }
+        client.getCurrentLocation(CurrentLocationRequest.Builder().setPriority(Priority.PRIORITY_HIGH_ACCURACY)
+            .setMaxUpdateAgeMillis(30_000).setDurationMillis(30_000).build(), firstFix.token)
+            .addOnSuccessListener { location -> if (location != null) saveLocation(location) else if (last == null) report("GPS 위치를 아직 찾지 못했습니다. 휴대전화 위치 설정과 신호를 확인해주세요.") }
+            .addOnFailureListener { if (last == null) report("현재 위치 조회 실패 · 휴대전화 위치 권한을 확인해주세요.") }
     }
     override fun onDestroy() {
         activeKey = null
+        firstFix.cancel()
         if (requesting) client.removeLocationUpdates(callback)
         memberListener?.let { company?.child("members/${session?.uid}")?.removeEventListener(it) }
         settingsListener?.let { company?.child("locationSettings")?.removeEventListener(it) }

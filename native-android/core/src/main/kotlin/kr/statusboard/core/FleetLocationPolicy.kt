@@ -8,7 +8,8 @@ import java.time.ZoneId
 
 /** A verified calendar is required before enabling employee GPS collection. */
 data class FleetHolidayCalendar(val verifiedYears: Set<Int>, val dates: Set<LocalDate>)
-data class FleetLocationDecision(val prompt: Boolean, val collect: Boolean)
+enum class FleetLocationReason { ACTIVE, ADMIN, WEEKEND, HOLIDAY, OUTSIDE_HOURS, UNKNOWN_CALENDAR, INVALID_HOURS, CONSENT, PERMISSION }
+data class FleetLocationDecision(val prompt: Boolean, val collect: Boolean, val reason: FleetLocationReason = FleetLocationReason.OUTSIDE_HOURS)
 
 object FleetLocationPolicy {
     private val zone = ZoneId.of("Asia/Seoul")
@@ -27,7 +28,18 @@ object FleetLocationPolicy {
             else -> false // Invalid/equal bounds must not mean all-day tracking.
         }
         val active = !isAdmin && weekday && calendarKnown && workDate !in holidays.dates && workHours
+        val reason = when {
+            isAdmin -> FleetLocationReason.ADMIN
+            !calendarKnown -> FleetLocationReason.UNKNOWN_CALENDAR
+            !weekday -> FleetLocationReason.WEEKEND
+            workDate in holidays.dates -> FleetLocationReason.HOLIDAY
+            start == end -> FleetLocationReason.INVALID_HOURS
+            !workHours -> FleetLocationReason.OUTSIDE_HOURS
+            !consentGranted -> FleetLocationReason.CONSENT
+            !permissionGranted -> FleetLocationReason.PERMISSION
+            else -> FleetLocationReason.ACTIVE
+        }
         return FleetLocationDecision(prompt = active && (!consentGranted || !permissionGranted),
-            collect = active && consentGranted && permissionGranted)
+            collect = active && consentGranted && permissionGranted, reason = reason)
     }
 }

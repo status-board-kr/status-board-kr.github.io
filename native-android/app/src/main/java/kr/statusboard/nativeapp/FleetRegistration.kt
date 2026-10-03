@@ -19,7 +19,7 @@ import java.util.UUID
     val enabled = !state.sending && !state.cached
     WebSheet(close) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp, 18.dp)) {
-            Text("차량 등록", fontSize = 18.sp)
+            Text("차량 등록", fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
             TextButton(onClick = { bulk = true }, enabled = enabled) { Text("엑셀·CSV / 등록증 사진으로 일괄 등록") }
             listOf("plate" to "차량번호 *", "branch" to "지점", "cls" to "종별 *", "model" to "차종", "fuel" to "연료", "extra" to "추가정보").forEach { (key, label) ->
                 WebField(label, fields[key].orEmpty(), { fields[key] = it }, enabled)

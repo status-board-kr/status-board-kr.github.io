@@ -1,0 +1,30 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://dapi.kakao.com https://t1.daumcdn.net; img-src https: data:; style-src 'unsafe-inline'; connect-src https://dapi.kakao.com https://*.daumcdn.net https://*.kakao.com;">
+<style>html,body,#map{margin:0;width:100%;height:100%;overflow:hidden}body{font-family:Arial,sans-serif;background:#1c2a42}.error{padding:20px;color:#9aacc7;font-size:12px}</style></head><body><div id="map"></div>
+<script>
+'use strict';
+let map, kakaoReady=false, entries=[], selected='', fitted=false; const markers=new Map(), addresses=new Map();
+window.fleetMapAddresses=()=>Object.fromEntries(entries.map(e=>[e.uid,addresses.get(e.lat.toFixed(4)+','+e.lng.toFixed(4))||'']));
+const escapeHtml=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function timeAgo(at){const mins=Math.max(0,Math.floor((Date.now()-Date.parse(at))/60000));return !Number.isFinite(mins)?'시간 미확인':mins<1?'방금 전':mins<60?mins+'분 전':Math.round(mins/60)+'시간 전'}
+function draw(){
+  if(!kakaoReady)return;
+  const seen=new Set();
+  entries.forEach(e=>{
+    if(!Number.isFinite(e.lat)||!Number.isFinite(e.lng)||e.lat < -90||e.lat>90||e.lng < -180||e.lng>180)return;
+    seen.add(e.uid);const pos=new kakao.maps.LatLng(e.lat,e.lng),stale=!(Date.now()-Date.parse(e.at)<=600000);
+    const addressKey=e.lat.toFixed(4)+','+e.lng.toFixed(4);
+    if(!addresses.has(addressKey)&&kakao.maps.services){addresses.set(addressKey,null);new kakao.maps.services.Geocoder().coord2Address(e.lng,e.lat,(res,status)=>{if(status!==kakao.maps.services.Status.OK||!res?.[0])return;const r=res[0],building=r.road_address?.building_name,a=r.address||{},dong=[a.region_2depth_name,a.region_3depth_name].filter(Boolean).join(' ');addresses.set(addressKey,building?building+' 근처':dong?dong+' 근처':'')})}
+    const content='<div style="padding:6px 10px;font-size:12px;white-space:nowrap;">'+escapeHtml(e.name+' · '+(stale?'마지막 위치 ':'')+timeAgo(e.at))+'</div>';
+    if(markers.has(e.uid)){const m=markers.get(e.uid);m.marker.setPosition(pos);m.marker.setOpacity(stale ? .45 : 1);m.info.setContent(content)}
+    else{const marker=new kakao.maps.Marker({position:pos,map,opacity:stale ? .45 : 1});const info=new kakao.maps.InfoWindow({content});kakao.maps.event.addListener(marker,'click',()=>info.open(map,marker));markers.set(e.uid,{marker,info})}
+  });
+  for(const [uid,m] of markers)if(!seen.has(uid)){m.marker.setMap(null);markers.delete(uid)}
+  if(entries.length&&!fitted){const bounds=new kakao.maps.LatLngBounds();entries.forEach(e=>bounds.extend(new kakao.maps.LatLng(e.lat,e.lng)));map.setBounds(bounds);fitted=true}
+  const e=entries.find(e=>e.uid===selected);if(e){if(map.getLevel()>4)map.setLevel(4);map.panTo(new kakao.maps.LatLng(e.lat,e.lng));for(const [uid,m]of markers)if(uid!==selected)m.info.close();const m=markers.get(selected);if(m)m.info.open(map,m.marker);selected=''}
+}
+window.fleetMapUpdate=(points,uid)=>{entries=Array.isArray(points)?points:[];selected=uid||'';draw()};
+function failed(){document.getElementById('map').innerHTML='<div class="error">지도를 불러올 수 없어요. 아래 목록으로 위치를 확인하세요.</div>';console.error('FLEET_MAP_ERROR')}
+const script=document.createElement('script');script.src='https://dapi.kakao.com/v2/maps/sdk.js?appkey=f41df3bf1a6d192adb070ca02219d9f4&autoload=false&libraries=services';script.onerror=failed;
+script.onload=()=>{if(!window.kakao?.maps){failed();return}kakao.maps.load(()=>{map=new kakao.maps.Map(document.getElementById('map'),{center:new kakao.maps.LatLng(35.3016,126.7867),level:7});kakaoReady=true;draw()})};document.head.appendChild(script);
+</script></body></html>

@@ -34,7 +34,7 @@ import org.json.JSONObject
     }
     WebSheet(close) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp, 18.dp)) {
-            Text("📅 일정 관리", fontSize = 16.sp)
+            Text("📅 일정 관리", fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
             Text("날짜를 눌러 그날 일정을 보세요. 오늘/내일 일정은 상단 배너에도 표시돼요.", color = WebSub, fontSize = 12.sp)
             Row(Modifier.fillMaxWidth().padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                 TextButton(onClick = { month = month.minusMonths(1) }) { Text("‹") }
@@ -97,7 +97,16 @@ import org.json.JSONObject
 }
 
 @Composable internal fun WebField(label: String, value: String, change: (String) -> Unit, enabled: Boolean = true) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val isDate = listOf("날짜", "일자", "최초등록일", "차령 만료일", "대여일", "YYYY-MM-DD").any { it in label }
     Text(label, color = WebSub, fontSize = 12.sp, modifier = Modifier.padding(top = 12.dp, bottom = 5.dp))
-    OutlinedTextField(value, change, enabled = enabled, singleLine = true, shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth(),
-        colors = OutlinedTextFieldDefaults.colors(unfocusedContainerColor = WebPanel2, focusedContainerColor = WebPanel2, unfocusedBorderColor = WebLine, focusedBorderColor = WebAmber))
+    if (isDate) Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.weight(1f)) { WebInput(value, change, enabled) }
+        TextButton(onClick = {
+            val date = runCatching { LocalDate.parse(value) }.getOrDefault(LocalDate.now())
+            android.app.DatePickerDialog(context, { _, year, month, day -> change(LocalDate.of(year, month + 1, day).toString()) }, date.year, date.monthValue - 1, date.dayOfMonth).show()
+        }, enabled = enabled, modifier = Modifier.width(36.dp), contentPadding = PaddingValues(4.dp)) { Text("📅", fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) }
+    }
+    else
+    WebInput(value, change, enabled)
 }

@@ -28,6 +28,18 @@ const { initializeTestEnvironment, assertSucceeds, assertFails } = require('@fir
     await assertFails(company(outsider).child('vehicles').get());
     await assertFails(company(staff).child('profile/company').set('forbidden'));
     await assertSucceeds(company(admin).child('profile/company').set('예시 회사'));
+    // The same location path is shared by web and native, with per-user writes.
+    const point = { lat: 35.301, lng: 126.784, email: 'staff@example.invalid', at: '2026-10-02T01:00:00Z' };
+    await assertSucceeds(company(staff).child('locations/staff').set(point));
+    await assertSucceeds(company(admin).child('locations/staff').get());
+    await assertFails(company(outsider).child('locations').get());
+    await assertFails(company(staff).child('locations/admin').set(point));
+    await assertFails(company(staff).child('locations/staff').set({ ...point, lat: 'invalid' }));
+    await assertSucceeds(company(staff).child('locations/staff').remove());
+    await assertSucceeds(company(staff).child('locations/staff').set(point));
+    await assertSucceeds(company(admin).child('locations/staff').remove());
+    await assertFails(company(staff).child('locationSettings').set({ start: '08:00', end: '19:00' }));
+    await assertSucceeds(company(admin).child('locationSettings').set({ start: '09:00', end: '18:00' }));
 
     // Reproduce the parent-write failure and validate the native per-job fix.
     await assertFails(company(admin).child('wookyJobs').transaction(value => ({ ...value, failed: { plate: '예시1234', ...value?.failed, status: 'pending' } })));

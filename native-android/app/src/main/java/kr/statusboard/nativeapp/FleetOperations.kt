@@ -380,6 +380,11 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
             FleetHistory.restore(value, snapshot.child("vehicles").value)
         }
     }
+    suspend fun saveLocationHours(session: FleetSession, start: String, end: String) = lock.withLock {
+        check(verify(session).isAdmin) { "관리자만 위치 공유 시간을 변경할 수 있습니다." }
+        require(java.time.LocalTime.parse(start) != java.time.LocalTime.parse(end)) { "시작 시간과 종료 시간이 같습니다." }
+        root(session).child("locationSettings").setValue(mapOf("start" to start, "end" to end, "updatedAt" to Instant.now().toString())).await()
+    }
     suspend fun saveSettings(session: FleetSession, profile: Map<String, Any?>, ai: Map<String, Any?>, start: String, end: String) = lock.withLock {
         check(verify(session).isAdmin) { "관리자만 회사 설정을 변경할 수 있습니다." }
         require(profile.keys.all { it in setOf("name", "homeBranch", "longTermBranch") })

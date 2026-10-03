@@ -35,7 +35,7 @@ import androidx.compose.ui.unit.sp
     val allowed = remember(revision) { FleetNotifications.permitted(context) }
     WebSheet(close) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
-            Text("내 앱 설정", fontSize = 18.sp)
+            Text("내 앱 설정", fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
             Text("화면 색상", modifier = Modifier.padding(top = 18.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(false to "화이트", true to "블랙").forEach { (dark, label) ->
