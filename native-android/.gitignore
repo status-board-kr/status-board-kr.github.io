@@ -2,5 +2,6 @@
 **/build/
 local.properties
 app/src/main/assets/firebase-client.json
+app/src/main/assets/vision-client.json
 *.jks
 *.keystore

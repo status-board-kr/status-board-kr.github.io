@@ -20,6 +20,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.time.LocalDate
+import java.time.Instant
+import kotlinx.coroutines.delay
+import kr.statusboard.core.BotConnection
+import kr.statusboard.core.FleetBotHealth
 
 private val Ink = Color(0xFF1C2D44)
 private val Soft = Color(0xFF8190A5)
@@ -28,10 +32,11 @@ private val Accent = Color(0xFF375C84)
 private val MenuBackground = Color(0xFFF6F8FB)
 private data class MenuItem(val title: String, val icon: Int)
 
-@Composable internal fun FleetShell(state: FleetUiState, refresh: () -> Unit, logout: () -> Unit) {
+@Composable internal fun FleetShell(state: FleetUiState, refresh: () -> Unit, logout: () -> Unit, retryWooky: () -> Unit) {
     var menu by rememberSaveable(state.session?.cacheKey) { mutableStateOf(false) }
     var schedule by rememberSaveable(state.session?.cacheKey) { mutableStateOf(false) }
     var pending by remember { mutableStateOf<String?>(null) }
+    var botOpen by remember { mutableStateOf(false) }
     val screens = rememberSaveableStateHolder()
     val open: (String) -> Unit = { title ->
         when (title) {
@@ -40,6 +45,7 @@ private data class MenuItem(val title: String, val icon: Int)
             "일정" -> schedule = true
             "새로고침" -> refresh()
             "로그아웃" -> logout()
+            "종결 봇" -> botOpen = true
             else -> pending = title
         }
     }
@@ -66,11 +72,28 @@ private data class MenuItem(val title: String, val icon: Int)
         }
     }
     if (schedule) ScheduleDialog(state, LocalDate.now()) { schedule = false }
+    if (botOpen) {
+        val connection = botConnection(state)
+        val failed = state.wookyJobs.keys().asSequence().mapNotNull { state.wookyJobs.optJSONObject(it) }.count { it.optString("status") == "done" && it.optString("result") in listOf("fail", "error") }
+        AlertDialog(onDismissRequest = { botOpen = false }, title = { Text("종결 봇 · ${connection.label}") },
+            text = { Column {
+                Text("실패 요청 ${failed}건 · PC 일꾼이 연결되어야 처리됩니다.")
+                if (state.message.isNotBlank()) Text(state.message, modifier = Modifier.padding(top = 8.dp))
+            } },
+            confirmButton = { if (state.session?.isAdmin == true) TextButton(onClick = retryWooky, enabled = !state.sending && failed > 0) { Text("실패 건 재시도") } },
+            dismissButton = { TextButton(onClick = { botOpen = false }) { Text("닫기") } })
+    }
     pending?.let { title ->
         AlertDialog(onDismissRequest = { pending = null }, title = { Text(title) },
             text = { Text("이 기능은 전용 앱으로 옮기는 중입니다. 현재 업무는 기존 현황판 앱에서 이용해주세요.") },
             confirmButton = { TextButton(onClick = { pending = null }) { Text("확인") } })
     }
+}
+@Composable private fun botConnection(state: FleetUiState): BotConnection {
+    var now by remember { mutableStateOf(Instant.now()) }
+    LaunchedEffect(Unit) { while (true) { delay(5000); now = Instant.now() } }
+    val health = state.wookyJobs.keys().asSequence().mapNotNull { state.wookyJobs.optJSONObject(it)?.optJSONObject("agentHealth") }.maxByOrNull { it.optString("lastSeen") }
+    return FleetBotHealth.state(health?.optString("lastSeen"), health?.optString("loginState"), now)
 }
 
 @Composable private fun MenuIcon(resource: Int, color: Color = Soft, size: Int = 19) {
@@ -78,6 +101,7 @@ private data class MenuItem(val title: String, val icon: Int)
 }
 
 @Composable private fun FleetMenu(state: FleetUiState, open: (String) -> Unit) {
+    val connection = botConnection(state)
     MaterialTheme(colorScheme = lightColorScheme(background = MenuBackground, surface = Color.White, onSurface = Ink, onBackground = Ink, primary = Accent)) {
         Column(Modifier.fillMaxSize().background(MenuBackground).windowInsetsPadding(WindowInsets.statusBars)) {
             Column(Modifier.fillMaxWidth().background(Color.White).padding(19.dp)) {
@@ -115,7 +139,7 @@ private data class MenuItem(val title: String, val icon: Int)
                         }
                 }
                 Row(Modifier.fillMaxWidth().padding(top = 11.dp).background(Color(0xFFEEF1F5), RoundedCornerShape(10.dp)).clickable { open("종결 봇") }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("종결 봇 · 상태 확인 준비 중", color = Soft, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                    Text("종결 봇 · ${connection.label}", color = if (connection == BotConnection.CONNECTED) Color(0xFF438970) else if (connection == BotConnection.LOGIN_FAILED) Color(0xFFAE5A58) else Soft, fontSize = 11.sp, modifier = Modifier.weight(1f))
                     MenuIcon(R.drawable.menu_chevron, size = 13)
                 }
                 SectionLabel("차량 업무")

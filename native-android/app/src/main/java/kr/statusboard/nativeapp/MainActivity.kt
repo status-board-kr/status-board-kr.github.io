@@ -37,7 +37,7 @@ class MainActivity : ComponentActivity() {
                 val model: FleetViewModel = viewModel()
                 val state by model.state.collectAsStateWithLifecycle()
                 Surface(Modifier.fillMaxSize()) {
-                    if (state.signedIn) FleetShell(state, model::refresh, model::logout) else Login(state, model::login)
+                    if (state.signedIn) FleetShell(state, model::refresh, model::logout, model::retryWooky) else Login(state, model::login)
                 }
             }
         }

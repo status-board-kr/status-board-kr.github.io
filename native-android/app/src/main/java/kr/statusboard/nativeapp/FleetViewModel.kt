@@ -1,6 +1,7 @@
 package kr.statusboard.nativeapp
 
 import android.app.Application
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.auth.FirebaseAuth
@@ -12,6 +13,8 @@ import kotlinx.coroutines.tasks.await
 import kr.statusboard.core.*
 import org.json.JSONObject
 
+data class PendingFleetPhoto(val id: String, val caption: String, val photoIds: List<String>, val reading: PhotoReading, val candidates: List<String>)
+
 data class FleetUiState(
     val signedIn: Boolean = false, val busy: Boolean = false, val message: String = "",
     val session: FleetSession? = null, val companyName: String = "현황판",
@@ -19,7 +22,7 @@ data class FleetUiState(
     val schedules: JSONObject = JSONObject(), val scheduleLoaded: Boolean = false,
     val homeBranch: String = "기본 지점", val longBranch: String = "장기",
     val chat: JSONObject = JSONObject(), val members: JSONObject = JSONObject(), val wookyJobs: JSONObject = JSONObject(),
-    val realtimeConnected: Boolean = false, val sending: Boolean = false
+    val realtimeConnected: Boolean = false, val sending: Boolean = false, val pendingPhoto: PendingFleetPhoto? = null
 )
 class FleetViewModel(application: Application) : AndroidViewModel(application) {
     private val auth = FirebaseAuth.getInstance()
@@ -28,6 +31,7 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
     private val repository = FleetRepository(cache, NativeFleetGateway(transport))
     private val streams = FleetStreams()
     private val operations = FleetOperations(auth, transport)
+    private val vision by lazy { FleetVision(application, transport) }
     private var pendingMessage: Pair<String, String>? = null
     private val _state = MutableStateFlow(FleetUiState())
     val state = _state.asStateFlow()
@@ -160,6 +164,82 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
                     if (error is AccessDenied) revoke(epoch)
                     else _state.value = _state.value.copy(sending = false, message = "저장 응답을 확인하지 못했습니다. 입력 내용으로 다시 시도하면 같은 요청을 확인합니다.")
                     complete(false)
+                }
+            }
+        }
+    }
+    fun retryWooky() {
+        val session = _state.value.session ?: return
+        if (_state.value.sending || !session.isAdmin) return
+        val epoch = generation
+        _state.value = _state.value.copy(sending = true, message = "")
+        viewModelScope.launch {
+            try {
+                val count = operations.retryWooky(session)
+                if (epoch == generation) _state.value = _state.value.copy(sending = false, message = if (count > 0) "${count}건 재시도를 요청했습니다." else "재시도할 실패 건이 없거나 이미 대기 중입니다.")
+            } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                if (epoch == generation) {
+                    if (error is AccessDenied) revoke(epoch)
+                    else _state.value = _state.value.copy(sending = false, message = "재시도 요청 저장에 실패했습니다. 연결을 확인해주세요.")
+                }
+            }
+        }
+    }
+    fun sendPhotos(caption: String, uris: List<Uri>, complete: (Boolean) -> Unit) {
+        val session = _state.value.session ?: return
+        if (_state.value.sending || uris.isEmpty()) return
+        val epoch = generation; val id = operations.newId(session)
+        _state.value = _state.value.copy(sending = true, message = "사진 준비 중…")
+        viewModelScope.launch {
+            try {
+                val access = FleetAccessResolver(NativeMembership(transport)).resolve(session.uid)
+                if (access?.cacheKey != session.cacheKey) throw AccessDenied()
+                val data = uris.take(12).map { FleetPhotos.compress(getApplication(), it) }
+                if (epoch != generation) return@launch
+                val ids = FleetPhotos.upload(session, id, data, null)
+                if (epoch != generation) return@launch
+                operations.sendText(session, id, caption, _state.value.homeBranch, _state.value.longBranch, ids, applyCommands=false)
+                if (epoch != generation) return@launch
+                if (!FleetPhotoRouting.needsAnalysis(caption, _state.value.longBranch)) { _state.value = _state.value.copy(sending=false, message="사진 전송됨"); complete(true); return@launch }
+                _state.value = _state.value.copy(message = "사진의 번호판·주행거리 확인 중…")
+                val reading = vision.read(session, data)
+                if (epoch != generation) return@launch
+                val route = FleetPhotoRouting.route(caption, reading, _state.value.vehicles, _state.value.longBranch)
+                if (route.chooseVehicle) {
+                    _state.value = _state.value.copy(sending=false, message=reading.reason, pendingPhoto=PendingFleetPhoto(id,caption,ids,reading,route.candidates))
+                } else {
+                    route.command?.let { operations.sendText(session,id,caption,_state.value.homeBranch,_state.value.longBranch,ids,it.copy(photoId=ids.first())) }
+                    if (epoch == generation) _state.value = _state.value.copy(sending=false,message="현황판에 반영됨")
+                }
+                if (epoch == generation) complete(true)
+            } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                if (epoch == generation) {
+                    if (error is AccessDenied) revoke(epoch)
+                    else _state.value = _state.value.copy(sending=false,message="사진 처리 중 확인이 필요합니다. 전송된 대화와 차량 상태를 먼저 확인해주세요.")
+                    complete(false)
+                }
+            }
+        }
+    }
+    fun choosePhotoVehicle(plate: String?) {
+        val pending = _state.value.pendingPhoto ?: return
+        val session = _state.value.session ?: return
+        if (plate == null) { _state.value = _state.value.copy(pendingPhoto=null,message="사진만 전송했습니다. 차량 명령은 실행하지 않았습니다."); return }
+        val epoch = generation
+        _state.value = _state.value.copy(sending=true,message="")
+        viewModelScope.launch {
+            try {
+                val route = FleetPhotoRouting.route(pending.caption,pending.reading,_state.value.vehicles,_state.value.longBranch,plate)
+                val command = route.command ?: error("차량을 선택해주세요.")
+                operations.sendText(session,pending.id,pending.caption,_state.value.homeBranch,_state.value.longBranch,pending.photoIds,command.copy(photoId=pending.photoIds.first()))
+                if (epoch == generation) _state.value = _state.value.copy(sending=false,pendingPhoto=null,message="현황판에 반영됨")
+            } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                if (epoch == generation) {
+                    if (error is AccessDenied) revoke(epoch)
+                    else _state.value = _state.value.copy(sending=false,message="선택한 차량 처리를 확인하지 못했습니다. 차량 상태를 확인한 뒤 다시 시도해주세요.")
                 }
             }
         }

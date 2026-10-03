@@ -31,14 +31,17 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
     private fun root(session: FleetSession) = db.getReference(session.path(""))
     fun newId(session: FleetSession) = root(session).child("chat").push().key!!
 
-    suspend fun sendText(session: FleetSession, id: String, text: String, home: String, long: String): String = lock.withLock {
-        require(text.isNotBlank() && text.length <= 2000)
+    suspend fun sendText(session: FleetSession, id: String, text: String, home: String, long: String,
+        photos: List<String> = emptyList(), command: FleetCommand? = null, applyCommands: Boolean = true): String = lock.withLock {
+        require((text.isNotBlank() || photos.isNotEmpty()) && text.length <= 2000)
         verify(session)
         val company = root(session)
         val now = Instant.now()
-        createOnce(company.child("chat/$id"), mapOf("text" to text, "uid" to session.uid,
-            "email" to auth.currentUser?.email.orEmpty(), "at" to now.toString(), "type" to "text"))
-        val cmd = try { FleetCommands.parse(text, long) } catch (error: IllegalArgumentException) {
+        createOnce(company.child("chat/$id"), mapOf("text" to text.ifBlank { "📷 사진 ${photos.size}장" }, "uid" to session.uid,
+            "email" to auth.currentUser?.email.orEmpty(), "at" to now.toString(), "type" to if (photos.isEmpty()) "text" else "photo",
+            "photoId" to photos.firstOrNull(), "photoIds" to photos.takeIf { it.size > 1 }))
+        if (!applyCommands) return@withLock "사진 전송됨"
+        val cmd = command ?: try { FleetCommands.parse(text, long) } catch (error: IllegalArgumentException) {
             val result = error.message.orEmpty(); system(company, id, result, now); return@withLock result
         } ?: return@withLock "전송됨"
         val vehicles = company.child("vehicles").get().await()
@@ -70,11 +73,12 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
                     val changes = FleetCommands.changes(raw, cmd, home, long, now.atZone(zone).toLocalDate(), now)
                     val next = raw + changes
                     val result = "✓ $plate ${if (cmd.recall) "회수 완료" else if (cmd.dispatch) "배차 완료" else "변경됨"}\n구분: ${next["type"] ?: "—"}\n상태: ${next["status"] ?: "—"}\n메모: ${next["note"] ?: "—"}" +
-                        if (cmd.recall) "\n종료 주행거리: 미입력 · 종결 요청 처리 중" else ""
+                        if (cmd.recall) "\n종료 주행거리: ${cmd.returnKm?.let { "${it}km" } ?: "미입력"} · 종결 요청 처리 중" else ""
                     val op = mapOf("at" to now.toString(), "plate" to plate, "recall" to cmd.recall,
                         "oldReturnDate" to raw["returnDate"], "oldType" to raw["type"],
                         "newReturnDate" to next["returnDate"], "newType" to next["type"],
-                        "message" to result, "by" to auth.currentUser?.email.orEmpty())
+                        "message" to result, "by" to auth.currentUser?.email.orEmpty(), "returnKm" to cmd.returnKm,
+                        "photoId" to cmd.photoId, "otherPlates" to cmd.otherPlates.joinToString(" ").ifBlank { null })
                     next + ("_nativeOperations" to (pending + (id to op)))
                 }
             }
@@ -149,7 +153,8 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
         if (recall) {
             val record = mapOf("title" to "$plate 회수", "plate" to plate,
                 "type" to op["oldType"], "date" to (oldDate ?: at.take(10)), "done" to true, "auto" to true,
-                "doneAt" to at, "billed" to false, "nativeOperation" to id)
+                "doneAt" to at, "billed" to false, "nativeOperation" to id, "returnKm" to op["returnKm"],
+                "photoId" to op["photoId"], "otherPlates" to op["otherPlates"])
             var archived = false
             if (!oldDate.isNullOrBlank()) {
                 val updated = transact(schedule) { current ->
@@ -157,14 +162,15 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
                     // Preserve billing fields and do not complete a later redispatch's schedule.
                     if (existing["nativeOperation"] == id) current
                     else if (existing["date"] == oldDate && existing["done"] != true)
-                        existing + mapOf("done" to true, "doneAt" to at, "type" to op["oldType"], "plate" to plate, "nativeOperation" to id)
+                        existing + mapOf("done" to true, "doneAt" to at, "type" to op["oldType"], "plate" to plate, "nativeOperation" to id,
+                            "returnKm" to op["returnKm"], "photoId" to op["photoId"], "otherPlates" to op["otherPlates"])
                     else current
                 }
                 archived = asMap(updated)["nativeOperation"] == id
             }
             if (!archived) createOnce(company.child("schedules/$id"), record)
             createOnce(company.child("wookyJobs/$id"), mapOf("plate" to plate, "endAt" to at,
-                "status" to "pending", "at" to at, "by" to op["by"], "nativeOperation" to id))
+                "status" to "pending", "at" to at, "by" to op["by"], "nativeOperation" to id, "km" to op["returnKm"]))
         } else if (!oldDate.isNullOrBlank() && nextDate.isNullOrBlank()) {
             transact(schedule) { current ->
                 val record = asMap(current)
@@ -172,7 +178,7 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
             }
         }
         createOnce(company.child("plateHistory/$plate/$id"), mapOf("time" to DateTimeFormatter.ofPattern("MM/dd HH:mm").withZone(zone).format(Instant.parse(at)),
-            "text" to if (recall) "회수 처리 → 대기" else op["message"], "nativeOperation" to id))
+            "text" to (if (recall) "회수 처리 → 대기" else op["message"].toString()) + (op["otherPlates"]?.let { " · 상대차량 $it" } ?: ""), "nativeOperation" to id, "photoId" to op["photoId"]))
         createOnce(company.child("chat/$id-result"), mapOf("uid" to "system", "email" to "현황판",
             "type" to "system", "at" to at, "text" to (op["message"].toString().replace("종결 요청 처리 중", "종결 요청 저장됨"))))
         transact(vehicle) { current ->

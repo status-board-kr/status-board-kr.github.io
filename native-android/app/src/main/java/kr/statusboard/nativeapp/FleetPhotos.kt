@@ -8,6 +8,7 @@ import android.media.ExifInterface
 import android.net.Uri
 import android.util.Base64
 import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -69,6 +70,7 @@ object FleetPhotos {
         val gate = Semaphore(2)
         data.mapIndexed { index, photo -> async {
             gate.withPermit {
+                check(FirebaseAuth.getInstance().currentUser?.uid == session.uid) { "계정이 변경되었습니다." }
                 val id = "$operationId-photo-$index"
                 FirebaseDatabase.getInstance().getReference(session.path("photos/$id")).setValue(mapOf(
                     "data" to photo, "uid" to session.uid, "plate" to plate, "at" to Instant.now().toString())).await()

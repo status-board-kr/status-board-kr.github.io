@@ -8,4 +8,6 @@ for(const key of ['apiKey','appId','projectId','databaseURL'])if(typeof config[k
 if(!config.databaseURL.startsWith('https://'))throw new Error('HTTPS required');
 const dir=path.resolve(__dirname,'../app/src/main/assets');fs.mkdirSync(dir,{recursive:true});
 fs.writeFileSync(path.join(dir,'firebase-client.json'),JSON.stringify(config));
+const readConstant=(name)=>{const expr=html.match(new RegExp('const '+name+'\\s*=\\s*([\\s\\S]*?);'));if(!expr)throw new Error('Missing public vision setting: '+name);return vm.runInNewContext('('+expr[1]+')');};
+fs.writeFileSync(path.join(dir,'vision-client.json'),JSON.stringify({geminiModels:readConstant('GEMINI_MODELS'),grokModels:readConstant('GROK_MODELS'),prompt:readConstant('AI_PHOTO_PROMPT')}));
 console.log('Public Firebase client configuration prepared; no server credentials');

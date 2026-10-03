@@ -23,4 +23,15 @@ class FleetPhotoRoutingTest {
         assertTrue(selected.command!!.recall); assertNull(selected.command.returnKm)
         assertEquals(50000L, FleetPhotoRouting.route("회수", uncertain.copy(confident=true), vehicles).command!!.returnKm)
     }
+    @Test fun choosesFullPlateWhenTwoFleetCarsHaveTheSameSuffix() {
+        val two = vehicles + vehicles.single().copy(sourceIndex=1,plate="다른하1234")
+        assertTrue(FleetPhotoRouting.route("1234 회수",PhotoReading(),two).chooseVehicle)
+        assertEquals("다른하1234", FleetPhotoRouting.route("회수",PhotoReading(),two,chosenTail="다른하1234").command!!.plateToken)
+    }
+    @Test fun ordinaryPhotoCaptionDoesNotInvokePaidAi() {
+        assertFalse(FleetPhotoRouting.needsAnalysis("차량 사진 보내드립니다"))
+        assertFalse(FleetPhotoRouting.needsAnalysis(""))
+        assertTrue(FleetPhotoRouting.needsAnalysis("1234ㅎㅅ"))
+        assertTrue(FleetPhotoRouting.needsAnalysis("ㅈㅇ 보험 거래처"))
+    }
 }
