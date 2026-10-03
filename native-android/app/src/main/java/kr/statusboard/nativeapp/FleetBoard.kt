@@ -186,12 +186,13 @@ private fun palette(type: String): Pair<Color, Color> {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable private fun VehicleCard(vehicle: FleetVehicle, longBranch: String, today: LocalDate, enabled: Boolean, idle: () -> Unit, click: () -> Unit) {
     val type = when { vehicle.status == "대기" || vehicle.status == "준비중" -> vehicle.status; vehicle.type == longBranch -> "장기"; else -> vehicle.type.orEmpty() }
     val (background, edge) = palette(type)
     val due = FleetPresentation.isDue(vehicle, today)
     val transition = rememberInfiniteTransition(label = "return-warning")
-    val opacity by transition.animateFloat(1f, .45f, infiniteRepeatable(tween(750), RepeatMode.Reverse), label = "return-opacity")
+    val opacity by transition.animateFloat(1f, .35f, infiniteRepeatable(tween(500), RepeatMode.Reverse), label = "return-opacity")
     val warning = if (due) Color(0xFFF87171) else edge
     var pressed by remember { mutableStateOf(false) }
     var holdTriggered by remember { mutableStateOf(false) }
@@ -209,25 +210,49 @@ private fun palette(type: String): Pair<Color, Color> {
             }
         }) }.padding(horizontal = 12.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(vehicle.plate, fontSize = 19.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, letterSpacing = .2.sp)
-                if (type.isNotBlank()) Text(type, fontSize = 10.sp, color = edge, modifier = Modifier.background(edge.copy(alpha = .12f), RoundedCornerShape(6.dp)).padding(horizontal = 5.dp, vertical = 2.dp))
-                Text(statusLabel(vehicle, today), fontSize = 10.sp, color = if (due) warning else WebSub, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.background(if (due) warning.copy(alpha = .18f) else WebPanel2, RoundedCornerShape(20.dp)).padding(horizontal = 7.dp, vertical = 2.dp).alpha(if (due) opacity else 1f))
+                vehicle.type?.takeIf(String::isNotBlank)?.let { label -> val ink = palette(if (label == longBranch) "장기" else label).second
+                    Text(label, fontSize = 11.sp, color = ink, modifier = Modifier.background(ink.copy(alpha = .12f), RoundedCornerShape(6.dp)).padding(horizontal = 5.dp, vertical = 2.dp)) }
+                val idleStatus = vehicle.status == "대기"
+                val statusInk = if (idleStatus) Color(0xFF9BE1B6) else Color(0xFFB4D6FC)
+                Text(statusLabel(vehicle, today), fontSize = 10.sp, color = if (FleetAppearance.dark) statusInk else palette(if (idleStatus) "대기" else "보험").second,
+                    modifier = Modifier.background(if (FleetAppearance.dark) (if (idleStatus) Color(0xFF23543E) else Color(0xFF294A70)) else WebPanel2, RoundedCornerShape(6.dp)).padding(horizontal = 5.dp, vertical = 2.dp))
+                @Composable fun badge(label: String, ink: Color, flash: Boolean = false) { Text(label, fontSize = 10.sp, color = ink, modifier = Modifier.background(ink.copy(alpha = .18f), RoundedCornerShape(6.dp)).padding(5.dp, 2.dp).alpha(if (flash) opacity else 1f)) }
+                val returnDays = FleetPresentation.date(vehicle.returnDate)?.let { ChronoUnit.DAYS.between(today, it) }
+                if (due) badge("⏰ 반납일 도래", warning, true) else if (returnDays == 1L) badge("🔔 반납임박", WebAmber)
+                if (vehicle.type == "일반" && vehicle.rawFields["depositPaid"] != true) badge("💸 미입금", Color(0xFFF87171))
+                listOf("insuranceDate" to "보험", "ageExpireDate" to "차령").forEach { (field, label) -> FleetPresentation.date(vehicle.rawFields[field]?.toString())?.let { expiry ->
+                    val remaining = ChronoUnit.DAYS.between(today, expiry)
+                    if (remaining <= 0) badge("⏰ ${label}만료", Color(0xFFF87171), true) else if (remaining <= 30) badge("🔔 ${label}임박", WebAmber)
+                } }
             }
             Text(listOf(vehicle.rawFields["cls"]?.toString(), vehicle.model, vehicle.rawFields["fuel"]?.toString()).filterNot { it.isNullOrBlank() }.joinToString(" · "), color = WebSub, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
             if (vehicle.type == "일반") ReturnLine(vehicle, today, due, opacity)
             vehicle.note?.takeIf(String::isNotBlank)?.let { Text(it, fontSize = 12.sp, modifier = Modifier.padding(top = 3.dp)) }
             vehicle.rawFields["extra"]?.toString()?.takeIf(String::isNotBlank)?.let { Text(it, color = WebSub, fontSize = 10.sp, modifier = Modifier.padding(top = 2.dp)) }
             if (vehicle.type != "일반") ReturnLine(vehicle, today, due, opacity)
-            FleetPresentation.warnings(vehicle, today).forEach { Text(it, color = WebAmber, fontSize = 10.sp, modifier = Modifier.padding(top = 3.dp)) }
+            val raw = vehicle.rawFields
+            val years = (raw["asYears"] as? Number)?.toLong() ?: raw["asYears"]?.toString()?.toLongOrNull() ?: 3L
+            val asExpiry = FleetPresentation.date(raw["regDate"]?.toString())?.plusYears(years)
+            @Composable fun expiryLine(date: LocalDate?, limit: Long, dueLabel: String, soonLabel: String, complete: Boolean = false) { date?.let {
+                val days = ChronoUnit.DAYS.between(today, it)
+                if (days <= limit) { val overdue = days <= 0; val dday = if (days == 0L) "D-day" else if (days > 0) "D-$days" else "D+${-days}"
+                    Text("${if (complete) "✅" else if (overdue) "⏰" else "🔧"} ${if (overdue) dueLabel else soonLabel}: ${it.year}년 ${it.monthValue}월 ${it.dayOfMonth}일 ($dday)", fontSize = 10.5.sp,
+                        color = if (complete) Color(0xFF34D399) else if (overdue) Color(0xFFF87171) else WebAmber, modifier = Modifier.padding(top = 2.dp).alpha(if (overdue && !complete) opacity else 1f))
+                }
+            } }
+            if (raw["asAckExpire"]?.toString() != asExpiry?.toString()) expiryLine(asExpiry, 60, "A/S 만료 (${years}년 기준)", "A/S 종료 임박 (${years}년 기준)")
+            val inspection = if (raw["inspectionType"] == "연장") "연장검사" else "일반검사"
+            val completed = raw["inspectionDone"] == true
+            expiryLine(FleetPresentation.date(raw["inspectionDate"]?.toString()), 30, "$inspection ${if (completed) "완료" else "예정"}", "$inspection ${if (completed) "완료" else "예정"}", completed)
         }
         val amount = vehicle.rawFields["amount"]?.toString().orEmpty().takeUnless { it in listOf("", "null", "0", "0.0") }
         amount?.let { Column(Modifier.padding(start = 6.dp), horizontalAlignment = Alignment.End) {
             vehicle.rawFields["customerName"]?.toString()?.takeIf { it.isNotBlank() && it != "null" }?.let { name -> Text(name, color = WebSub, fontSize = 11.sp) }
             Text("${it.removeSuffix(".0")}만원", color = WebSub, fontSize = 11.sp)
             vehicle.rawFields["payDay"]?.toString()?.takeIf { it.isNotBlank() && it != "null" }?.let { day -> Text("매월 ${day.removeSuffix(".0")}일", color = WebSub, fontSize = 10.sp) }
-            if (vehicle.type == "일반") Text(if (vehicle.rawFields["depositPaid"] == true) "입금완료" else "미입금", color = WebAmber, fontSize = 10.sp)
+            if (vehicle.type == "일반") Text(if (vehicle.rawFields["depositPaid"] == true) "💰 입금완료" else "⚠️ 미입금", color = if (vehicle.rawFields["depositPaid"] == true) Color(0xFF34D399) else Color(0xFFF87171), fontSize = 10.sp)
         } }
     }
 }

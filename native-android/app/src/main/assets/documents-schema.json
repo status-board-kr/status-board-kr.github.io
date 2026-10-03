@@ -1900,6 +1900,7 @@
         {
           "id": "n_p1_deposit",
           "label": "조건 1 · 보증금 (%)",
+          "section": "보증금별 월 렌트료 — 자동 계산 · 필요한 안만 채우세요",
           "kind": "input",
           "type": "text",
           "options": [],
@@ -1908,6 +1909,7 @@
         {
           "id": "n_p1_prepay",
           "label": "조건 1 · 선납금 (%)",
+          "section": "보증금별 월 렌트료 — 자동 계산 · 필요한 안만 채우세요",
           "kind": "input",
           "type": "text",
           "options": [],
@@ -1916,6 +1918,7 @@
         {
           "id": "n_p1_price",
           "label": "조건 1 · 월 렌트료 (원)",
+          "section": "보증금별 월 렌트료 — 자동 계산 · 필요한 안만 채우세요",
           "kind": "input",
           "type": "text",
           "options": [],
@@ -1924,6 +1927,7 @@
         {
           "id": "n_p2_deposit",
           "label": "조건 2 · 보증금 (%)",
+          "section": "보증금별 월 렌트료 — 자동 계산 · 필요한 안만 채우세요",
           "kind": "input",
           "type": "text",
           "options": [],
@@ -1932,6 +1936,7 @@
         {
           "id": "n_p2_prepay",
           "label": "조건 2 · 선납금 (%)",
+          "section": "보증금별 월 렌트료 — 자동 계산 · 필요한 안만 채우세요",
           "kind": "input",
           "type": "text",
           "options": [],
@@ -1940,6 +1945,7 @@
         {
           "id": "n_p2_price",
           "label": "조건 2 · 월 렌트료 (원)",
+          "section": "보증금별 월 렌트료 — 자동 계산 · 필요한 안만 채우세요",
           "kind": "input",
           "type": "text",
           "options": [],
@@ -1948,6 +1954,7 @@
         {
           "id": "n_p3_deposit",
           "label": "조건 3 · 보증금 (%)",
+          "section": "보증금별 월 렌트료 — 자동 계산 · 필요한 안만 채우세요",
           "kind": "input",
           "type": "text",
           "options": [],
@@ -1956,6 +1963,7 @@
         {
           "id": "n_p3_prepay",
           "label": "조건 3 · 선납금 (%)",
+          "section": "보증금별 월 렌트료 — 자동 계산 · 필요한 안만 채우세요",
           "kind": "input",
           "type": "text",
           "options": [],
@@ -1964,6 +1972,7 @@
         {
           "id": "n_p3_price",
           "label": "조건 3 · 월 렌트료 (원)",
+          "section": "보증금별 월 렌트료 — 자동 계산 · 필요한 안만 채우세요",
           "kind": "input",
           "type": "text",
           "options": [],

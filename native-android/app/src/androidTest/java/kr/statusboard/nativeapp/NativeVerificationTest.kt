@@ -23,11 +23,15 @@ class NativeVerificationTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val dir = context.getExternalFilesDir("verification")!!.apply { mkdirs() }
         val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
-        val file = File(dir, "$name.png")
+        val safeName = name.replace(Regex("\\s+"), "-")
+        val file = File(dir, "$safeName.png")
         file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
         bitmap.recycle()
         // AGP uninstalls the target after instrumentation. Keep proof outside its removed directory.
-        InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("mkdir -p /data/local/tmp/native-verification; cp '${file.absolutePath}' '/data/local/tmp/native-verification/$name.png'").use { output -> android.os.ParcelFileDescriptor.AutoCloseInputStream(output).readBytes() }
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        for (command in listOf("mkdir -p /data/local/tmp/native-verification", "cp ${file.absolutePath} /data/local/tmp/native-verification/$safeName.png")) {
+            automation.executeShellCommand(command).use { output -> android.os.ParcelFileDescriptor.AutoCloseInputStream(output).readBytes() }
+        }
     }
     @Test fun filtersAndActionsPreserveWebOrder() {
         compose.onNodeWithText("예시1234").assertIsDisplayed()

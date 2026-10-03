@@ -29,7 +29,8 @@ import java.util.UUID
 @Composable internal fun FleetDocuments(state: FleetUiState, model: FleetViewModel, close: () -> Unit) {
     val context = LocalContext.current; val schema = remember { FleetDocumentSchema.load(context) }
     val tabs = schema.getJSONArray("tabs").let { list -> (0 until list.length()).map(list::getJSONObject) }
-    var editor by remember { mutableStateOf<JSONObject?>(tabs.first()) }; var record by remember { mutableStateOf<JSONObject?>(null) }; var key by remember { mutableStateOf<String?>(model.newDocumentKey()) }
+    fun draftKey() = model.newDocumentKey() ?: UUID.randomUUID().toString()
+    var editor by remember { mutableStateOf<JSONObject?>(tabs.first()) }; var record by remember { mutableStateOf<JSONObject?>(null) }; var key by remember { mutableStateOf<String?>(draftKey()) }
     var query by remember { mutableStateOf("") }; var removing by remember { mutableStateOf<String?>(null) }
     var ratesOpen by remember { mutableStateOf(false) }
     LaunchedEffect(state.session?.cacheKey) { model.loadDocuments() }
@@ -40,7 +41,7 @@ import java.util.UUID
             val choices = tabs.map { it.getString("key") to it.getString("label") } + ("saved" to "📂 저장된 문서")
             choices.chunked(3).forEach { row -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 row.forEach { (type, label) -> OutlinedButton(onClick = {
-                    editor = tabs.firstOrNull { it.getString("key") == type }; record = null; key = model.newDocumentKey()
+                    editor = tabs.firstOrNull { it.getString("key") == type }; record = null; key = draftKey()
                 }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)) { Text(label, fontSize = 12.sp, color = if ((editor?.getString("key") ?: "saved") == type) androidx.compose.ui.graphics.Color(0xFF38BDF8) else FleetAppearance.text, maxLines = 2) } }
                 repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
             } }
@@ -80,7 +81,7 @@ import java.util.UUID
         if (tab.getString("key") == "newcar") fields.put("c_price", from.optString("n_p1_price"))
         fields.put("c_special", from.optString("${oldPrefix}_special").ifBlank { from.optString("${oldPrefix}_note") })
         record = JSONObject().put("fields", fields).put("radios", JSONObject().put("c_id_type", draft.optJSONObject("radios")?.optString("${oldPrefix}_birth_type", "birth")?.let { if (it == "biz") "biz" else "rrn" }))
-        key = model.newDocumentKey(); editor = contract
+        key = draftKey(); editor = contract
     }, header) } }
     removing?.let { id -> AlertDialog(onDismissRequest = { removing = null }, title = { Text("문서 삭제") }, text = { Text("선택한 저장 문서를 삭제할까요? 삭제한 문서는 복원할 수 없습니다.") },
         confirmButton = { TextButton(onClick = { model.deleteDocument(id); removing = null }) { Text("삭제") } }, dismissButton = { TextButton(onClick = { removing = null }) { Text("취소") } }) }

@@ -47,7 +47,7 @@ const schema = Object.entries(tabs).map(([key,[label,prefix]]) => {
     const options=kind==='select'?[...(match[3]||'').matchAll(/<option\b([^>]*)>([\s\S]*?)<\/option>/g)].map(x=>({value:attr(x[1],'value')??text(x[2]),label:text(x[2]),selected:/\bselected\b/.test(x[1])})):[];
     fields.push({id,label:title,kind,type,section:place.section||'',cell:place.cell,radioNames:place.radioNames||[],placeholder:attr(attrs,'placeholder')||'',readonly:/\breadonly\b/.test(attrs),options,value:attr(attrs,'value')??(kind==='textarea'?text(match[3]||''):(options.find(x=>x.selected)||options[0])?.value||'')});
   }
-  if(key==='newcar')for(let option=1;option<=3;option++) for(const [name,title] of [['deposit','보증금 (%)'],['prepay','선납금 (%)'],['price','월 렌트료 (원)']]) fields.push({id:`n_p${option}_${name}`,label:`조건 ${option} · ${title}`,kind:'input',type:'text',options:[],value:''});
+  if(key==='newcar')for(let option=1;option<=3;option++) for(const [name,title] of [['deposit','보증금 (%)'],['prepay','선납금 (%)'],['price','월 렌트료 (원)']]) fields.push({id:`n_p${option}_${name}`,label:`조건 ${option} · ${title}`,section:fields.find(f=>f.id==='n_period').section,kind:'input',type:'text',options:[],value:''});
   return {key,label,prefix,fields,radios};
 });
 function source(name) {
