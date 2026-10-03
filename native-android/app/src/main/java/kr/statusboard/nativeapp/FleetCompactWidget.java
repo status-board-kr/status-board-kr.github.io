@@ -8,6 +8,7 @@ public class FleetCompactWidget extends AppWidgetProvider {
     @Override
     public void onUpdate(Context ctx, AppWidgetManager m, int[] ids) {
         FleetWidgetUtil.update(ctx, m, ids, FleetWidgetUtil.COMPACT);
+        FleetWidgetRefresh.enqueue(ctx);
     }
 
     // 위젯 안에서 날짜를 눌렀을 때: 고른 날짜를 저장하고 다시 그림
@@ -22,4 +23,5 @@ public class FleetCompactWidget extends AppWidgetProvider {
             FleetWidgetUtil.update(ctx, m, m.getAppWidgetIds(new android.content.ComponentName(ctx, FleetCompactWidget.class)), FleetWidgetUtil.COMPACT);
         }
     }
+    @Override public void onDisabled(Context ctx) { FleetWidgetRefresh.enqueue(ctx); }
 }

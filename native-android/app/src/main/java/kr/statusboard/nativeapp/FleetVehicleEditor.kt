@@ -25,6 +25,7 @@ import java.util.UUID
     var inspectionDone by remember { mutableStateOf(vehicle.rawFields["inspectionDone"] == true) }
     var documentAction by remember { mutableStateOf<String?>(null) }
     var documentError by remember { mutableStateOf("") }
+    var deleting by remember { mutableStateOf(false) }
     val editId = remember(vehicle.plate) { UUID.randomUUID().toString() }
     var pendingExtension by remember { mutableStateOf<Map<String, Any?>?>(null) }
     val type = values["type"].orEmpty()
@@ -73,6 +74,7 @@ import java.util.UUID
             }
             Text("날짜는 YYYY-MM-DD 형식으로 입력해주세요.", color = WebSub, fontSize = 11.sp)
             if (state.message.isNotBlank()) Text(state.message, color = WebSub, fontSize = 12.sp)
+            TextButton(onClick = { deleting = true }, enabled = editable, modifier = Modifier.fillMaxWidth()) { Text("차량 삭제", color = androidx.compose.ui.graphics.Color(0xFFF87171)) }
         }
         Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = close, modifier = Modifier.weight(1f)) { Text("취소") }
@@ -88,6 +90,10 @@ import java.util.UUID
             }, enabled = editable, colors = ButtonDefaults.buttonColors(containerColor = WebAmber, contentColor = WebPanel), modifier = Modifier.weight(1f)) { Text("저장") }
         }
     }
+    if (deleting) AlertDialog(onDismissRequest = { deleting = false }, title = { Text("차량 삭제") },
+        text = { Text("${vehicle.plate} 차량과 미완료 자동 회수 일정을 삭제할까요? 완료된 회수·매출 기록은 유지되며 변경기록에서 차량을 복원할 수 있습니다.") },
+        confirmButton = { TextButton(onClick = { model.deleteVehicle(vehicle, editId) { if (it) close() } }, enabled = editable) { Text("삭제") } },
+        dismissButton = { TextButton(onClick = { deleting = false }) { Text("취소") } })
     documentAction?.let { action ->
         val inspection = action == "검사 완료"
         AlertDialog(onDismissRequest = { documentAction = null }, title = { Text(action) },

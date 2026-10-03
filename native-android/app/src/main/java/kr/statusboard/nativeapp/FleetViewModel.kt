@@ -31,7 +31,7 @@ data class FleetUiState(
     val paymentSettings: JSONObject = JSONObject(), val paymentOverrides: JSONObject = JSONObject(),
     val generalSales: JSONObject = JSONObject(), val paymentSendLog: JSONObject = JSONObject(),
     val quickApps: JSONObject = JSONObject(), val companySettings: JSONObject? = null, val history: JSONObject? = null,
-    val documents: JSONObject? = null
+    val documents: JSONObject? = null, val inquiries: JSONObject = JSONObject()
 )
 class FleetViewModel(application: Application) : AndroidViewModel(application) {
     private val auth = FirebaseAuth.getInstance()
@@ -53,7 +53,8 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
             state.collectLatest { value ->
                 delay(500)
                 FleetWidgets.publish(application, value) { _state.value.session?.cacheKey }
-                FleetNotifications.schedule(application, value)
+                if (_state.value.session?.cacheKey == value.session?.cacheKey && auth.currentUser?.uid == value.session?.uid)
+                    FleetNotifications.schedule(application, value)
             }
         }
         if (auth.currentUser != null) refresh()
@@ -159,6 +160,7 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
                             "generalSales" -> _state.value = _state.value.copy(generalSales = value as? JSONObject ?: JSONObject())
                             "paymentSendLog" -> _state.value = _state.value.copy(paymentSendLog = value as? JSONObject ?: JSONObject())
                             "quickApps" -> _state.value = _state.value.copy(quickApps = value as? JSONObject ?: JSONObject())
+                            "inquiries" -> _state.value = _state.value.copy(inquiries = value as? JSONObject ?: JSONObject())
                             "connected" -> _state.value = _state.value.copy(realtimeConnected = value == true)
                             "error" -> _state.value = _state.value.copy(message = value.toString())
                         }
@@ -347,8 +349,15 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
         edit({ operations.saveSchedule(it, key, title, date, repeat, memo) }, complete)
     fun toggleSchedule(key: String, date: String) = edit({ operations.toggleSchedule(it, key, date) })
     fun deleteSchedule(key: String) = edit({ operations.deleteSchedule(it, key) })
+    fun setInquiryContacted(key: String, contacted: Boolean) = edit({ operations.setInquiryContacted(it, key, contacted) })
+    fun deleteVehicle(original: FleetVehicle, id: String, complete: (Boolean) -> Unit) = edit({ operations.deleteVehicle(it, original, id) }, complete)
     fun savePaymentSettings(settings: Map<String, Any?>, complete: (Boolean) -> Unit) = edit({ operations.savePaymentSettings(it, settings) }, complete)
     fun addVehicles(vehicles: List<Map<String, Any?>>, id: String, complete: (Boolean) -> Unit) = edit({ operations.addVehicles(it, vehicles, id) }, complete)
+    fun readRegistration(uris: List<Uri>, complete: (List<Map<String, String>>?) -> Unit) = edit({ session ->
+        val data = uris.take(12).map { FleetPhotos.compress(getApplication(), it) }
+        val result = vision.registration(session, data)
+        if (_state.value.session?.cacheKey == session.cacheKey) complete(result)
+    }) { if (!it) complete(null) }
     fun savePaymentOverride(plate: String, fields: Map<String, Any?>) = edit({ operations.savePaymentOverride(it, plate, fields) })
     fun markPaymentSent(plate: String, month: String, message: String, sent: Boolean) = edit({ operations.markPaymentSent(it, plate, month, message, sent) })
     fun markBilled(key: String, billed: Boolean) = edit({ operations.markBilled(it, key, billed) })

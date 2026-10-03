@@ -34,11 +34,13 @@ object FleetWidgets {
         withContext(Dispatchers.Main) {
             if (currentKey() != state.session.cacheKey) return@withContext
             context.getSharedPreferences("fleet_widget", Context.MODE_PRIVATE).edit()
-                .putString("owner", state.session.cacheKey).putString("data", JSONObject(data).toString()).apply()
+                .putString("owner", state.session.cacheKey).putLong("verifiedAt", System.currentTimeMillis()).putString("data", JSONObject(data).toString()).apply()
             FleetWidgetUtil.refreshAll(context); FleetWidgetWeather.refresh(context)
+            FleetWidgetRefresh.maintain(context)
         }
     }
     fun clear(context: Context) {
+        FleetWidgetRefresh.cancel(context)
         context.getSharedPreferences("fleet_widget", Context.MODE_PRIVATE).edit().clear().apply()
         FleetWidgetUtil.refreshAll(context)
     }

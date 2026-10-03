@@ -73,7 +73,7 @@ internal val WebAmber = androidx.compose.ui.graphics.Color(0xFFF5A623)
     LaunchedEffect(messages.lastOrNull()?.first, state.session?.cacheKey) { model.markChatRead() }
     val visible = if (query.isBlank()) messages else messages.filter { it.second.optString("text").contains(query, true) }
     val list = rememberLazyListState()
-    LaunchedEffect(messages.lastOrNull()?.first) { if (visible.isNotEmpty() && query.isBlank()) list.animateScrollToItem(visible.lastIndex) }
+    LaunchedEffect(messages.lastOrNull()?.first) { if (visible.isNotEmpty() && query.isBlank()) list.animateScrollToItem(visible.size) }
     WebSheet(close) {
         Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 18.dp)) {
             Text("💬 직원 메신저", fontSize = 16.sp)

@@ -19,6 +19,8 @@ public class FleetWidgetUtil {
             com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
             String owner = ctx.getSharedPreferences("fleet_widget", Context.MODE_PRIVATE).getString("owner", "");
             if (user == null || !owner.startsWith(user.getUid()+":")) return null;
+            long verified = ctx.getSharedPreferences("fleet_widget", Context.MODE_PRIVATE).getLong("verifiedAt", 0);
+            if (System.currentTimeMillis() - verified > 20 * 60_000L) return null;
             String s = ctx.getSharedPreferences("fleet_widget", Context.MODE_PRIVATE).getString("data", null);
             return s == null ? null : new JSONObject(s);
         } catch (Exception e) { return null; }

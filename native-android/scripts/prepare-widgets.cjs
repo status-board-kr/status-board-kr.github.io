@@ -20,7 +20,20 @@ for (const name of ['FleetWidgetUtil.java', 'FleetWidgetScheduleActivity.java', 
         try {
             com.google.firebase.auth.FirebaseUser user = com.google.firebase.auth.FirebaseAuth.getInstance().getCurrentUser();
             String owner = ctx.getSharedPreferences("fleet_widget", Context.MODE_PRIVATE).getString("owner", "");
-            if (user == null || !owner.startsWith(user.getUid()+":")) return null;`);
+            if (user == null || !owner.startsWith(user.getUid()+":")) return null;
+            long verified = ctx.getSharedPreferences("fleet_widget", Context.MODE_PRIVATE).getLong("verifiedAt", 0);
+            if (System.currentTimeMillis() - verified > 20 * 60_000L) return null;`);
+  if (name === 'FleetCalendarWidget.java' || name === 'FleetCompactWidget.java') {
+    content = content.replace(/(FleetWidgetUtil\.update\(ctx, m, ids, FleetWidgetUtil\.[A-Z]+\);)/, '$1\n        FleetWidgetRefresh.enqueue(ctx);');
+    content = content.replace(/}\s*$/, '    @Override public void onDisabled(Context ctx) { FleetWidgetRefresh.enqueue(ctx); }\n}\n');
+  }
+  if (name === 'FleetWidgetScheduleActivity.java') {
+    content = content.replace('public class FleetWidgetScheduleActivity extends Activity {', `public class FleetWidgetScheduleActivity extends Activity {
+    kotlinx.coroutines.Job refreshing;
+    void refresh(){if(refreshing!=null)refreshing.cancel(null);refreshing=FleetWidgetRefresh.refreshPopup(this,()->showDate(getIntent()));}`);
+    content = content.replace('setFinishOnTouchOutside(true);showDate(getIntent());', 'setFinishOnTouchOutside(true);showDate(getIntent());refresh();');
+    content = content.replace('setIntent(intent);showDate(intent);}', 'setIntent(intent);showDate(intent);refresh();}\n    @Override public void onDestroy(){if(refreshing!=null)refreshing.cancel(null);super.onDestroy();}');
+  }
   fs.writeFileSync(path.join(target, 'java/kr/statusboard/nativeapp', name), content);
 }
 for (const dir of ['drawable', 'layout', 'xml']) {

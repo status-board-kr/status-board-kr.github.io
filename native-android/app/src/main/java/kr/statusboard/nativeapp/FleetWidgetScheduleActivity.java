@@ -14,15 +14,18 @@ import org.json.*;
 // A floating native activity in its own task: opens directly above the home screen.
 // Reads the same local schedule snapshot as the widget, without starting MainActivity.
 public class FleetWidgetScheduleActivity extends Activity {
+    kotlinx.coroutines.Job refreshing;
+    void refresh(){if(refreshing!=null)refreshing.cancel(null);refreshing=FleetWidgetRefresh.refreshPopup(this,()->showDate(getIntent()));}
     int dp(int n){return Math.round(n*getResources().getDisplayMetrics().density);}
     TextView text(String value,int size,String color){
         TextView v=new TextView(this);v.setText(value);v.setTextSize(size);v.setTextColor(Color.parseColor(color));return v;
     }
     @Override public void onCreate(Bundle state){
         super.onCreate(state);requestWindowFeature(Window.FEATURE_NO_TITLE);
-        setFinishOnTouchOutside(true);showDate(getIntent());
+        setFinishOnTouchOutside(true);showDate(getIntent());refresh();
     }
-    @Override public void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);showDate(intent);}
+    @Override public void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);showDate(intent);refresh();}
+    @Override public void onDestroy(){if(refreshing!=null)refreshing.cancel(null);super.onDestroy();}
     void showDate(Intent intent){
         String date=intent.getStringExtra("date");
         if(date==null || !date.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}")){finish();return;}

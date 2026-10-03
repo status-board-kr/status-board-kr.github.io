@@ -86,6 +86,52 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
         ref.removeValue().await()
     }
     private fun validKey(key: String) { require(key.isNotBlank() && key.none { it in ".#$[]/" }) }
+    suspend fun setInquiryContacted(session: FleetSession, key: String, contacted: Boolean) = lock.withLock {
+        verify(session); validKey(key)
+        val member = root(session).child("members/${session.uid}").get().await()
+        val who = member.child("name").value?.toString()?.takeIf(String::isNotBlank) ?: auth.currentUser?.email.orEmpty()
+        val at = Instant.now().toString()
+        transact(root(session).child("inquiries/$key")) { value ->
+            check(value != null) { "상담 신청이 삭제되었습니다." }
+            asMap(value) + mapOf("contacted" to contacted, "contactedBy" to if (contacted) who else null, "contactedAt" to if (contacted) at else null)
+        }
+    }
+    suspend fun deleteVehicle(session: FleetSession, original: FleetVehicle, id: String) = lock.withLock {
+        verify(session); validKey(id)
+        val company = root(session); val records = company.child("vehicles").get().await()
+        val hit = records.children.singleOrNull { it.child("plate").value == original.plate } ?: return@withLock
+        for (pending in hit.child("_nativeOperations").children) finish(company, hit.ref, pending.key!!, asMap(pending.value))
+        for (pending in hit.child("_nativeEdits").children) finishEdit(company, hit.ref, pending.key!!, asMap(pending.value))
+        val before = company.child("vehicles").get().await()
+        createOnce(company.child("history/$id"), mapOf("vehicles" to before.value, "savedAt" to Instant.now().toEpochMilli()))
+        transact(hit.ref) { value ->
+            val raw = asMap(value)
+            check(raw["plate"] == original.plate) { "차량이 변경됐습니다. 다시 열어주세요." }
+            if (raw["_nativeDeletion"] == id) raw else {
+                check(raw["_nativeDeletion"] == null) { "이미 삭제 처리 중입니다." }
+                check(raw.filterKeys { !it.startsWith("_native") } == original.rawFields.filterKeys { !it.startsWith("_native") }) {
+                    "다른 직원이 차량을 수정했습니다. 다시 열어 확인해주세요."
+                }
+                check(asMap(raw["_nativeOperations"]).isEmpty() && asMap(raw["_nativeEdits"]).isEmpty()) { "처리 중인 요청이 있습니다." }
+                raw + ("_nativeDeletion" to id)
+            }
+        }
+        finishDeletion(company, hit.ref, original.plate, id)
+    }
+    private suspend fun finishDeletion(company: DatabaseReference, vehicle: DatabaseReference, plate: String, id: String) {
+        // Keep completed return records; delete only the vehicle's unfinished automatic schedule.
+        transact(company.child("schedules/${FleetCommands.returnKey(plate)}")) { value ->
+            val raw = asMap(value)
+            if (raw["plate"] == plate && raw["auto"] == true && raw["done"] != true) null else value
+        }
+        transact(vehicle) { value ->
+            if (value == null) null else {
+                val raw = asMap(value)
+                check(raw["plate"] == plate && raw["_nativeDeletion"] == id) { "삭제 대상이 변경됐습니다." }
+                null
+            }
+        }
+    }
     suspend fun addVehicles(session: FleetSession, additions: List<Map<String, Any?>>, id: String) = lock.withLock {
         verify(session); validKey(id)
         val company = root(session); val ref = company.child("vehicles")
@@ -253,6 +299,7 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
             system(company, id, result, now); return@withLock result
         }
         val hit = matches.single()
+        check(!hit.child("_nativeDeletion").exists()) { "차량 삭제 처리 중입니다. 새로고침해주세요." }
         val plate = hit.child("plate").getValue(String::class.java)!!
         for (pending in hit.child("_nativeOperations").children) {
             if (pending.key != id) finish(company, hit.ref, pending.key!!, asMap(pending.value))
@@ -269,6 +316,7 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
         val operation = transact(ref) { current ->
             if (current == null) null else {
                 val raw = asMap(current)
+                check(raw["_nativeDeletion"] == null) { "차량 삭제 처리 중입니다." }
                 check(raw["plate"] == plate) { "차량 순서가 변경됐습니다. 다시 확인해주세요." }
                 val completed = asMap(raw["_nativeCompleted"])
                 val pending = asMap(raw["_nativeOperations"])
@@ -296,6 +344,8 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
         verify(session)
         val company = root(session)
         for (vehicle in company.child("vehicles").get().await().children) {
+            val deleting = vehicle.child("_nativeDeletion").value?.toString()
+            if (deleting != null) { finishDeletion(company, vehicle.ref, vehicle.child("plate").value.toString(), deleting); continue }
             for (op in vehicle.child("_nativeEdits").children) finishEdit(company, vehicle.ref, op.key!!, asMap(op.value))
             for (op in vehicle.child("_nativeOperations").children) {
                 finish(company, vehicle.ref, op.key!!, asMap(op.value))
@@ -345,6 +395,7 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
             if (value == null) null else {
                 val raw = asMap(value)
                 check(raw["plate"] == original.plate) { "차량 순서가 변경됐습니다. 다시 열어주세요." }
+                check(raw["_nativeDeletion"] == null) { "차량 삭제 처리 중입니다." }
                 if (asMap(raw["_nativeCompletedEdits"]).containsKey(id) || asMap(raw["_nativeEdits"]).containsKey(id)) return@transact raw
                 check(changed.keys.all { key -> raw[key]?.toString() == original.rawFields[key]?.toString() }) {
                     "다른 직원이 해당 항목을 수정했습니다. 다시 열어 확인해주세요."

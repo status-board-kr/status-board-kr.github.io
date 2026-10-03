@@ -62,7 +62,7 @@ class MainActivity : ComponentActivity() {
     Column(Modifier.fillMaxSize().padding(WindowInsets.systemBars.asPaddingValues()).padding(24.dp), verticalArrangement = Arrangement.Center) {
         Text("현황판", fontSize = 28.sp, fontWeight = FontWeight.Bold)
         Text("전용 앱 시험판 · 기존 현황판 계정으로 로그인", color = Muted, modifier = Modifier.padding(vertical = 12.dp))
-        Row { listOf("로그인", "초대코드 가입", "업체 만들기").forEachIndexed { index, title -> TextButton(onClick = { mode = index }, enabled = !state.busy && (!state.unassigned || index != 0), modifier = Modifier.weight(1f)) { Text(title, fontSize = 11.sp) } }
+        Row { listOf("로그인", "초대코드 가입", "업체 만들기").forEachIndexed { index, title -> TextButton(onClick = { mode = index }, enabled = !state.busy && (!state.unassigned || index != 0), modifier = Modifier.weight(1f)) { Text(title, fontSize = 11.sp) } } }
         OutlinedTextField(email, { email = it }, label = { Text("이메일") }, singleLine = true, enabled = !state.busy && !state.unassigned, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(10.dp))
         if (!state.unassigned) OutlinedTextField(password, { password = it }, label = { Text("비밀번호") }, singleLine = true, visualTransformation = PasswordVisualTransformation(), enabled = !state.busy, modifier = Modifier.fillMaxWidth())

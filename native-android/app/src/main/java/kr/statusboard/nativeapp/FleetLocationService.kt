@@ -23,6 +23,7 @@ class FleetLocationService : Service() {
     private var memberListener: ValueEventListener? = null; private var settingsListener: ValueEventListener? = null
     private var company: DatabaseReference? = null
     private var requesting = false; private var saving = false
+    private var initializing = false
     private var last: android.location.Location? = null; private var lastSaved = 0L
     private val callback = object : LocationCallback() {
         override fun onLocationResult(result: LocationResult) {
@@ -58,9 +59,10 @@ class FleetLocationService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val uid = intent?.getStringExtra("uid"); val companyId = intent?.getStringExtra("company")
         if (uid == null || companyId == null || FirebaseAuth.getInstance().currentUser?.uid != uid) { stopSelf(); return START_NOT_STICKY }
-        if (session?.cacheKey == "$uid:$companyId") return START_NOT_STICKY
+        if (initializing || session?.cacheKey == "$uid:$companyId") return START_NOT_STICKY
         if (session != null) { stopSelf(); return START_NOT_STICKY }
         val initial = runCatching { FleetSession(uid, companyId, "staff") }.getOrNull() ?: run { stopSelf(); return START_NOT_STICKY }
+        initializing = true
         scope.launch {
             try {
                 val resolved = kr.statusboard.core.FleetAccessResolver(NativeMembership(FleetTransport(FirebaseAuth.getInstance()))).resolve(uid)
@@ -81,6 +83,7 @@ class FleetLocationService : Service() {
                 requestLocation()
                 while (isActive) { delay(30_000); if (!allowed()) { stopSelf(); break } }
             } catch (error: Exception) { if (error is CancellationException) throw error; stopSelf() }
+            finally { initializing = false }
         }
         return START_NOT_STICKY
     }
