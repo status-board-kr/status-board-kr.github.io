@@ -1,6 +1,6 @@
 # 현황판 전용 안드로이드 앱 전환
 
-현재 상태: 데이터 계층 초안과 화면 시안. 실행 가능한 앱/APK가 아니며 Kotlin 코드는 아직 컴파일하지 않았다.
+현재 상태: 전용 Android 프로젝트와 로그인·업체 권한·차량·일정 조회 시험판 소스. 배포 APK는 없으며 CI 컴파일/단위 검사 진행 중이다. 기존 앱을 대체할 단계가 아니다.
 
 화면은 Kotlin / Jetpack Compose로 구현한다. WebView로 기존 HTML을 띄우는 앱으로 만들지 않는다. PC 웹은 별도로 유지하고 Firebase의 기존 업체별 데이터와 인증을 재사용한다.
 
@@ -22,4 +22,15 @@
 8. 위치 공유 및 동의. 휴일 기준과 매일 재동의 여부는 아직 사용자 답변이 필요.
 9. 관리자 설정, 직원 관리, 사진 등록/엑셀, 변경 기록, 수납/계약서 등 현재 기능 전수 비교.
 
-`core`는 인증 확인 후 업체/사용자별 캐시를 읽고 서버 결과로 갱신하는 데이터 계약 초안이다. Firebase 어댑터, 화면, 위젯/알림/위치 연결 및 빌드 설정은 아직 구현 전이다. 전체 차량 배열을 캐시에서 그대로 덮어쓰는 편집은 금지하며, 원본 필드는 변환 과정에서 보존한다.
+`core`는 인증 확인 후 업체/사용자별 캐시를 읽고 서버 결과로 갱신한다. Native Firebase Auth, HTTPS 조회 어댑터, AndroidKeyStore 암호화 캐시와 Compose 조회 화면을 작성했다. 위젯/알림/위치/메신저/편집 연결은 아직 구현 전이다. 전체 차량 배열을 캐시에서 그대로 덮어쓰는 편집은 금지하며, 원본 필드는 변환 과정에서 보존한다.
+
+## 개발 검사
+
+JDK 17, Android SDK 35, Gradle 8.11.1을 사용한다. 기존 웹 파일의 공개 Firebase 앱 설정을 빌드 때만 준비하며 서버 키/직원 계정/비밀번호를 소스에 넣지 않는다.
+
+```
+node scripts/prepare-client.cjs
+gradle :app:compileDebugKotlin :app:testDebugUnitTest :app:lintDebug
+```
+
+GitHub Actions의 `전용 앱 코드 검사`는 수동 실행만 허용하며 APK 생성/배포를 하지 않는다. 시험판 package id는 `com.jangsung.fleet.nativepilot`로 기존 업무 앱과 분리했다. 출시 기준과 미완료 기능은 `docs/RELEASE-GATES.md`를 확인한다.
