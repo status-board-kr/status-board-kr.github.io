@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kr.statusboard.core.*
 import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 
 private fun palette(type: String): Pair<Color, Color> {
     val light = !FleetAppearance.dark
@@ -48,7 +49,7 @@ private fun palette(type: String): Pair<Color, Color> {
     val filtered = state.vehicles.filter { FleetPresentation.matches(it, filter, state.longBranch) && listOf(it.plate, it.model, it.note.orEmpty()).any { field -> field.contains(query, true) } }
     val ordered = when (sort) {
         "차량번호순" -> filtered.sortedBy { it.plate }
-        "상태순" -> filtered.sortedBy { when (it.status) { "대기" -> 1; "준비중" -> 2; "배차" -> 3; else -> 4 } }
+        "상태순" -> filtered.sortedBy { if (FleetPresentation.date(it.rawFields["startDate"]?.toString()) != null) 3 else when (it.status) { "대기" -> 1; "준비중" -> 2; else -> 4 } }
         else -> filtered.sortedBy { it.sourceIndex }
     }
     // Apply the web's selected sort first, then its stable due-date priority.
@@ -82,10 +83,11 @@ private fun palette(type: String): Pair<Color, Color> {
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                 row.forEach { (title, icon) ->
                                     val target = if (title == "결제일 알림") "결제·미청구" else title
-                                    Row(Modifier.weight(1f).background(WebPanel2, RoundedCornerShape(8.dp)).border(1.dp, WebLine, RoundedCornerShape(8.dp))
+                                    val ink = actionColor(title)
+                                    Row(Modifier.weight(1f).background(WebPanel2, RoundedCornerShape(8.dp)).border(1.dp, ink.copy(alpha = .5f), RoundedCornerShape(8.dp))
                                         .clickable { open(target) }.padding(horizontal = 3.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-                                        Icon(painterResource(icon), null, tint = WebSub, modifier = Modifier.size(15.dp))
-                                        Text(title, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 3.dp))
+                                        Icon(painterResource(icon), null, tint = ink, modifier = Modifier.size(15.dp))
+                                        Text(title, color = ink, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 3.dp))
                                     }
                                 }
                                 repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
@@ -162,12 +164,13 @@ private fun palette(type: String): Pair<Color, Color> {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(vehicle.plate, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 if (type.isNotBlank()) Text(type, fontSize = 10.sp, color = edge, modifier = Modifier.background(edge.copy(alpha = .12f), RoundedCornerShape(6.dp)).padding(horizontal = 5.dp, vertical = 2.dp))
-                Text(vehicle.status.ifBlank { "운행중" }, fontSize = 10.sp, color = WebSub, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(statusLabel(vehicle, today), fontSize = 10.sp, color = WebSub, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Text(listOf(vehicle.rawFields["cls"]?.toString(), vehicle.model, vehicle.rawFields["fuel"]?.toString()).filterNot { it.isNullOrBlank() }.joinToString(" · "), color = WebSub, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp))
+            if (vehicle.type == "일반") ReturnLine(vehicle, today, due, opacity)
             vehicle.note?.takeIf(String::isNotBlank)?.let { Text(it, fontSize = 12.sp, modifier = Modifier.padding(top = 3.dp)) }
             vehicle.rawFields["extra"]?.toString()?.takeIf(String::isNotBlank)?.let { Text(it, color = WebSub, fontSize = 10.sp, modifier = Modifier.padding(top = 2.dp)) }
-            vehicle.returnDate?.takeIf(String::isNotBlank)?.let { Text("회수일: $it", fontSize = 11.sp, color = if (due) WebAmber else WebSub, modifier = Modifier.padding(top = 3.dp).alpha(if (due) opacity else 1f)) }
+            if (vehicle.type != "일반") ReturnLine(vehicle, today, due, opacity)
             FleetPresentation.warnings(vehicle, today).forEach { Text(it, color = WebAmber, fontSize = 10.sp, modifier = Modifier.padding(top = 3.dp)) }
         }
         val amount = vehicle.rawFields["amount"]?.toString().orEmpty().takeUnless { it in listOf("", "null", "0", "0.0") }
@@ -177,5 +180,31 @@ private fun palette(type: String): Pair<Color, Color> {
             vehicle.rawFields["payDay"]?.toString()?.takeIf { it.isNotBlank() && it != "null" }?.let { day -> Text("매월 ${day.removeSuffix(".0")}일", color = WebSub, fontSize = 10.sp) }
             if (vehicle.type == "일반") Text(if (vehicle.rawFields["depositPaid"] == true) "입금완료" else "미입금", color = WebAmber, fontSize = 10.sp)
         } }
+    }
+}
+
+private fun actionColor(title: String): Color = when (title) {
+    "메신저" -> palette("보험").second
+    "위치보기" -> if (FleetAppearance.dark) Color(0xFFF472B6) else Color(0xFF8B5944)
+    "상담" -> if (FleetAppearance.dark) Color(0xFF34D399) else Color(0xFF387151)
+    "일정" -> palette("장기").second
+    "견적·계약서" -> if (FleetAppearance.dark) Color(0xFF38BDF8) else Color(0xFF216B83)
+    "카카오톡" -> if (FleetAppearance.dark) Color(0xFFFDE047) else Color(0xFF806C18)
+    else -> WebAmber
+}
+
+private fun statusLabel(vehicle: FleetVehicle, today: LocalDate): String {
+    val start = FleetPresentation.date(vehicle.rawFields["startDate"]?.toString()) ?: return vehicle.status.ifBlank { "운행중" }
+    val days = (ChronoUnit.DAYS.between(start, today) + 1).coerceAtLeast(1)
+    val end = FleetPresentation.date(vehicle.returnDate)
+    return if (end != null) { val total = (ChronoUnit.DAYS.between(start, end) + 1).coerceAtLeast(1); "${total}일중 ${days.coerceAtMost(total)}일째" } else "${days}일째"
+}
+
+@Composable private fun ReturnLine(vehicle: FleetVehicle, today: LocalDate, due: Boolean, opacity: Float) {
+    FleetPresentation.date(vehicle.returnDate)?.let { date ->
+        val days = ChronoUnit.DAYS.between(today, date)
+        val label = when { days == 0L -> "D-day"; days > 0 -> "D-$days"; else -> "D+${-days}" }
+        Text("반납일자: ${date.year}년 ${date.monthValue}월 ${date.dayOfMonth}일 ($label)", fontSize = 11.sp,
+            color = if (due || days == 1L) WebAmber else WebSub, modifier = Modifier.padding(top = 3.dp).alpha(if (due) opacity else 1f))
     }
 }
