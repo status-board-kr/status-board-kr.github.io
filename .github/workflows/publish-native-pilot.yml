@@ -11,25 +11,37 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
+      - name: 승인한 통합 빌드 성공 확인
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {data: run} = await github.rest.actions.getWorkflowRun({...context.repo, run_id: 37127765222});
+            if (run.conclusion !== 'success' || run.head_sha !== '5fb9e9a02cc9c8a953a31131fd76cdbc3537aef3' || run.path !== '.github/workflows/native-pilot-apk.yml') {
+              throw new Error('Approved integrated APK build must succeed before publication');
+            }
       - uses: actions/download-artifact@v4
         with:
           name: native-pilot-apk
-          run-id: 37107303563
+          run-id: 37127765222
           github-token: ${{ github.token }}
           path: pilot-artifact
       - name: 검증한 APK만 별도 경로에 게시
         shell: bash
         run: |
           (cd pilot-artifact && sed 's@pilot-download/@@' SHA256.txt | sha256sum -c -)
-          test -f pilot-artifact/status-board-native-pilot-0.1.1.apk
+          test -f pilot-artifact/status-board-native-pilot-0.2.0.apk
+          grep -q "package: name='com.jangsung.fleet.nativepilot' versionCode='3' versionName='0.2.0-pilot'" pilot-artifact/pilot-package.txt
           git pull --ff-only origin main
           mkdir -p apk/native-pilot
-          cp pilot-artifact/status-board-native-pilot-0.1.1.apk apk/native-pilot/
+          cp pilot-artifact/status-board-native-pilot-0.2.0.apk apk/native-pilot/
           cp pilot-artifact/READ-ME.md apk/native-pilot/
+          cp pilot-artifact/pilot-package.txt apk/native-pilot/
+          sed 's@pilot-download/@@' pilot-artifact/SHA256.txt > apk/native-pilot/SHA256-0.2.0.txt
+          printf '%s\n' 'Source: 5fb9e9a02cc9c8a953a31131fd76cdbc3537aef3' 'Build: https://github.com/status-board-kr/status-board-kr.github.io/actions/runs/37127765222' > apk/native-pilot/BUILD-0.2.0.txt
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add apk/native-pilot/
           if ! git diff --cached --quiet; then
-            git commit -m "Publish separate native pilot 0.1.1 APK download"
+            git commit -m "Publish approved integrated native pilot 0.2.0 APK download"
             git push origin HEAD:main
           fi
