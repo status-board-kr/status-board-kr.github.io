@@ -30,6 +30,61 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
     }
     private fun root(session: FleetSession) = db.getReference(session.path(""))
     fun newId(session: FleetSession) = root(session).child("chat").push().key!!
+    suspend fun setMemberName(session: FleetSession, uid: String, name: String) = lock.withLock {
+        val current = verify(session)
+        require(uid.isNotBlank() && uid.none { it in ".#$[]/" })
+        check(current.isAdmin || uid == current.uid) { "본인 이름만 변경할 수 있습니다." }
+        val ref = root(session).child("members/$uid")
+        transact(ref) { value ->
+            check(value != null) { "직원이 이미 삭제되었습니다." }
+            asMap(value) + ("name" to name.trim().take(20))
+        }
+    }
+    suspend fun setMemberRole(session: FleetSession, uid: String, role: String) = lock.withLock {
+        val current = verify(session)
+        check(current.isAdmin && uid != current.uid) { "관리자는 다른 직원의 권한만 변경할 수 있습니다." }
+        require(uid.isNotBlank() && uid.none { it in ".#$[]/" } && role in setOf("owner", "staff"))
+        transact(root(session).child("members/$uid")) { value ->
+            check(value != null) { "직원이 이미 삭제되었습니다." }
+            asMap(value) + ("role" to role)
+        }
+    }
+    suspend fun removeMember(session: FleetSession, uid: String) = lock.withLock {
+        val current = verify(session)
+        check(current.isAdmin && uid != current.uid) { "본인 계정은 내보낼 수 없습니다." }
+        require(uid.isNotBlank() && uid.none { it in ".#$[]/" })
+        // Membership is the authoritative access control. Do not write another user's userIndex.
+        root(session).child("members/$uid").removeValue().await()
+        root(session).child("locations/$uid").removeValue().await()
+    }
+    suspend fun createInvite(session: FleetSession): String = lock.withLock {
+        check(verify(session).isAdmin) { "관리자만 초대할 수 있습니다." }
+        val alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; val random = java.security.SecureRandom()
+        repeat(5) {
+            val code = (1..8).map { alphabet[random.nextInt(alphabet.length)] }.joinToString("")
+            var created = false
+            transact(db.getReference("inviteIndex/$code")) { value ->
+                created = value == null
+                value ?: mapOf("companyId" to session.companyId, "createdAt" to Instant.now().toString())
+            }
+            if (created) return@withLock code
+        }
+        error("초대코드를 만들지 못했습니다. 다시 시도해주세요.")
+    }
+    suspend fun olderChat(session: FleetSession, before: String?): org.json.JSONObject {
+        verify(session)
+        val query = root(session).child("chat").orderByKey()
+        val page = (if (before == null) query else query.endBefore(before)).limitToLast(50).get().await()
+        return org.json.JSONObject(asMap(page.value))
+    }
+    suspend fun deleteChat(session: FleetSession, id: String) = lock.withLock {
+        val current = verify(session)
+        require(id.isNotBlank() && id.none { it in ".#$[]/" })
+        val ref = root(session).child("chat/$id")
+        val message = ref.get().await()
+        check(current.isAdmin || message.child("uid").value == current.uid) { "본인 메시지만 삭제할 수 있습니다." }
+        ref.removeValue().await()
+    }
 
     suspend fun sendText(session: FleetSession, id: String, text: String, home: String, long: String,
         photos: List<String> = emptyList(), command: FleetCommand? = null, applyCommands: Boolean = true): String = lock.withLock {
@@ -55,6 +110,7 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
         for (pending in hit.child("_nativeOperations").children) {
             if (pending.key != id) finish(company, hit.ref, pending.key!!, asMap(pending.value))
         }
+        for (pending in hit.child("_nativeEdits").children) finishEdit(company, hit.ref, pending.key!!, asMap(pending.value))
         if (cmd.queryOnly) {
             val result = "$plate (${hit.child("model").value ?: "—"})\n구분: ${hit.child("type").value ?: "—"}\n상태: ${hit.child("status").value ?: "—"}\n메모: ${hit.child("note").value ?: "—"}"
             system(company, id, result, now); return@withLock result
@@ -93,6 +149,7 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
         verify(session)
         val company = root(session)
         for (vehicle in company.child("vehicles").get().await().children) {
+            for (op in vehicle.child("_nativeEdits").children) finishEdit(company, vehicle.ref, op.key!!, asMap(op.value))
             for (op in vehicle.child("_nativeOperations").children) {
                 finish(company, vehicle.ref, op.key!!, asMap(op.value))
             }
@@ -113,10 +170,10 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
         require(key.isNotBlank() && key.none { it in ".#$[]/" })
         root(session).child("schedules/$key").removeValue().await()
     }
-    suspend fun saveVehicle(session: FleetSession, original: FleetVehicle, fields: Map<String, Any?>) = lock.withLock {
+    suspend fun saveVehicle(session: FleetSession, original: FleetVehicle, fields: Map<String, Any?>, id: String, extend: Boolean, home: String, long: String) = lock.withLock {
         verify(session)
         val editable = setOf("type", "startDate", "returnDate", "status", "note", "extra", "depositPaid", "regDate",
-            "ageExpireDate", "asYears", "insuranceDate", "inspectionType", "inspectionDate", "amount", "payDay", "customerName", "customerPhone")
+            "ageExpireDate", "asYears", "insuranceDate", "inspectionType", "inspectionDate", "inspectionDone", "amount", "payDay", "customerName", "customerPhone")
         require(fields.keys.all { it in editable })
         for (key in listOf("startDate", "returnDate", "regDate", "ageExpireDate", "insuranceDate", "inspectionDate")) {
             fields[key]?.toString()?.takeIf(String::isNotBlank)?.let { LocalDate.parse(it.take(10)) }
@@ -132,24 +189,35 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
         } }
         val changed = normalized.filter { (key, value) -> original.rawFields[key] != value }
         if (changed.isEmpty()) return@withLock
-        // Do not bypass the web app's sales, extension and deposit ledger while that flow is ported.
-        val financial = setOf("type", "startDate", "returnDate", "amount", "payDay", "depositPaid", "customerName", "customerPhone")
-        check(changed.keys.none { it in financial }) { "이 항목은 매출·수납 연동 검증이 남아 있습니다. 현재는 기존 앱에서 변경해주세요." }
         val company = root(session)
         val latest = company.child("vehicles").get().await()
         val hit = latest.children.singleOrNull { it.child("plate").value == original.plate } ?: error("차량을 다시 선택해주세요.")
-        val id = company.child("history").push().key!!
+        for (pending in hit.child("_nativeEdits").children) finishEdit(company, hit.ref, pending.key!!, asMap(pending.value))
         createOnce(company.child("history/$id"), mapOf("vehicles" to latest.value, "savedAt" to Instant.now().toEpochMilli()))
-        transact(hit.ref) { value ->
+        val at = Instant.now(); val committed = transact(hit.ref) { value ->
             if (value == null) null else {
                 val raw = asMap(value)
                 check(raw["plate"] == original.plate) { "차량 순서가 변경됐습니다. 다시 열어주세요." }
+                if (asMap(raw["_nativeCompletedEdits"]).containsKey(id) || asMap(raw["_nativeEdits"]).containsKey(id)) return@transact raw
                 check(changed.keys.all { key -> raw[key]?.toString() == original.rawFields[key]?.toString() }) {
                     "다른 직원이 해당 항목을 수정했습니다. 다시 열어 확인해주세요."
                 }
-                raw + changed
+                val next = (raw + changed).toMutableMap()
+                if (next["type"] == long) next["branch"] = long else if (next["branch"] == long) next["branch"] = home
+                if (next["inspectionDate"] != raw["inspectionDate"]) next["inspectionDone"] = false
+                if (next["type"] != "일반") next["depositPaid"] = null
+                val amount = (next["amount"] as? Number)?.toDouble() ?: 0.0
+                if (next["type"] == "일반" && amount > 0) {
+                    if (next["saleKey"]?.toString().isNullOrBlank()) next["saleKey"] = "native-$id"
+                } else next["saleKey"] = null
+                if (extend) check(FleetSales.needsExtensionChoice(raw, next)) { "연장 대상 금액이 변경됐습니다. 다시 확인해주세요." }
+                val op = mapOf("old" to raw.filterKeys { !it.startsWith("_native") }, "next" to next.filterKeys { !it.startsWith("_native") },
+                    "extend" to extend, "at" to at.toString(), "by" to auth.currentUser?.email.orEmpty())
+                next + ("_nativeEdits" to (asMap(raw["_nativeEdits"]) + (id to op)))
             }
         }
+        val pending = asMap(asMap(committed)["_nativeEdits"])[id]
+        if (pending != null) finishEdit(company, hit.ref, id, asMap(pending))
     }
     suspend fun toggleSchedule(session: FleetSession, key: String, date: String) = lock.withLock {
         verify(session); LocalDate.parse(date)
@@ -187,6 +255,12 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
         count
     }
     private fun Int?.orZero() = this ?: 0
+    private suspend fun finishEdit(company: DatabaseReference, vehicle: DatabaseReference, id: String, op: Map<String, Any?>) {
+        FleetEditEffects.finish(object : FleetEffectStore {
+            override suspend fun mutate(path: String, transform: (Any?) -> Any?): Any? = transact(company.child(path), transform)
+            override suspend fun vehicle(transform: (Any?) -> Any?): Any? = transact(vehicle, transform)
+        }, id, op)
+    }
     private suspend fun finish(company: DatabaseReference, vehicle: DatabaseReference, id: String, op: Map<String, Any?>) {
         FleetEffects.finish(object : FleetEffectStore {
             override suspend fun mutate(path: String, transform: (Any?) -> Any?): Any? = transact(company.child(path), transform)

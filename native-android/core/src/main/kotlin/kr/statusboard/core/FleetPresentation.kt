@@ -26,6 +26,12 @@ object FleetPresentation {
                 result += "$label ${if (value.isBefore(today)) "만료" else "만료 임박"} · $value"
         }
         warning(date(raw["insuranceDate"]?.toString()), 30, "보험")
+        warning(date(raw["ageExpireDate"]?.toString()), 30, "차령")
+        val inspection = date(raw["inspectionDate"]?.toString())
+        if (inspection != null && ChronoUnit.DAYS.between(today, inspection) <= 30) {
+            val label = if (raw["inspectionType"] == "연장") "연장검사" else "일반검사"
+            result += "$label ${if (raw["inspectionDone"] == true) "완료" else "예정"} · $inspection"
+        }
         val asDate = date(raw["regDate"]?.toString())?.plusYears((raw["asYears"] as? Number)?.toLong() ?: raw["asYears"]?.toString()?.toLongOrNull() ?: 3)
         if (raw["asAckExpire"]?.toString() != asDate?.toString()) warning(asDate, 60, "A/S")
         return result

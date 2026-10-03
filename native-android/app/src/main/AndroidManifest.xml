@@ -4,7 +4,16 @@
         <provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.photos" android:exported="false" android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/photo_paths" />
         </provider>
-        <activity android:name=".MainActivity" android:exported="true">
+        <receiver android:name=".FleetCalendarWidget" android:exported="false" android:label="차량 현황 · 기존형">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_large_info" />
+        </receiver>
+        <receiver android:name=".FleetCompactWidget" android:exported="false" android:label="차량 현황 · 간편형">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_compact_info" />
+        </receiver>
+        <activity android:name=".FleetWidgetScheduleActivity" android:exported="false" android:excludeFromRecents="true" android:launchMode="singleTask" android:taskAffinity="com.jangsung.fleet.nativepilot.widgetpopup" android:theme="@android:style/Theme.Material.Light.Dialog.NoActionBar" />
+        <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop">
             <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
         </activity>
     </application>

@@ -1,6 +1,7 @@
 package kr.statusboard.nativeapp
 
 import android.os.Bundle
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.animation.core.*
@@ -30,14 +31,23 @@ private val Background = Color(0xFF0F172A)
 private val TextColor = Color(0xFFDCE5F3)
 private val Muted = Color(0xFF9CB0CA)
 class MainActivity : ComponentActivity() {
+    private val widgetOpen = mutableStateOf<String?>(null)
+    private fun captureOpen(intent: Intent?) {
+        intent?.getStringExtra("fleetOpen")?.let { widgetOpen.value = it; intent.removeExtra("fleetOpen") }
+    }
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent); setIntent(intent); captureOpen(intent)
+    }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        captureOpen(intent)
         setContent {
             MaterialTheme(colorScheme = darkColorScheme(background = Background, surface = Color(0xFF18243A), onBackground = TextColor, onSurface = TextColor)) {
                 val model: FleetViewModel = viewModel()
                 val state by model.state.collectAsStateWithLifecycle()
                 Surface(Modifier.fillMaxSize()) {
-                    if (state.signedIn) FleetShell(state, model::refresh, model::logout, model::retryWooky, model) else Login(state, model::login)
+                    if (state.signedIn) FleetShell(state, model::refresh, model::logout, model::retryWooky, model, widgetOpen.value) { widgetOpen.value = null }
+                    else Login(state, model::login)
                 }
             }
         }

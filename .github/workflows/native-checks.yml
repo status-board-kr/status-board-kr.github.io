@@ -19,7 +19,7 @@ jobs:
         run: node native-android/scripts/prepare-client.cjs
       - name: 전용 앱 컴파일 및 핵심 동작 검사 (APK 발행 없음)
         working-directory: native-android
-        run: gradle :app:compileDebugKotlin :app:testDebugUnitTest :app:lintDebug --no-daemon
+        run: gradle :app:compileDebugKotlin :app:compileDebugJavaWithJavac :app:testDebugUnitTest :app:lintDebug --no-daemon
       - uses: actions/upload-artifact@v4
         if: always()
         with:

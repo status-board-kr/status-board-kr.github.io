@@ -61,6 +61,7 @@ internal val WebAmber = androidx.compose.ui.graphics.Color(0xFFF5A623)
     var query by rememberSaveable { mutableStateOf("") }
     var photos by remember { mutableStateOf<List<Uri>>(emptyList()) }
     var openedPhoto by remember { mutableStateOf<String?>(null) }
+    var deleting by remember { mutableStateOf<String?>(null) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(12)) { if (it.isNotEmpty()) photos = it }
     var cameraUri by rememberSaveable { mutableStateOf<String?>(null) }
     val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
@@ -69,6 +70,7 @@ internal val WebAmber = androidx.compose.ui.graphics.Color(0xFFF5A623)
     }
     val messages = state.chat.keys().asSequence().mapNotNull { key -> state.chat.optJSONObject(key)?.let { key to it } }
         .sortedBy { it.second.optString("at") }.toList()
+    LaunchedEffect(messages.lastOrNull()?.first, state.session?.cacheKey) { model.markChatRead() }
     val visible = if (query.isBlank()) messages else messages.filter { it.second.optString("text").contains(query, true) }
     val list = rememberLazyListState()
     LaunchedEffect(messages.lastOrNull()?.first) { if (visible.isNotEmpty() && query.isBlank()) list.animateScrollToItem(visible.lastIndex) }
@@ -79,11 +81,16 @@ internal val WebAmber = androidx.compose.ui.graphics.Color(0xFFF5A623)
                 val text = messages.joinToString("\n\n") { (_, m) -> "${m.optString("at")} · ${m.optString("email")}\n${m.optString("text")}" }
                 context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), "현재 불러온 대화 백업"))
             }, contentPadding = PaddingValues(10.dp, 4.dp)) { Text("💾 백업", fontSize = 12.sp) }
-            Text("최근 50개를 보여줘요 · 검색·백업은 현재 불러온 대화 기준", color = WebSub, fontSize = 12.sp)
+            Text("이전 대화는 위에서 더 불러올 수 있어요 · 검색·백업은 불러온 대화 기준", color = WebSub, fontSize = 12.sp)
         }
         LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp), state = list,
             contentPadding = PaddingValues(vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(visible, key = { it.first }) { (_, message) ->
+            item {
+                if (!state.noOlder) TextButton(onClick = model::loadOlderChat, enabled = !state.loadingOlder, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (state.loadingOlder) "불러오는 중…" else "이전 대화 더 보기", fontSize = 12.sp)
+                }
+            }
+            items(visible, key = { it.first }) { (key, message) ->
                 val system = message.optString("type") == "system" || message.optString("uid") == "system"
                 val mine = message.optString("uid") == state.session?.uid
                 val edge = when { system -> androidx.compose.ui.graphics.Color(0xFF34D399); mine -> WebAmber; else -> WebLine }
@@ -99,6 +106,8 @@ internal val WebAmber = androidx.compose.ui.graphics.Color(0xFFF5A623)
                         } }
                         Text(message.optString("text"), fontSize = if (system) 13.sp else 14.sp)
                     }
+                    if (mine || state.session?.isAdmin == true) TextButton(onClick = { deleting = key }, enabled = !state.sending,
+                        contentPadding = PaddingValues(2.dp)) { Text("삭제", color = WebSub, fontSize = 10.sp) }
                 }
             }
         }
@@ -129,6 +138,9 @@ internal val WebAmber = androidx.compose.ui.graphics.Color(0xFFF5A623)
             OutlinedButton(onClick = close, modifier = Modifier.fillMaxWidth()) { Text("닫기", color = WebSub) }
         }
     }
+    deleting?.let { id -> AlertDialog(onDismissRequest = { deleting = null }, title = { Text("메시지를 삭제할까요?") },
+        confirmButton = { TextButton(onClick = { deleting = null; model.deleteChat(id) }) { Text("삭제") } },
+        dismissButton = { TextButton(onClick = { deleting = null }) { Text("취소") } }) }
     openedPhoto?.let { id -> Dialog(onDismissRequest = { openedPhoto = null }) {
         Column(Modifier.fillMaxWidth().background(WebPanel).padding(12.dp)) {
             FleetChatPhoto(state, id, Modifier.fillMaxWidth().height(400.dp), ContentScale.Fit)

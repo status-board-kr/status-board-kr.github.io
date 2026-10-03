@@ -9,6 +9,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.tasks.await
 import kr.statusboard.core.*
 import org.json.JSONObject
@@ -22,7 +24,8 @@ data class FleetUiState(
     val schedules: JSONObject = JSONObject(), val scheduleLoaded: Boolean = false,
     val homeBranch: String = "기본 지점", val longBranch: String = "장기",
     val chat: JSONObject = JSONObject(), val members: JSONObject = JSONObject(), val wookyJobs: JSONObject = JSONObject(),
-    val realtimeConnected: Boolean = false, val sending: Boolean = false, val pendingPhoto: PendingFleetPhoto? = null
+    val realtimeConnected: Boolean = false, val sending: Boolean = false, val pendingPhoto: PendingFleetPhoto? = null,
+    val loadingOlder: Boolean = false, val noOlder: Boolean = false, val inviteCode: String = ""
 )
 class FleetViewModel(application: Application) : AndroidViewModel(application) {
     private val auth = FirebaseAuth.getInstance()
@@ -33,10 +36,26 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
     private val operations = FleetOperations(auth, transport)
     private val vision by lazy { FleetVision(application, transport) }
     private var pendingMessage: Pair<String, String>? = null
+    private var older = JSONObject()
     private val _state = MutableStateFlow(FleetUiState())
     val state = _state.asStateFlow()
     private var generation = 0
-    init { if (auth.currentUser != null) refresh() }
+    init {
+        // An old widget snapshot is not exposed before company membership is verified.
+        FleetWidgets.clear(application)
+        viewModelScope.launch {
+            state.collectLatest { value ->
+                delay(500)
+                FleetWidgets.publish(application, value) { _state.value.session?.cacheKey }
+            }
+        }
+        if (auth.currentUser != null) refresh()
+    }
+    fun markChatRead() {
+        val session = _state.value.session ?: return
+        FleetWidgets.markChatRead(getApplication(), session.cacheKey)
+        viewModelScope.launch { FleetWidgets.publish(getApplication(), _state.value) { _state.value.session?.cacheKey } }
+    }
 
     fun login(email: String, password: String) {
         if (_state.value.busy) return
@@ -65,7 +84,7 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
                 val session = FleetAccessResolver(NativeMembership(transport)).resolve(user.uid) ?: throw AccessDenied()
                 verified = session
                 if (epoch != generation) return@launch
-                if (_state.value.session?.cacheKey != session.cacheKey) _state.value = FleetUiState(busy = true)
+                if (_state.value.session?.cacheKey != session.cacheKey) { older = JSONObject(); _state.value = FleetUiState(busy = true) }
                 _state.value = _state.value.copy(signedIn = true, session = session)
                 repository.load(session) { load ->
                     if (epoch == generation) _state.value = _state.value.copy(vehicles = load.snapshot.vehicles, cached = load.source == SnapshotSource.CACHE)
@@ -76,8 +95,20 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
                     if (epoch == generation) {
                         when (name) {
                             "vehicles" -> _state.value = _state.value.copy(vehicles = VehicleCodec.decode(value), cached = false)
+                            "profile" -> {
+                                val profile = value as? JSONObject
+                                _state.value = _state.value.copy(
+                                    companyName = profile?.optString("name")?.takeIf(String::isNotBlank) ?: "현황판",
+                                    homeBranch = profile?.optString("homeBranch")?.takeIf(String::isNotBlank) ?: _state.value.homeBranch,
+                                    longBranch = profile?.optString("longTermBranch")?.takeIf(String::isNotBlank) ?: "장기")
+                            }
                             "schedules" -> _state.value = _state.value.copy(schedules = value as? JSONObject ?: JSONObject(), scheduleLoaded = true)
-                            "chat" -> _state.value = _state.value.copy(chat = value as? JSONObject ?: JSONObject())
+                            "chat" -> {
+                                val recent = value as? JSONObject ?: JSONObject()
+                                val merged = JSONObject(older.toString())
+                                recent.keys().forEach { key -> merged.put(key, recent.opt(key)) }
+                                _state.value = _state.value.copy(chat = merged)
+                            }
                             "members" -> {
                                 val members = value as? JSONObject ?: JSONObject()
                                 val own = members.optJSONObject(session.uid)
@@ -134,7 +165,8 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
     private suspend fun revoke(epoch: Int) {
         if (epoch != generation) return
         generation++
-        streams.close(); pendingMessage = null
+        streams.close(); pendingMessage = null; older = JSONObject()
+        FleetWidgets.clear(getApplication())
         val old = _state.value.session
         auth.signOut()
         _state.value = FleetUiState(message = "업체 접근 권한을 확인하지 못했습니다. 인터넷 연결을 확인하고 다시 로그인해주세요.")
@@ -142,7 +174,8 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
     }
     fun logout() {
         generation++
-        streams.close(); pendingMessage = null
+        streams.close(); pendingMessage = null; older = JSONObject()
+        FleetWidgets.clear(getApplication())
         val previous = _state.value.session
         auth.signOut(); _state.value = FleetUiState()
         if (previous != null) viewModelScope.launch { cache.remove(previous.cacheKey) }
@@ -267,7 +300,45 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
         edit({ operations.saveSchedule(it, key, title, date, repeat, memo) }, complete)
     fun toggleSchedule(key: String, date: String) = edit({ operations.toggleSchedule(it, key, date) })
     fun deleteSchedule(key: String) = edit({ operations.deleteSchedule(it, key) })
-    fun saveVehicle(original: FleetVehicle, fields: Map<String, Any?>, complete: (Boolean) -> Unit) =
-        edit({ operations.saveVehicle(it, original, fields) }, complete)
+    fun setMemberName(uid: String, name: String, complete: (Boolean) -> Unit) = edit({ operations.setMemberName(it, uid, name) }, complete)
+    fun setMemberRole(uid: String, role: String) = edit({ operations.setMemberRole(it, uid, role) })
+    fun removeMember(uid: String) = edit({ operations.removeMember(it, uid) })
+    fun createInvite() = edit({ session ->
+        val key = session.cacheKey; val code = operations.createInvite(session)
+        if (_state.value.session?.cacheKey == key) _state.value = _state.value.copy(inviteCode = code)
+    })
+    fun deleteChat(id: String) = edit({ session ->
+        operations.deleteChat(session, id)
+        if (_state.value.session?.cacheKey == session.cacheKey) {
+            older.remove(id)
+            val messages = JSONObject(_state.value.chat.toString()); messages.remove(id)
+            _state.value = _state.value.copy(chat = messages)
+        }
+    })
+    fun loadOlderChat() {
+        val session = _state.value.session ?: return
+        if (_state.value.loadingOlder || _state.value.noOlder) return
+        val epoch = generation
+        val before = _state.value.chat.keys().asSequence().minOrNull()
+        _state.value = _state.value.copy(loadingOlder = true)
+        viewModelScope.launch {
+            try {
+                val page = operations.olderChat(session, before)
+                if (epoch != generation) return@launch
+                page.keys().forEach { older.put(it, page.opt(it)) }
+                val merged = JSONObject(page.toString())
+                _state.value.chat.keys().forEach { merged.put(it, _state.value.chat.opt(it)) }
+                _state.value = _state.value.copy(chat = merged, loadingOlder = false, noOlder = page.length() < 50)
+            } catch (error: Exception) {
+                if (error is CancellationException) throw error
+                if (epoch == generation) {
+                    if (error is AccessDenied) revoke(epoch)
+                    else _state.value = _state.value.copy(loadingOlder = false, message = "이전 대화를 불러오지 못했습니다.")
+                }
+            }
+        }
+    }
+    fun saveVehicle(original: FleetVehicle, fields: Map<String, Any?>, id: String, extend: Boolean = false, complete: (Boolean) -> Unit) =
+        edit({ operations.saveVehicle(it, original, fields, id, extend, _state.value.homeBranch, _state.value.longBranch) }, complete)
     override fun onCleared() { streams.close(); super.onCleared() }
 }

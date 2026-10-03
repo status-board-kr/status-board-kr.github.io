@@ -32,22 +32,34 @@ private val Accent = Color(0xFF375C84)
 private val MenuBackground = Color(0xFFF6F8FB)
 private data class MenuItem(val title: String, val icon: Int)
 
-@Composable internal fun FleetShell(state: FleetUiState, refresh: () -> Unit, logout: () -> Unit, retryWooky: () -> Unit, model: FleetViewModel) {
+@Composable internal fun FleetShell(state: FleetUiState, refresh: () -> Unit, logout: () -> Unit, retryWooky: () -> Unit, model: FleetViewModel, widgetOpen: String? = null, acknowledgeOpen: () -> Unit = {}) {
     var menu by rememberSaveable(state.session?.cacheKey) { mutableStateOf(false) }
     var schedule by rememberSaveable(state.session?.cacheKey) { mutableStateOf(false) }
+    var scheduleDate by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
     var pending by remember { mutableStateOf<String?>(null) }
     var botOpen by remember { mutableStateOf(false) }
     var chatOpen by rememberSaveable { mutableStateOf(false) }
+    var staffOpen by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(widgetOpen, state.scheduleLoaded) {
+        if (widgetOpen == "chat") { chatOpen = true; acknowledgeOpen() }
+        else if (widgetOpen?.startsWith("date:") == true && state.scheduleLoaded) {
+            runCatching { LocalDate.parse(widgetOpen.removePrefix("date:")) }.getOrNull()?.let {
+                scheduleDate = it.toString(); schedule = true
+            }
+            acknowledgeOpen()
+        }
+    }
     val screens = rememberSaveableStateHolder()
     val open: (String) -> Unit = { title ->
         when (title) {
             "차량 현황" -> menu = false
             "전체 메뉴" -> menu = true
-            "일정" -> schedule = true
+            "일정" -> { scheduleDate = LocalDate.now().toString(); schedule = true }
             "메신저" -> chatOpen = true
             "새로고침" -> refresh()
             "로그아웃" -> logout()
             "종결 봇" -> botOpen = true
+            "직원 관리", "직원 목록" -> staffOpen = true
             else -> pending = title
         }
     }
@@ -73,8 +85,9 @@ private data class MenuItem(val title: String, val icon: Int)
             }
         }
     }
-    if (schedule) FleetScheduleDialog(state, LocalDate.now(), model) { schedule = false }
+    if (schedule) FleetScheduleDialog(state, LocalDate.parse(scheduleDate), model) { schedule = false }
     if (chatOpen) FleetChatDialog(state, model) { chatOpen = false }
+    if (staffOpen) FleetStaffDialog(state, model) { staffOpen = false }
     if (botOpen) {
         val connection = botConnection(state)
         val failed = state.wookyJobs.keys().asSequence().mapNotNull { state.wookyJobs.optJSONObject(it) }.count { it.optString("status") == "done" && it.optString("result") in listOf("fail", "error") }

@@ -47,6 +47,19 @@ object FleetEffects {
                 if (record["date"] == oldDate) record + mapOf("done" to true, "doneAt" to at) else current
             }
         }
+        if (!recall && nextDate != null) {
+            val previous = map(store.mutate(schedule) { it })
+            if (previous["done"] == true && previous["date"] != nextDate)
+                createOnce(store, "schedules/$id-prior", previous)
+            store.mutate(schedule) { current ->
+                val record = map(current)
+                if (current != null && record["date"] !in listOf(oldDate, nextDate) && record["done"] != true) current
+                else if (record["done"] == true && record["date"] == nextDate) current
+                else (if (record["done"] == true) emptyMap() else record) + mapOf("date" to nextDate,
+                    "title" to "$plate 차량 반납일", "plate" to plate, "type" to op["newType"], "auto" to true,
+                    "done" to false, "repeat" to false, "nativeScheduleOperation" to id)
+            }
+        }
         createOnce(store, "plateHistory/$plate/$id", mapOf("time" to DateTimeFormatter.ofPattern("MM/dd HH:mm").withZone(zone).format(time),
             "text" to (if (recall) "회수 처리 → 대기" else op["message"].toString()) + (op["otherPlates"]?.let { " · 상대차량 $it" } ?: ""),
             "nativeOperation" to id, "photoId" to op["photoId"]))
