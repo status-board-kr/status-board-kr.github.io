@@ -27,6 +27,7 @@ import java.time.ZoneId
     var split by remember { mutableStateOf(true) }; var unbilled by remember { mutableStateOf(false) }
     var messagePlate by remember { mutableStateOf<String?>(null) }; var messageText by remember { mutableStateOf("") }
     var deleteLog by remember { mutableStateOf<String?>(null) }
+    var clearLogs by remember { mutableStateOf(false) }
     var saleEdit by remember { mutableStateOf<String?>(null) }; var manualReturn by remember { mutableStateOf(false) }
     var manualPlate by remember { mutableStateOf("") }; var manualId by remember { mutableStateOf(java.util.UUID.randomUUID().toString()) }; var manualAt by remember { mutableStateOf(java.time.Instant.now().toString()) }
     var longFilter by remember { mutableStateOf("전체") }; var returnDate by remember { mutableStateOf("") }; var logDate by remember { mutableStateOf("") }
@@ -122,6 +123,7 @@ import java.time.ZoneId
                     Row { listOf("전체", "날짜", "차량").forEach { label -> TextButton(onClick = { logView = label }) { Text("${if (logView == label) "✓ " else ""}$label", fontSize = 11.sp) } } }
                     if (logView == "날짜") WebField("발송 날짜 (YYYY-MM-DD, 비우면 전체)", logDate, { logDate = it }, true)
                     Text("최근 발송 기록 100건", color = WebSub, fontSize = 11.sp)
+                    TextButton(onClick = { clearLogs = true }, enabled = editable && state.paymentSendLog.length() > 0) { Text("전체 발송 기록 삭제", fontSize = 11.sp) }
                     state.paymentSendLog.keys().asSequence().mapNotNull { key -> state.paymentSendLog.optJSONObject(key)?.let { key to it } }
                         .filter { query.isBlank() || "${it.second.optString("plate")} ${it.second.optString("name")}".contains(query, true) }
                         .filter { logView != "날짜" || logDate.isBlank() || localLogDate(it.second.optString("sentAt")) == logDate }
@@ -150,6 +152,10 @@ import java.time.ZoneId
         dismissButton = { TextButton(onClick = { model.savePaymentOverride(plate, mapOf("customMessage" to null)); messagePlate = null }, enabled = editable) { Text("기본 안내문으로") } }) }
     deleteLog?.let { key -> AlertDialog(onDismissRequest = { deleteLog = null }, title = { Text("발송 기록 삭제") }, text = { Text("선택한 발송 기록을 삭제할까요?") },
         confirmButton = { TextButton(onClick = { model.deletePaymentLog(key); deleteLog = null }) { Text("삭제") } }, dismissButton = { TextButton(onClick = { deleteLog = null }) { Text("취소") } }) }
+    if (clearLogs) AlertDialog(onDismissRequest = { if (!state.sending) clearLogs = false }, title = { Text("전체 발송 기록 삭제") },
+        text = { Column { Text("발송 기록 전체를 삭제할까요? 차량 매출과 이번 달 발송 완료 표시는 유지됩니다."); if (state.message.isNotBlank()) Text(state.message) } },
+        confirmButton = { TextButton(onClick = { model.clearPaymentLogs { if (it) clearLogs = false } }, enabled = editable) { Text("전체 삭제") } },
+        dismissButton = { TextButton(onClick = { clearLogs = false }, enabled = !state.sending) { Text("취소") } })
 }
 private fun localLogDate(raw: String): String = runCatching { java.time.Instant.parse(raw).atZone(ZoneId.of("Asia/Seoul")).toLocalDate().toString() }.getOrDefault(raw.take(10))
 

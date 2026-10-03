@@ -35,6 +35,8 @@ jobs:
           gradle-version: '8.11.1'
       - name: Firebase 공개 앱 설정 준비
         run: node native-android/scripts/prepare-client.cjs
+      - name: 기존 앱·전용 앱 알림 호환 검사 (실제 전송 없음)
+        run: node --test server/sendchatpush/push-targets.test.js server/aiconsult/inquiry-push.test.js
       - name: 전용 앱 컴파일 및 핵심 동작 검사 (APK 발행 없음)
         working-directory: native-android
         run: gradle :app:compileDebugKotlin :app:compileDebugJavaWithJavac :app:testDebugUnitTest :app:lintDebug --no-daemon

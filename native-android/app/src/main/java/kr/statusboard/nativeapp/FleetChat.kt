@@ -56,6 +56,11 @@ internal val WebAmber = androidx.compose.ui.graphics.Color(0xFFF5A623)
 
 @Composable internal fun FleetChatDialog(state: FleetUiState, model: FleetViewModel, close: () -> Unit) {
     val context = LocalContext.current
+    DisposableEffect(state.session?.cacheKey) {
+        val owner = state.session?.cacheKey
+        FleetPush.visibleChatOwner = owner
+        onDispose { if (FleetPush.visibleChatOwner == owner) FleetPush.visibleChatOwner = null }
+    }
     DisposableEffect(Unit) { onDispose { model.recentChat() } }
     var input by rememberSaveable { mutableStateOf("") }
     var searchOpen by rememberSaveable { mutableStateOf(false) }

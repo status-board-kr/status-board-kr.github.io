@@ -317,6 +317,15 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
     suspend fun deletePaymentLog(session: FleetSession, key: String) = lock.withLock {
         verify(session); validKey(key); root(session).child("paymentSendLog/$key").removeValue().await()
     }
+    suspend fun clearPaymentLogs(session: FleetSession) = lock.withLock {
+        verify(session)
+        val ref = root(session).child("paymentSendLog")
+        val captured = asMap(ref.get().await().value)
+        // Preserve records another employee adds or edits during confirmation/storage.
+        transact(ref) { value ->
+            asMap(value).filter { (key, record) -> key !in captured || record != captured[key] }.takeIf { it.isNotEmpty() }
+        }
+    }
     suspend fun settings(session: FleetSession): org.json.JSONObject {
         check(verify(session).isAdmin) { "관리자만 회사 설정을 볼 수 있습니다." }
         val company = root(session)
@@ -591,7 +600,7 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
             val text = job["resultMsg"]?.toString().orEmpty()
             if (text.isNotBlank()) {
                 createOnce(company.child("chat/wooky_${id}_$attempt"), mapOf("text" to text, "uid" to "system", "email" to "우기소프트 연동",
-                    "at" to (job["verifiedAt"] ?: job["finishedAt"] ?: job["startedAt"] ?: job["at"] ?: job["endAt"] ?: Instant.now().toString())))
+                    "at" to (job["verifiedAt"] ?: job["finishedAt"] ?: Instant.now().toString())))
             }
             // Save the message first under the web's stable id; restart cannot lose or duplicate it.
             transact(jobRef) { value ->

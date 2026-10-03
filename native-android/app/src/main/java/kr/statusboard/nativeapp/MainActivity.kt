@@ -31,6 +31,8 @@ private val Background = Color(0xFF0F172A)
 private val TextColor = Color(0xFFDCE5F3)
 private val Muted = Color(0xFF9CB0CA)
 class MainActivity : ComponentActivity() {
+    override fun onResume() { super.onResume(); FleetPush.foreground = true }
+    override fun onPause() { FleetPush.foreground = false; super.onPause() }
     private val widgetOpen = mutableStateOf<String?>(null)
     private fun captureOpen(intent: Intent?) {
         intent?.getStringExtra("fleetOpen")?.let { widgetOpen.value = it; intent.removeExtra("fleetOpen") }

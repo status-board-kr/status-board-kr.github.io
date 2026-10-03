@@ -1,6 +1,9 @@
 {
   "name": "native-fleet-rules-check",
   "private": true,
-  "scripts": { "test": "firebase emulators:exec --only database --project demo-native-fleet --config firebase.json \"node rules-check.cjs\"" },
+  "scripts": {
+    "pretest": "node -e \"require('node:fs').copyFileSync('../reference/firebase-rules-2026-10-03.json','rules.json')\"",
+    "test": "firebase emulators:exec --only database --project demo-native-fleet --config firebase.json \"node rules-check.cjs\""
+  },
   "devDependencies": { "firebase-tools": "15.32.1", "@firebase/rules-unit-testing": "5.0.2", "firebase": "12.19.0" }
 }

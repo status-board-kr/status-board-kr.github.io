@@ -20,6 +20,8 @@ import javax.net.ssl.HttpsURLConnection
 
 /** An installation's native token never replaces the working web/Capacitor pushToken. */
 object FleetPush {
+    @Volatile var foreground = false
+    @Volatile var visibleChatOwner: String? = null
     private const val PREFS = "native_push"
     private val mutex = Mutex()
     private var lastAttempt = 0L
@@ -85,7 +87,15 @@ object FleetPush {
         if (prefs(context).getString("owner", null) != session.cacheKey || !FleetNotifications.permitted(context)) return
         val id = message.data["messageId"]?.takeIf { it.length <= 160 && it.none { c -> c in ".#$[]/" } }
             ?: message.messageId ?: return
-        val extras = PersistableBundle().apply { putString("uid", uid); putString("company", company); putString("id", id); putString("kind", message.data["kind"] ?: "chat") }
+        enqueue(context, uid, company, id, message.data["kind"] ?: "chat")
+    }
+    fun queueChat(context: Context, session: FleetSession, id: String) {
+        if (FirebaseAuth.getInstance().currentUser?.uid != session.uid || prefs(context).getString("owner", null) != session.cacheKey) return
+        enqueue(context, session.uid, session.companyId, id, "chat")
+    }
+    private fun enqueue(context: Context, uid: String, company: String, id: String, kind: String) {
+        if (!FleetNotifications.permitted(context)) return
+        val extras = PersistableBundle().apply { putString("uid", uid); putString("company", company); putString("id", id); putString("kind", kind) }
         // Persist only routing identifiers. Notification/customer text stays on the server.
         context.getSystemService(JobScheduler::class.java).schedule(JobInfo.Builder(("push:$id".hashCode() and Int.MAX_VALUE), ComponentName(context, FleetPushJobService::class.java))
             .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY).setOverrideDeadline(0).setExtras(extras).build())
@@ -104,7 +114,7 @@ object FleetPush {
         // Same identifier replaces an earlier delivery; no private message body in notification storage.
         if (auth.currentUser?.uid != uid || p.getString("owner", null) != expected) return
         val inquiry = params.extras.getString("kind") == "inquiry"
-        FleetNotifications.show(context, "push:$id", if (inquiry) "현황판 상담 신청" else "현황판 메신저",
+        if (inquiry || !foreground || visibleChatOwner != expected) FleetNotifications.show(context, "push:$id", if (inquiry) "현황판 상담 신청" else "현황판 메신저",
             if (inquiry) "새 상담 신청이 도착했습니다. 눌러서 상담 목록을 확인하세요." else "새 메시지가 도착했습니다. 눌러서 대화를 확인하세요.",
             if (inquiry) "inquiries" else "chat")
         p.edit().putStringSet("seen", (seen.takeLastSafe(199) + id).toSet()).apply()

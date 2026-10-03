@@ -132,6 +132,7 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 if (epoch != generation) return@launch
                 _state.value = _state.value.copy(busy = false)
+                var chatWatermark = java.time.Instant.now()
                 streams.bind(session, { name, value ->
                     if (epoch == generation) {
                         when (name) {
@@ -149,6 +150,13 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
                                 val merged = JSONObject(older.toString())
                                 recent.keys().forEach { key -> merged.put(key, recent.opt(key)) }
                                 _state.value = _state.value.copy(chat = merged)
+                                val newest = recent.keys().asSequence().mapNotNull { key -> recent.optJSONObject(key)?.let { key to it } }
+                                    .filter { it.second.optString("uid") != session.uid && runCatching { java.time.Instant.parse(it.second.optString("at")).isAfter(chatWatermark) }.getOrDefault(false) }
+                                    .maxByOrNull { java.time.Instant.parse(it.second.optString("at")) }
+                                newest?.let { (id, record) ->
+                                    chatWatermark = java.time.Instant.parse(record.optString("at"))
+                                    FleetPush.queueChat(getApplication(), session, id)
+                                }
                             }
                             "members" -> {
                                 val members = value as? JSONObject ?: JSONObject()
@@ -398,6 +406,7 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteSale(key: String, id: String, version: String?, complete: (Boolean) -> Unit) = edit({ operations.deleteSale(it, key, id, version) }, complete)
     fun addManualReturn(id: String, plate: String, at: String, complete: (Boolean) -> Unit) = edit({ operations.addManualReturn(it, id, plate, at) }, complete)
     fun deletePaymentLog(key: String) = edit({ operations.deletePaymentLog(it, key) })
+    fun clearPaymentLogs(complete: (Boolean) -> Unit) = edit({ operations.clearPaymentLogs(it) }, complete)
     fun loadSettings() = edit({ session ->
         val result = operations.settings(session)
         if (_state.value.session?.cacheKey == session.cacheKey) _state.value = _state.value.copy(companySettings = result)
