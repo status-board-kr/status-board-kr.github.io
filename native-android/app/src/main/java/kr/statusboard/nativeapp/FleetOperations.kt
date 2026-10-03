@@ -86,6 +86,18 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
         ref.removeValue().await()
     }
     private fun validKey(key: String) { require(key.isNotBlank() && key.none { it in ".#$[]/" }) }
+    suspend fun addVehicles(session: FleetSession, additions: List<Map<String, Any?>>, id: String) = lock.withLock {
+        verify(session); validKey(id)
+        val company = root(session); val ref = company.child("vehicles")
+        val before = ref.get().await()
+        createOnce(company.child("history/$id"), mapOf("vehicles" to before.value, "savedAt" to Instant.now().toEpochMilli()))
+        val allowed = setOf("plate", "branch", "cls", "model", "fuel", "extra", "regDate", "ageExpireDate", "insuranceDate", "inspectionDate", "inspectionType", "asYears")
+        require(additions.all { it.keys.all { key -> key in allowed } })
+        additions.forEach { vehicle ->
+            listOf("regDate", "ageExpireDate", "insuranceDate", "inspectionDate").forEach { key -> vehicle[key]?.toString()?.takeIf(String::isNotBlank)?.let(LocalDate::parse) }
+        }
+        transact(ref) { FleetRegistry.append(it, additions, id) }
+    }
     suspend fun savePaymentSettings(session: FleetSession, settings: Map<String, Any?>) = lock.withLock {
         check(verify(session).isAdmin) { "관리자만 결제 설정을 변경할 수 있습니다." }
         require(settings.keys.all { it in setOf("company", "template", "accounts") })
@@ -142,6 +154,35 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
     }
     suspend fun deletePaymentLog(session: FleetSession, key: String) = lock.withLock {
         verify(session); validKey(key); root(session).child("paymentSendLog/$key").removeValue().await()
+    }
+    suspend fun settings(session: FleetSession): org.json.JSONObject {
+        check(verify(session).isAdmin) { "관리자만 회사 설정을 볼 수 있습니다." }
+        val company = root(session)
+        return org.json.JSONObject().put("profile", org.json.JSONObject(asMap(company.child("profile").get().await().value)))
+            .put("aiSettings", org.json.JSONObject(asMap(company.child("aiSettings").get().await().value)))
+    }
+    suspend fun saveSettings(session: FleetSession, profile: Map<String, Any?>, ai: Map<String, Any?>, start: String, end: String) = lock.withLock {
+        check(verify(session).isAdmin) { "관리자만 회사 설정을 변경할 수 있습니다." }
+        require(profile.keys.all { it in setOf("name", "homeBranch", "longTermBranch") })
+        require(profile.values.all { !it?.toString().isNullOrBlank() && it.toString().length <= 60 })
+        require(ai.keys.all { it in setOf("geminiKey", "grokKey", "provider", "updatedAt") })
+        val from = java.time.LocalTime.parse(start); val to = java.time.LocalTime.parse(end)
+        require(from != to) { "시작 시간과 종료 시간이 같습니다." }
+        val updates = mutableMapOf<String, Any?>()
+        profile.forEach { (key, value) -> updates["profile/$key"] = value }
+        updates["aiSettings"] = ai
+        updates["locationSettings"] = mapOf("start" to start, "end" to end, "updatedAt" to Instant.now().toString())
+        root(session).updateChildren(updates).await()
+    }
+    suspend fun saveQuickApp(session: FleetSession, key: String?, label: String, url: String) = lock.withLock {
+        check(verify(session).isAdmin) { "관리자만 자주 쓰는 앱을 변경할 수 있습니다." }
+        val uri = java.net.URI(url.trim()); require(uri.scheme in setOf("https", "http") && !uri.host.isNullOrBlank()) { "http 또는 https 주소를 입력해주세요." }
+        require(label.isNotBlank() && label.length <= 12)
+        val ref = root(session).child("quickApps"); val id = key ?: ref.push().key!!; validKey(id)
+        ref.child(id).updateChildren(mapOf("label" to label.trim(), "url" to url.trim(), "updatedAt" to Instant.now().toString())).await()
+    }
+    suspend fun deleteQuickApp(session: FleetSession, key: String) = lock.withLock {
+        check(verify(session).isAdmin); validKey(key); root(session).child("quickApps/$key").removeValue().await()
     }
 
     suspend fun sendText(session: FleetSession, id: String, text: String, home: String, long: String,

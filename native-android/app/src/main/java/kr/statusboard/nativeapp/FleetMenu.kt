@@ -20,6 +20,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.time.LocalDate
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.ui.platform.LocalContext
 import java.time.Instant
 import kotlinx.coroutines.delay
 import kr.statusboard.core.BotConnection
@@ -33,6 +36,7 @@ private val MenuBackground = Color(0xFFF6F8FB)
 private data class MenuItem(val title: String, val icon: Int)
 
 @Composable internal fun FleetShell(state: FleetUiState, refresh: () -> Unit, logout: () -> Unit, retryWooky: () -> Unit, model: FleetViewModel, widgetOpen: String? = null, acknowledgeOpen: () -> Unit = {}) {
+    val context = LocalContext.current
     var menu by rememberSaveable(state.session?.cacheKey) { mutableStateOf(false) }
     var schedule by rememberSaveable(state.session?.cacheKey) { mutableStateOf(false) }
     var scheduleDate by rememberSaveable { mutableStateOf(LocalDate.now().toString()) }
@@ -42,8 +46,13 @@ private data class MenuItem(val title: String, val icon: Int)
     var staffOpen by rememberSaveable { mutableStateOf(false) }
     var locationOpen by rememberSaveable { mutableStateOf(false) }
     var paymentOpen by rememberSaveable { mutableStateOf(false) }
+    var registrationOpen by rememberSaveable { mutableStateOf(false) }
+    var settingsOpen by rememberSaveable { mutableStateOf(false) }
+    var quickAppsOpen by rememberSaveable { mutableStateOf(false) }
+    var appSettingsOpen by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(widgetOpen, state.scheduleLoaded) {
         if (widgetOpen == "chat") { chatOpen = true; acknowledgeOpen() }
+        else if (widgetOpen == "payment") { paymentOpen = true; acknowledgeOpen() }
         else if (widgetOpen?.startsWith("date:") == true && state.scheduleLoaded) {
             runCatching { LocalDate.parse(widgetOpen.removePrefix("date:")) }.getOrNull()?.let {
                 scheduleDate = it.toString(); schedule = true
@@ -64,6 +73,14 @@ private data class MenuItem(val title: String, val icon: Int)
             "직원 관리", "직원 목록" -> staffOpen = true
             "위치보기", "내 위치 공유" -> locationOpen = true
             "결제·미청구" -> paymentOpen = true
+            "차량 등록" -> registrationOpen = true
+            "회사 설정" -> settingsOpen = true
+            "자주 쓰는 앱" -> quickAppsOpen = true
+            "내 앱 설정" -> appSettingsOpen = true
+            "카카오톡" -> {
+                val launch = context.packageManager.getLaunchIntentForPackage("com.kakao.talk")
+                context.startActivity(launch ?: Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=com.kakao.talk")))
+            }
             else -> pending = title
         }
     }
@@ -94,6 +111,11 @@ private data class MenuItem(val title: String, val icon: Int)
     if (staffOpen) FleetStaffDialog(state, model) { staffOpen = false }
     if (locationOpen) FleetLocationDialog(state, model) { locationOpen = false }
     if (paymentOpen) FleetPaymentDialog(state, model) { paymentOpen = false }
+    if (registrationOpen) FleetRegistration(state, model) { registrationOpen = false }
+    if (settingsOpen) FleetCompanySettings(state, model) { settingsOpen = false }
+    if (quickAppsOpen) FleetQuickApps(state, model) { quickAppsOpen = false }
+    if (appSettingsOpen) FleetAppSettings(state, model) { appSettingsOpen = false }
+    FleetNotificationPermission(state, model)
     FleetLocationConsent(state)
     if (botOpen) {
         val connection = botConnection(state)

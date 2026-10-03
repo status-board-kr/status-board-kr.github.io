@@ -11,7 +11,7 @@ class FleetStreams {
     fun bind(session: FleetSession, receive: (String, Any?) -> Unit, denied: () -> Unit) {
         close()
         val root = FirebaseDatabase.getInstance().getReference(session.path(""))
-        listOf("vehicles", "schedules", "profile", "members", "wookyJobs", "locations", "locationSettings", "paymentSettings", "paymentOverrides", "generalSales").forEach { name ->
+        listOf("vehicles", "schedules", "profile", "members", "wookyJobs", "locations", "locationSettings", "paymentSettings", "paymentOverrides", "generalSales", "quickApps").forEach { name ->
             listen(root.child(name), name, receive, denied)
         }
         listen(root.child("chat").orderByKey().limitToLast(50), "chat", receive, denied)
