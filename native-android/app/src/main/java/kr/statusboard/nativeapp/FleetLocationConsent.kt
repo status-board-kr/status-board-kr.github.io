@@ -7,6 +7,11 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.alpha
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -74,6 +79,7 @@ import java.time.Instant
     var checked by remember { mutableStateOf(false) }
     var now by remember { mutableStateOf(Instant.now()) }
     var selected by remember { mutableStateOf<String?>(null) }
+    var selectionRevision by remember { mutableIntStateOf(0) }
     var mapError by remember { mutableStateOf("") }
     var addresses by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
     var startHour by remember(state.locationSettings.toString()) { mutableStateOf(state.locationSettings.optString("start", "09:00")) }
@@ -143,24 +149,27 @@ import java.time.Instant
                 Spacer(Modifier.height(12.dp))
             }
             if (session.isAdmin || consent) {
-            FleetLocationMap(points, selected, Modifier.fillMaxWidth().height(220.dp), { addresses = it }) { mapError = it }
+            FleetLocationMap(points, selected, Modifier.fillMaxWidth().height(220.dp), { addresses = it }, selectionRevision) { mapError = it }
             if (mapError.isNotBlank()) Text(mapError, color = WebSub, fontSize = 12.sp)
             points.forEach { point ->
                 val age = runCatching { java.time.Duration.between(Instant.parse(point.at), now).toMinutes() }.getOrNull()
-                val stamp = runCatching { Instant.parse(point.at).atZone(java.time.ZoneId.of("Asia/Seoul")).format(java.time.format.DateTimeFormatter.ofPattern("M/d HH:mm:ss")) }.getOrDefault(point.at)
-                Row(Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
+                val minutes = runCatching { kotlin.math.round(java.time.Duration.between(Instant.parse(point.at), now).toMillis() / 60000.0).toLong().coerceAtLeast(0) }.getOrNull()
+                val recent = age != null && age in 0L..10L
+                val ago = when { minutes == null -> ""; minutes < 1 -> "방금 전"; minutes < 60 -> "${minutes}분 전"; else -> "${kotlin.math.round(minutes / 60.0).toLong()}시간 전" }
+                Row(Modifier.fillMaxWidth().padding(top = 8.dp).alpha(if (recent) 1f else .6f).background(WebPanel2, RoundedCornerShape(9.dp)).border(1.dp, WebLine, RoundedCornerShape(9.dp))
+                    .clickable { selected = point.uid; selectionRevision++ }.padding(12.dp, 10.dp)) {
                     Column(Modifier.weight(1f)) {
-                        Text("${if (age != null && age in 0L..10L) "🟢" else "⚪"} ${point.name}", fontSize = 14.sp)
-                        Text(addresses[point.uid]?.takeIf { it.isNotBlank() } ?: "위도 ${"%.4f".format(point.lat)}, 경도 ${"%.4f".format(point.lng)}", fontSize = 12.sp)
-                        Text("${if (age != null && age in 0L..10L) "최근 위치" else "마지막 위치"} · $stamp", color = WebSub, fontSize = 11.sp)
+                        Text("${if (recent) "🟢" else "⚪"} ${point.name}${if (point.uid == session.uid) " (나)" else ""}", fontSize = 13.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
+                        Text(addresses[point.uid]?.takeIf { it.isNotBlank() } ?: "위치 확인 중...", fontSize = 12.5.sp, modifier = Modifier.padding(top = 3.dp))
+                        if (!recent) Text("앱이 꺼져 있거나 신호가 없어요", color = WebSub, fontSize = 11.sp)
                     }
-                    TextButton(onClick = { selected = point.uid }) { Text("지도에서 보기") }
+                    Text("${if (recent) "" else "마지막 · "}$ago", color = WebSub, fontSize = 11.sp)
                 }
             }
             if (points.isEmpty()) Text("공유 중인 직원 위치가 없습니다. 직원의 동의·위치 권한·근무시간을 확인해주세요.", color = WebSub, fontSize = 12.sp, modifier = Modifier.padding(top = 20.dp))
             }
         }
-        if (!session.isAdmin && consent) Button(onClick = { FleetLocation.revoke(context, session); consent = false; model.locationChanged() }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) { Text("내 위치 공유 동의 해제") }
+        if (!session.isAdmin && consent) Button(onClick = { FleetLocation.revoke(context, session); consent = false; model.locationChanged() }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) { Text("📍 내 위치 공유 끄기") }
         OutlinedButton(onClick = close, modifier = Modifier.fillMaxWidth().padding(16.dp)) { Text("닫기") }
     }
 }

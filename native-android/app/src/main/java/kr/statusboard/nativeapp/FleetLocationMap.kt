@@ -14,7 +14,7 @@ internal data class FleetStaffPoint(val uid: String, val name: String, val lat: 
 /** Only the existing Kakao map component is web-rendered. Auth/GPS/database remain native.
  * No Firebase credentials or JavaScript-to-native interface is exposed to this page. */
 @SuppressLint("SetJavaScriptEnabled")
-@Composable internal fun FleetLocationMap(points: List<FleetStaffPoint>, selected: String?, modifier: Modifier, addresses: (Map<String, String>) -> Unit, error: (String) -> Unit) {
+@Composable internal fun FleetLocationMap(points: List<FleetStaffPoint>, selected: String?, modifier: Modifier, addresses: (Map<String, String>) -> Unit, selectionRevision: Int = 0, error: (String) -> Unit) {
     val context = LocalContext.current
     val report = rememberUpdatedState(error)
     val showAddresses = rememberUpdatedState(addresses)
@@ -46,7 +46,7 @@ internal data class FleetStaffPoint(val uid: String, val name: String, val lat: 
     AndroidView(factory = { view }, modifier = modifier)
     val payload = JSONArray(points.map { point -> JSONObject().put("uid", point.uid).put("name", point.name)
         .put("lat", point.lat).put("lng", point.lng).put("at", point.at) }).toString()
-    LaunchedEffect(ready, payload, selected) {
+    LaunchedEffect(ready, payload, selected, selectionRevision) {
         if (ready) {
             view.evaluateJavascript("window.fleetMapUpdate && window.fleetMapUpdate($payload, ${JSONObject.quote(selected.orEmpty())});", null)
             repeat(10) {

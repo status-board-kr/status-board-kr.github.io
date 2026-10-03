@@ -1,6 +1,8 @@
 package kr.statusboard.nativeapp
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.alpha
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -48,10 +50,11 @@ import org.json.JSONObject
                 Row(Modifier.fillMaxWidth().padding(top = 5.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     (week + List(7 - week.size) { null }).forEach { cell ->
                         val marked = cell != null && records.any { (_, item) -> if (item.optBoolean("repeat")) item.optString("date").takeLast(2) == cell.toString().takeLast(2) else item.optString("date").take(10) == cell.toString() }
-                        Column(Modifier.weight(1f).height(49.dp).background(if (cell == null) WebPanel else if (cell == day) WebAmber else WebPanel2, RoundedCornerShape(8.dp))
+                        Column(Modifier.weight(1f).height(32.dp).background(if (cell == null) WebPanel else if (cell == day) WebAmber else WebPanel2, RoundedCornerShape(8.dp))
+                            .border(1.dp, if (cell == LocalDate.now() && cell != day) WebAmber else androidx.compose.ui.graphics.Color.Transparent, RoundedCornerShape(8.dp))
                             .clickable(enabled = cell != null) { day = cell }, verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-                            if (cell != null) { Text(cell.dayOfMonth.toString(), fontSize = 17.sp, color = if (cell == day) WebPanel else MaterialTheme.colorScheme.onSurface)
-                                if (marked) Text("•", fontSize = 9.sp, color = if (cell == day) WebPanel else WebAmber) }
+                            if (cell != null) { Text(cell.dayOfMonth.toString(), fontSize = 12.sp, color = if (cell == day) WebPanel else if (cell == LocalDate.now()) WebAmber else FleetAppearance.text)
+                                if (marked) Box(Modifier.padding(top = 2.dp).size(4.dp).background(if (cell == day) WebPanel else androidx.compose.ui.graphics.Color(0xFF5B9DFF), RoundedCornerShape(50))) }
                         }
                     }
                 }
@@ -63,22 +66,23 @@ import org.json.JSONObject
             if (!state.scheduleLoaded) Text("일정 자료 확인 중…", color = WebSub)
             else if (items.isEmpty()) Text("이 날짜엔 등록된 일정이 없습니다", color = WebSub, modifier = Modifier.padding(20.dp))
             items.forEach { (key, item) ->
-                Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                val effective = day?.toString() ?: if (!item.optBoolean("repeat")) item.optString("date") else null
+                val marker = effective?.let { item.optJSONObject("completedDates")?.opt(it) }
+                val done = if (item.optBoolean("repeat")) marker != null && marker != JSONObject.NULL && marker != false else item.optBoolean("done")
+                Row(Modifier.fillMaxWidth().padding(bottom = 8.dp).alpha(if (done) .5f else 1f).background(WebPanel2, RoundedCornerShape(9.dp)).border(1.dp, WebLine, RoundedCornerShape(9.dp)).padding(12.dp, 10.dp), verticalAlignment = Alignment.Top) {
                     Column(Modifier.weight(1f)) {
-                        Text(item.optString("date") + if (item.optBoolean("repeat")) " · 매월 반복" else "", color = WebSub, fontSize = 11.sp)
-                        Text(item.optString("title"), fontSize = 14.sp); Text(item.optString("memo"), color = WebSub, fontSize = 12.sp)
+                        Text(runCatching { LocalDate.parse(item.optString("date")).format(java.time.format.DateTimeFormatter.ofPattern("MM월 dd일")) }.getOrDefault(item.optString("date")) + if (item.optBoolean("repeat")) " · 매월 반복" else "", color = WebAmber, fontSize = 12.sp)
+                        Text(item.optString("title"), fontSize = 13.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, textDecoration = if (done) androidx.compose.ui.text.style.TextDecoration.LineThrough else null)
+                        if (item.optString("type") == "일반") Text(if (item.optBoolean("depositPaid")) "💰 입금완료" else "⚠️ 미입금", color = if (item.optBoolean("depositPaid")) androidx.compose.ui.graphics.Color(0xFF34D399) else androidx.compose.ui.graphics.Color(0xFFF87171), fontSize = 10.sp)
+                        if (item.optString("memo").isNotBlank()) Text(item.optString("memo"), color = WebSub, fontSize = 12.sp)
                     }
                     Column(horizontalAlignment = Alignment.End) {
-                        val effective = day?.toString() ?: if (!item.optBoolean("repeat")) item.optString("date") else null
-                        val marker = effective?.let { item.optJSONObject("completedDates")?.opt(it) }
-                        val done = if (item.optBoolean("repeat")) marker != null && marker != JSONObject.NULL && marker != false else item.optBoolean("done")
                         Row(verticalAlignment = Alignment.CenterVertically) { Text("완료", fontSize = 11.sp, color = WebSub)
                             Switch(done, { effective?.let { model.toggleSchedule(key, it) } }, enabled = effective != null && !state.sending && !state.cached) }
                         Row { TextButton(onClick = { edit(key, item) }) { Text("수정", fontSize = 12.sp) }
                             TextButton(onClick = { deleting = key }) { Text("삭제", fontSize = 12.sp, color = androidx.compose.ui.graphics.Color(0xFFF87171)) } }
                     }
                 }
-                HorizontalDivider(color = WebLine)
             }
             OutlinedButton(onClick = { if (form) form = false else edit(null, null) }, modifier = Modifier.fillMaxWidth().padding(top = 14.dp)) { Text(if (form) "- 새 일정 추가 닫기" else "+ 새 일정 추가") }
             if (form) {

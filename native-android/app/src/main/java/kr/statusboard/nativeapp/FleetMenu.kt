@@ -90,7 +90,7 @@ private data class MenuItem(val title: String, val icon: Int)
                 val launch = context.packageManager.getLaunchIntentForPackage("com.kakao.talk")
                 context.startActivity(launch ?: Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=com.kakao.talk")))
             }
-            else -> pending = title
+            else -> if (title.startsWith("일정:")) { runCatching { LocalDate.parse(title.removePrefix("일정:")) }.getOrNull()?.let { scheduleDate = it.toString(); schedule = true } } else pending = title
         }
     }
     BackHandler(enabled = menu && !schedule && pending == null) { menu = false }

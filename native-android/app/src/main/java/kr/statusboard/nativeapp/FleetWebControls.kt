@@ -10,6 +10,16 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
@@ -27,6 +37,27 @@ import androidx.compose.ui.unit.sp
         androidx.compose.material3.Button(onClick, modifier, enabled, shape, colors, contentPadding = contentPadding) {
             ProvideTextStyle(TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Bold), content = { content() })
         }
+    }
+}
+
+@Composable internal fun Switch(checked: Boolean, onCheckedChange: (Boolean) -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
+    val green = Color(0xFF34D399)
+    Box(modifier.padding(start = 6.dp).size(34.dp, 20.dp).alpha(if (enabled) 1f else .35f)
+        .background(if (checked) green.copy(alpha = .35f) else WebLine, RoundedCornerShape(20.dp))
+        .toggleable(checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange)) {
+        Box(Modifier.align(if (checked) Alignment.CenterEnd else Alignment.CenterStart).padding(horizontal = 3.dp).size(14.dp).background(if (checked) green else WebSub, RoundedCornerShape(50)))
+    }
+}
+
+@Composable internal fun WebSelect(label: String, value: String, options: List<Pair<String, String>>, change: (String) -> Unit, enabled: Boolean = true) {
+    var expanded by remember { mutableStateOf(false) }
+    Text(label, color = WebSub, fontSize = 12.sp, modifier = Modifier.padding(top = 12.dp, bottom = 5.dp))
+    Box(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth().background(WebPanel2, RoundedCornerShape(9.dp)).border(1.dp, WebLine, RoundedCornerShape(9.dp)).clickable(enabled = enabled) { expanded = true }.padding(12.dp, 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(options.firstOrNull { it.first == value }?.second ?: value, fontSize = 14.sp, modifier = Modifier.weight(1f))
+            Text("▾", color = WebSub, fontSize = 12.sp)
+        }
+        DropdownMenu(expanded, { expanded = false }) { options.forEach { (key, text) -> DropdownMenuItem(text = { Text(text, fontSize = 14.sp) }, onClick = { change(key); expanded = false }) } }
     }
 }
 @Composable internal fun OutlinedButton(onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,

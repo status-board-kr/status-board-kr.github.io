@@ -129,8 +129,10 @@ internal val WebAmber get() = FleetAppearance.amber
         }
         Column(Modifier.fillMaxWidth().background(WebPanel).border(1.dp, WebLine).padding(16.dp, 10.dp)) {
             if (searchOpen) {
-                OutlinedTextField(query, { query = it; searchHits = null }, placeholder = { Text("대화 검색어") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                TextButton(onClick = { model.searchChat(query) { if (it != null) searchHits = it } }, enabled = query.isNotBlank() && !state.sending && !state.cached) { Text("최근 2년 전체 검색") }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.weight(1f)) { WebInput(query, { query = it; searchHits = null }, placeholder = "최근 2년 대화 검색") }
+                    OutlinedButton(onClick = { model.searchChat(query) { if (it != null) searchHits = it } }, enabled = query.isNotBlank() && !state.sending && !state.cached) { Text("찾기") }
+                }
                 searchHits?.let { Text("검색 ${it.length()}건${if (it.length() == 100) " · 최근 100건 표시" else ""}", color = WebSub, fontSize = 11.sp) }
             }
             if (photos.isNotEmpty()) Row(Modifier.fillMaxWidth().background(WebPanel2).padding(8.dp), verticalAlignment = Alignment.CenterVertically) {

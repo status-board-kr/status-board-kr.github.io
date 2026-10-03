@@ -19,19 +19,30 @@ import java.util.UUID
     val enabled = !state.sending && !state.cached
     WebSheet(close) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp, 18.dp)) {
-            Text("차량 등록", fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
-            TextButton(onClick = { bulk = true }, enabled = enabled) { Text("엑셀·CSV / 등록증 사진으로 일괄 등록") }
-            listOf("plate" to "차량번호 *", "branch" to "지점", "cls" to "종별 *", "model" to "차종", "fuel" to "연료", "extra" to "추가정보").forEach { (key, label) ->
+            Text("차량 추가", fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+            Text("새 차량 정보를 입력하세요", color = WebSub, fontSize = 12.sp)
+            OutlinedButton(onClick = { bulk = true }, enabled = enabled, modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) { Text("📥 엑셀·등록증 사진으로 여러 대 한번에 등록", fontSize = 13.sp) }
+            if (!documents) {
+            listOf("plate" to "차량번호 *", "branch" to "구역").forEach { (key, label) ->
                 WebField(label, fields[key].orEmpty(), { fields[key] = it }, enabled)
             }
-            Row { listOf("경형", "소형", "중형", "대형", "승합").forEach { kind -> TextButton(onClick = { fields["cls"] = kind }, enabled = enabled, modifier = Modifier.weight(1f)) { Text(kind, fontSize = 10.sp) } } }
-            TextButton(onClick = { documents = !documents }) { Text("보험 · 검사 · 차령 관리 ${if (documents) "▾" else "▸"}") }
+            WebSelect("종별 *", fields["cls"].orEmpty(), listOf("" to "-- 선택 --") + listOf("경형", "소형", "중형", "대형", "승합").map { it to it }, { fields["cls"] = it }, enabled)
+            Text("💡 차령 자동계산에 그대로 쓰여서 목록에서만 고를 수 있게 했어요.", color = WebSub, fontSize = 10.5.sp)
+            listOf("model" to "차종", "fuel" to "연료", "extra" to "추가정보 (자차 / 연령 / 특약 등)").forEach { (key, label) -> WebField(label, fields[key].orEmpty(), { fields[key] = it }, enabled) }
+            }
+            TextButton(onClick = { documents = !documents }, modifier = Modifier.fillMaxWidth()) { Text("📋 보험 · 검사 · 차령 관리 ${if (documents) "▾" else "▸"}") }
             if (documents) {
-                listOf("regDate" to "최초등록일", "ageExpireDate" to "차령 만료일", "asYears" to "A/S 기간 (년)", "insuranceDate" to "보험 갱신일", "inspectionType" to "검사종류", "inspectionDate" to "검사일자").forEach { (key, label) -> WebField(label, fields[key].orEmpty(), { fields[key] = it }, enabled) }
-                TextButton(onClick = {
-                    runCatching { FleetVehicleDocuments.defaults(fields.filterValues(String::isNotBlank)).forEach { (key, value) -> fields[key] = value.toString() } }.onFailure { error = "최초등록일 형식을 확인해주세요." }
-                }) { Text("최초등록일 기준 날짜 계산") }
-                Text("날짜: YYYY-MM-DD", color = WebSub, fontSize = 11.sp)
+                fun defaults(force: Boolean) {
+                    runCatching { FleetVehicleDocuments.defaults(fields.filterValues(String::isNotBlank).let { if (force) it - "ageExpireDate" else it }).forEach { (key, value) -> fields[key] = value.toString() } }.onFailure { error = "최초등록일 형식을 확인해주세요." }
+                }
+                WebField("최초등록일 (전부 이 날짜 기준 자동계산)", fields["regDate"].orEmpty(), { fields["regDate"] = it; if (runCatching { java.time.LocalDate.parse(it) }.isSuccess) defaults(true) }, enabled)
+                WebField("차령 만료일", fields["ageExpireDate"].orEmpty(), { fields["ageExpireDate"] = it }, enabled) { TextButton(onClick = { defaults(true) }, enabled = enabled) { Text("⚙ 재계산", fontSize = 11.sp) } }
+                WebField("A/S 기간 (년)", fields["asYears"].orEmpty(), { fields["asYears"] = it }, enabled)
+                Text("💡 대부분 3년/6만km이지만 5년짜리 등 다른 차량은 여기서 직접 바꿔주세요.", color = WebSub, fontSize = 10.5.sp)
+                WebField("보험 갱신일자", fields["insuranceDate"].orEmpty(), { fields["insuranceDate"] = it }, enabled)
+                Text("💡 최초등록일 입력 시 비어있으면 1년 뒤 날짜로 자동입력돼요.", color = WebSub, fontSize = 10.5.sp)
+                WebSelect("검사종류", fields["inspectionType"].orEmpty(), listOf("일반" to "일반검사", "연장" to "차령연장검사"), { fields["inspectionType"] = it }, enabled)
+                WebField("검사일자", fields["inspectionDate"].orEmpty(), { fields["inspectionDate"] = it }, enabled)
             }
             if (error.isNotBlank()) Text(error, color = WebSub)
             if (state.message.isNotBlank()) Text(state.message, color = WebSub, fontSize = 12.sp)
@@ -45,7 +56,7 @@ import java.util.UUID
                     val values: Map<String, Any?> = fields.mapValues { (key, value) -> if (key == "asYears") value.toInt() else value.trim().ifBlank { null } }
                     model.addVehicles(listOf(values), id) { if (it) close() }
                 }
-            }, enabled = enabled, modifier = Modifier.weight(1f)) { Text("등록") }
+            }, enabled = enabled, modifier = Modifier.weight(1f)) { Text("추가") }
         }
     }
     if (bulk) FleetBulkRegistration(state, model) { bulk = false }

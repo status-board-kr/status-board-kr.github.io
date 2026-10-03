@@ -51,6 +51,17 @@ private fun palette(type: String): Pair<Color, Color> {
     var sortOpen by remember { mutableStateOf(false) }
     val today = LocalDate.now()
     val connection = botConnection(state)
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val session = state.session
+    val readAt = session?.let { context.getSharedPreferences("native_chat_read", android.content.Context.MODE_PRIVATE).getLong(it.cacheKey, 0) } ?: 0L
+    val unread = state.chat.keys().asSequence().mapNotNull { state.chat.optJSONObject(it) }.count { it.optString("uid") != session?.uid && runCatching { java.time.Instant.parse(it.optString("at")).toEpochMilli() > readAt }.getOrDefault(false) }
+    val inquiries = state.inquiries.keys().asSequence().mapNotNull { state.inquiries.optJSONObject(it) }.count { !it.optBoolean("contacted") }
+    val locationCount = state.locations.keys().asSequence().count { uid ->
+        val location = state.locations.optJSONObject(uid)
+        val canView = session?.isAdmin == true || session?.let { FleetLocation.consent(context, it.cacheKey) } == true || uid == session?.uid
+        canView && state.members.has(uid) && location != null && runCatching { java.time.Duration.between(java.time.Instant.parse(location.optString("at")), java.time.Instant.now()).toMillis() in 0L..600000L }.getOrDefault(false)
+    }
+    val failedJobs = state.wookyJobs.keys().asSequence().mapNotNull { state.wookyJobs.optJSONObject(it) }.count { it.optString("status") == "done" && it.optString("result") in listOf("fail", "error") }
     val filtered = state.vehicles.filter { FleetPresentation.matches(it, filter, state.longBranch) && listOf(it.plate, it.model, it.note.orEmpty()).any { field -> field.contains(query, true) } }
     val ordered = when (sort) {
         "차량번호순" -> filtered.sortedBy { it.plate }
@@ -93,6 +104,8 @@ private fun palette(type: String): Pair<Color, Color> {
                                         .clickable { open(target) }.padding(horizontal = 3.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                                         Icon(painterResource(icon), null, tint = ink, modifier = Modifier.size(15.dp))
                                         Text(title, color = ink, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 3.dp))
+                                        val count = when (title) { "메신저" -> unread; "상담" -> inquiries; "위치보기" -> locationCount; else -> 0 }
+                                        if (count > 0) Text(if (count > 99) "99+" else count.toString(), color = Color.White, fontSize = 9.sp, modifier = Modifier.padding(start = 3.dp).background(Color(0xFFF87171), RoundedCornerShape(50)).padding(3.dp, 1.dp))
                                     }
                                 }
                                 repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
@@ -112,18 +125,25 @@ private fun palette(type: String): Pair<Color, Color> {
                 }
                 Text("● 종결 봇 ${connection.label}", color = WebSub, fontSize = 11.sp,
                     modifier = Modifier.align(Alignment.End).clickable { open("종결 봇") }.padding(vertical = 5.dp))
+                if (session?.isAdmin == true && failedJobs > 0) OutlinedButton(onClick = model::retryWooky, enabled = !state.sending && !state.cached, modifier = Modifier.align(Alignment.End)) { Text("실패 ${failedJobs}건 재시도", fontSize = 11.sp) }
                 if (state.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
                 if (state.cached) Text("저장된 자료 · 최신 자료 확인 필요", color = WebAmber, fontSize = 11.sp)
                 if (state.message.isNotBlank()) Text(state.message, color = WebAmber, fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                val todayItems = state.schedules.keys().asSequence().mapNotNull { state.schedules.optJSONObject(it) }.filter { item ->
-                    val date = item.optString("date").take(10)
-                    val matches = if (item.optBoolean("repeat")) date.takeLast(2) == today.toString().takeLast(2) else date == today.toString()
-                    val mark = item.optJSONObject("completedDates")?.opt(today.toString())
-                    val done = if (item.optBoolean("repeat")) mark != null && mark != org.json.JSONObject.NULL && mark != false else item.optBoolean("done")
-                    matches && !done
-                }.toList()
-                if (todayItems.isNotEmpty()) Text(todayItems.take(3).joinToString(" · ", prefix = "오늘 일정 · ") { it.optString("title") }, color = WebAmber, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp).background(WebAmber.copy(alpha = .08f), RoundedCornerShape(7.dp)).border(1.dp, WebAmber, RoundedCornerShape(7.dp)).clickable { open("일정") }.padding(8.dp))
+                val records = state.schedules.keys().asSequence().mapNotNull { state.schedules.optJSONObject(it) }.toList()
+                val unbilled = records.count { it.optBoolean("auto") && it.optBoolean("done") && !it.optBoolean("billed") && it.optString("type").ifBlank { state.vehicles.firstOrNull { vehicle -> vehicle.plate == it.optString("plate") }?.type.orEmpty() } != "일반" }
+                val unpaid = state.vehicles.count { it.type == "일반" && it.rawFields["amount"]?.toString()?.toDoubleOrNull()?.let { amount -> amount != 0.0 } == true && it.rawFields["depositPaid"] != true }
+                if (unbilled > 0) ScheduleBanner("미청구", "회수된 차량 중 미청구 차량이 ${unbilled}건 있습니다", Color(0xFFF87171)) { open("결제·미청구") }
+                if (unpaid > 0) ScheduleBanner("미입금", "일반 차량 중 미입금 차량이 ${unpaid}건 있습니다", Color(0xFFF87171)) {}
+                val dates = listOf(today) + if (java.time.LocalTime.now(java.time.ZoneId.of("Asia/Seoul")).hour >= 18) listOf(today.plusDays(1)) else emptyList()
+                dates.forEach { target ->
+                    records.filter { item ->
+                        val date = item.optString("date").take(10)
+                        val matches = if (item.optBoolean("repeat")) date.takeLast(2) == target.toString().takeLast(2) else date == target.toString()
+                        val mark = item.optJSONObject("completedDates")?.opt(target.toString())
+                        val done = if (item.optBoolean("repeat")) mark != null && mark != org.json.JSONObject.NULL && mark != false else item.optBoolean("done")
+                        matches && !done
+                    }.forEach { item -> ScheduleBanner(if (target == today) "오늘" else "내일", listOf(item.optString("title"), item.optString("memo")).filter(String::isNotBlank).joinToString(" · "), if (target == today) WebAmber else Color(0xFF5B9DFF), if (item.optString("type") == "일반") item.optBoolean("depositPaid") else null) { open("일정:${target}") } }
+                }
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     BasicTextField(query, { query = it }, singleLine = true, textStyle = TextStyle(color = FleetAppearance.text, fontSize = 14.sp),
                         modifier = Modifier.weight(1f).background(WebPanel, RoundedCornerShape(9.dp)).border(1.dp, WebLine, RoundedCornerShape(9.dp)).padding(horizontal = 12.dp, vertical = 9.dp),
@@ -146,9 +166,17 @@ private fun palette(type: String): Pair<Color, Color> {
             }
         }
         FloatingActionButton(onClick = { open("차량 등록") }, containerColor = WebAmber, contentColor = if (FleetAppearance.dark) Color(0xFF0F172A) else Color.White,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(18.dp).size(48.dp)) { Icon(painterResource(R.drawable.menu_add), "차량 등록") }
+            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 18.dp, bottom = 24.dp).size(52.dp), shape = RoundedCornerShape(50)) { Icon(painterResource(R.drawable.menu_add), "차량 등록") }
     }
     selected?.let { vehicle -> FleetVehicleEditor(state, vehicle, model) { selected = null } }
+}
+
+@Composable private fun ScheduleBanner(tag: String, title: String, ink: Color, paid: Boolean? = null, click: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(top = 6.dp).background(ink.copy(alpha = .14f), RoundedCornerShape(9.dp)).border(1.dp, ink, RoundedCornerShape(9.dp)).clickable(onClick = click).padding(12.dp, 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(tag, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = WebPanel, modifier = Modifier.background(ink, RoundedCornerShape(20.dp)).padding(7.dp, 2.dp))
+        Text(title, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+        paid?.let { Text(if (it) "입금완료" else "미입금", fontSize = 10.sp, color = if (it) Color(0xFF34D399) else Color(0xFFF87171)) }
+    }
 }
 
 @Composable private fun HeaderIcon(icon: Int, title: String, click: () -> Unit) {
