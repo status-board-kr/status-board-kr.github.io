@@ -10,7 +10,7 @@ object FleetVehicleDocuments {
         val years = when (vehicle["cls"]) { "대형" -> 8; "승합" -> 9; else -> 5 }
         val age = FleetPresentation.date(vehicle["ageExpireDate"]?.toString()) ?: addYears(registration, years)
         val inspection = FleetPresentation.date(vehicle["inspectionDate"]?.toString()) ?: addYears(registration, if (vehicle["cls"] == "승합") 1 else 2)
-        return mapOf("ageExpireDate" to age.toString(), "insuranceDate" to (vehicle["insuranceDate"] ?: addYears(registration, 1).toString()),
+        return mapOf("ageExpireDate" to age.toString(), "insuranceDate" to (vehicle["insuranceDate"]?.toString()?.takeIf(String::isNotBlank) ?: addYears(registration, 1).toString()),
             "inspectionDate" to inspection.toString(), "inspectionType" to if (inspection >= age.minusMonths(2)) "연장" else "일반")
     }
     fun completeInspection(vehicle: Map<String, Any?>): Map<String, Any?> {

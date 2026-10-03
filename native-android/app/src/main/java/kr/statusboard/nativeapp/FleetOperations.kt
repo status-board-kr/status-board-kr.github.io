@@ -380,6 +380,11 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
             FleetHistory.restore(value, snapshot.child("vehicles").value)
         }
     }
+    suspend fun saveAiKeys(session: FleetSession, gemini: String, grok: String) = lock.withLock {
+        check(verify(session).isAdmin) { "관리자만 AI 키를 변경할 수 있습니다." }
+        listOf(gemini, grok).forEach { require(it.isBlank() || (it.length in 20..300 && it.none(Char::isWhitespace))) { "키 모양을 확인해주세요." } }
+        root(session).child("aiSettings").setValue(if (gemini.isBlank() && grok.isBlank()) null else mapOf("geminiKey" to gemini.trim(), "grokKey" to grok.trim(), "updatedAt" to Instant.now().toString(), "updatedBy" to auth.currentUser?.email.orEmpty())).await()
+    }
     suspend fun saveLocationHours(session: FleetSession, start: String, end: String) = lock.withLock {
         check(verify(session).isAdmin) { "관리자만 위치 공유 시간을 변경할 수 있습니다." }
         require(java.time.LocalTime.parse(start) != java.time.LocalTime.parse(end)) { "시작 시간과 종료 시간이 같습니다." }
@@ -503,7 +508,7 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
         require(key.isNotBlank() && key.none { it in ".#$[]/" })
         root(session).child("schedules/$key").removeValue().await()
     }
-    suspend fun saveVehicle(session: FleetSession, original: FleetVehicle, fields: Map<String, Any?>, id: String, extend: Boolean, home: String, long: String) = lock.withLock {
+    suspend fun saveVehicle(session: FleetSession, original: FleetVehicle, fields: Map<String, Any?>, id: String, extend: Boolean, home: String, long: String, quickIdle: Boolean = false) = lock.withLock {
         verify(session)
         val editable = setOf("type", "startDate", "returnDate", "status", "note", "extra", "depositPaid", "regDate",
             "ageExpireDate", "ageExtendCount", "asYears", "asAckExpire", "insuranceDate", "inspectionType", "inspectionDate", "inspectionDone", "amount", "payDay", "customerName", "customerPhone")
@@ -537,6 +542,7 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
                     "다른 직원이 해당 항목을 수정했습니다. 다시 열어 확인해주세요."
                 }
                 val next = (raw + changed).toMutableMap()
+                if (quickIdle) next["dispatchSessionActive"] = false
                 if (next["type"] == long) next["branch"] = long else if (next["branch"] == long) next["branch"] = home
                 if (next["inspectionDate"] != raw["inspectionDate"]) next["inspectionDone"] = false
                 if (next["type"] != "일반") next["depositPaid"] = null
@@ -546,7 +552,7 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
                 } else next["saleKey"] = null
                 if (extend) check(FleetSales.needsExtensionChoice(raw, next)) { "연장 대상 금액이 변경됐습니다. 다시 확인해주세요." }
                 val op = mapOf("old" to raw.filterKeys { !it.startsWith("_native") }, "next" to next.filterKeys { !it.startsWith("_native") },
-                    "extend" to extend, "at" to at.toString(), "by" to auth.currentUser?.email.orEmpty())
+                    "extend" to extend, "quickIdle" to quickIdle, "at" to at.toString(), "by" to auth.currentUser?.email.orEmpty())
                 next + ("_nativeEdits" to (asMap(raw["_nativeEdits"]) + (id to op)))
             }
         }

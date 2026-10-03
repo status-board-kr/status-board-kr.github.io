@@ -5,6 +5,11 @@ import org.junit.Test
 import java.time.LocalDate
 
 class FleetVehicleDocumentsTest {
+    @Test fun blankInsuranceDateUsesRegistrationAndExistingDateIsPreserved() {
+        val input = mapOf<String, Any?>("regDate" to "2026-10-03", "cls" to "중형", "insuranceDate" to "")
+        assertEquals("2027-10-03", FleetVehicleDocuments.defaults(input)["insuranceDate"])
+        assertEquals("2027-11-01", FleetVehicleDocuments.defaults(input + ("insuranceDate" to "2027-11-01"))["insuranceDate"])
+    }
     @Test fun extensionAdvancesInspectionAndAgeOnlyTwice() {
         val first = mapOf<String, Any?>("inspectionDate" to "2026-10-03", "ageExpireDate" to "2026-11-03", "inspectionType" to "연장", "ageExtendCount" to 1, "note" to "보존")
         val changes = FleetVehicleDocuments.completeInspection(first)

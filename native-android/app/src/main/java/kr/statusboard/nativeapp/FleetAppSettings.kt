@@ -35,7 +35,19 @@ import androidx.compose.ui.unit.sp
     val allowed = remember(revision) { FleetNotifications.permitted(context) }
     WebSheet(close) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
-            Text("내 앱 설정", fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+            Text("📱 처음 한 번 설정해주세요", fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+            Text("이 3가지를 해두어야 앱을 닫아도 근무시간에 위치가 공유되고, 메신저 알림이 옵니다.\n\n① 위치 권한 → 허용\n② 알림 권한 → 허용\n③ 배터리 → 제한 없음\n\n버튼을 누르면 해당 설정 화면이 바로 열려요.", color = WebSub, fontSize = 13.sp, modifier = Modifier.padding(vertical = 14.dp))
+            Button(onClick = { context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:${context.packageName}"))) }, modifier = Modifier.fillMaxWidth()) { Text("① 위치·앱 권한 설정 열기") }
+            OutlinedButton(onClick = { context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)) }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text("② 알림 설정 열기") }
+            OutlinedButton(onClick = { context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text("③ 배터리 설정 열기") }
+            OutlinedButton(onClick = {
+                if (Build.VERSION.SDK_INT >= 33 && !FleetNotifications.permitted(context)) launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                else {
+                    FleetNotifications.channel(context)
+                    val open = android.app.PendingIntent.getActivity(context, 8302, Intent(context, MainActivity::class.java), android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT)
+                    context.getSystemService(android.app.NotificationManager::class.java).notify(8302, android.app.Notification.Builder(context, FleetNotifications.CHANNEL).setSmallIcon(R.drawable.menu_chat).setContentTitle("현황판 · 알림 시험").setContentText("이 휴대전화의 알림 소리를 확인해주세요.").setContentIntent(open).setAutoCancel(true).build())
+                }
+            }, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) { Text("🔔 알림 소리 시험하기") }
             Text("화면 색상", modifier = Modifier.padding(top = 18.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(false to "화이트", true to "블랙").forEach { (dark, label) ->

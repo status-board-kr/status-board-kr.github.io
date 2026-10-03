@@ -1,11 +1,18 @@
 package kr.statusboard.nativeapp
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kr.statusboard.core.FleetVehicle
@@ -18,7 +25,7 @@ import java.util.UUID
         listOf("type", "startDate", "returnDate", "status", "note", "extra", "regDate", "ageExpireDate", "asYears", "insuranceDate", "inspectionType", "inspectionDate", "amount", "payDay", "customerName", "customerPhone")
             .forEach { this[it] = vehicle.rawFields[it]?.toString().orEmpty() }
     } }
-    var docs by remember { mutableStateOf(false) }
+    var docs by remember { mutableStateOf(kr.statusboard.core.FleetPresentation.warnings(vehicle, java.time.LocalDate.now()).isNotEmpty()) }
     var extraEditable by remember { mutableStateOf(false) }
     var types by remember { mutableStateOf(false) }
     var deposit by remember { mutableStateOf(vehicle.rawFields["depositPaid"] == true) }
@@ -26,6 +33,8 @@ import java.util.UUID
     var documentAction by remember { mutableStateOf<String?>(null) }
     var documentError by remember { mutableStateOf("") }
     var deleting by remember { mutableStateOf(false) }
+    var deleteHeld by remember { mutableStateOf(false) }
+    var inspectionTypeOpen by remember { mutableStateOf(false) }
     val editId = remember(vehicle.plate) { UUID.randomUUID().toString() }
     var pendingExtension by remember { mutableStateOf<Map<String, Any?>?>(null) }
     val type = values["type"].orEmpty()
@@ -36,6 +45,7 @@ import java.util.UUID
     WebSheet(close) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp, 18.dp)) {
             Text(vehicle.plate, fontSize = 16.sp); Text(vehicle.model, color = WebSub, fontSize = 12.sp)
+            if (!docs) {
             Text("구분", color = WebSub, fontSize = 12.sp, modifier = Modifier.padding(top = 14.dp))
             Box {
                 OutlinedButton(onClick = { types = true }, enabled = editable, modifier = Modifier.fillMaxWidth()) { Text(type.ifBlank { "선택 안함" }) }
@@ -50,31 +60,46 @@ import java.util.UUID
             WebField("비고 (담당자 / 반납예정일 등)", values["note"].orEmpty(), { values["note"] = it }, editable)
             Row { Text("추가정보 (자차 / 연령 / 특약 등)", color = WebSub, fontSize = 12.sp, modifier = Modifier.weight(1f).padding(top = 12.dp))
                 TextButton(onClick = { extraEditable = !extraEditable }, enabled = editable) { Text("✎ 수정", fontSize = 11.sp) } }
-            OutlinedTextField(values["extra"].orEmpty(), { values["extra"] = it }, enabled = extraEditable && editable, modifier = Modifier.fillMaxWidth())
+            WebInput(values["extra"].orEmpty(), { values["extra"] = it }, enabled = extraEditable && editable)
             if (general) Row { Checkbox(deposit, { deposit = it }, enabled = editable); Text(if (deposit) "입금완료" else "미입금 상태 (체크하면 입금완료로 바뀌어요)", fontSize = 13.sp) }
+            }
             TextButton(onClick = { docs = !docs }, modifier = Modifier.fillMaxWidth()) { Text("📋 보험 · 검사 · 차령 관리 ${if (docs) "▾" else "▸"}") }
-            if (docs) listOf(field("최초등록일", "regDate"), field("차령 만료일", "ageExpireDate"), field("A/S 기간 (년)", "asYears"), field("보험 갱신일자", "insuranceDate"),
-                field("검사종류 (일반 / 연장)", "inspectionType"), field("검사일자", "inspectionDate")).forEach { (label, key) -> WebField(label, values[key].orEmpty(), { values[key] = it }, editable) }
             if (docs) {
-                Row { Checkbox(inspectionDone, { if (it) documentAction = "검사 완료" else inspectionDone = false }, enabled = editable); Text("검사 완료", fontSize = 13.sp) }
-                Row {
-                    TextButton(onClick = { documentAction = "보험 갱신 완료" }, enabled = editable) { Text("보험 갱신 완료", fontSize = 11.sp) }
-                    TextButton(onClick = { documentAction = "A/S 확인" }, enabled = editable) { Text("A/S 확인", fontSize = 11.sp) }
-                }
-                TextButton(onClick = {
+                WebField("최초등록일 (전부 이 날짜 기준 자동계산)", values["regDate"].orEmpty(), {
+                    values["regDate"] = it
                     FleetVehicleDocuments.defaults(vehicle.rawFields + values).forEach { (key, value) -> values[key] = value.toString() }
-                }, enabled = editable) { Text("최초등록일 기준 날짜 계산", fontSize = 11.sp) }
+                }, editable)
+                WebField("차령 만료일", values["ageExpireDate"].orEmpty(), { values["ageExpireDate"] = it }, editable) {
+                    TextButton(onClick = { FleetVehicleDocuments.defaults(vehicle.rawFields + values.filterKeys { it != "ageExpireDate" } + ("ageExpireDate" to null)).forEach { (key, value) -> values[key] = value.toString() } }, enabled = editable) { Text("⚙ 재계산", fontSize = 11.sp) }
+                }
+                WebField("A/S 기간 (년)", values["asYears"].orEmpty(), { values["asYears"] = it }, editable) {
+                    TextButton(onClick = { documentAction = "A/S 확인" }, enabled = editable) { Text("✓ 만료 확인", fontSize = 11.sp) }
+                }
+                Text("만료 상태를 확인했으면 ‘만료 확인’을 눌러주세요. 저장 후 현황판에서 숨겨져요.", color = WebSub, fontSize = 10.sp)
+                WebField("보험 갱신일자", values["insuranceDate"].orEmpty(), { values["insuranceDate"] = it }, editable) {
+                    TextButton(onClick = { documentAction = "보험 갱신 완료" }, enabled = editable) { Text("✓ 갱신 완료", fontSize = 11.sp) }
+                }
+                Text("갱신 완료를 누르면 다음 갱신일로 변경됩니다. 저장을 눌러 반영해주세요.", color = WebSub, fontSize = 10.sp)
+                Text("검사종류", color = WebSub, fontSize = 12.sp, modifier = Modifier.padding(top = 12.dp, bottom = 5.dp))
+                Box {
+                    OutlinedButton(onClick = { inspectionTypeOpen = true }, enabled = editable, modifier = Modifier.fillMaxWidth()) { Text(if (values["inspectionType"] == "연장") "차령연장검사" else "일반검사") }
+                    DropdownMenu(inspectionTypeOpen, { inspectionTypeOpen = false }) { listOf("일반", "연장").forEach { kind -> DropdownMenuItem(text = { Text(if (kind == "연장") "차령연장검사" else "일반검사") }, onClick = { values["inspectionType"] = kind; inspectionTypeOpen = false }) } }
+                }
+                WebField("검사일자", values["inspectionDate"].orEmpty(), { values["inspectionDate"] = it }, editable) {
+                    Row(verticalAlignment = Alignment.CenterVertically) { Text("완료", color = WebSub, fontSize = 11.sp); Switch(inspectionDone, { if (it) documentAction = "검사 완료" else inspectionDone = false }, enabled = editable) }
+                }
                 if (documentError.isNotBlank()) Text(documentError, color = WebSub, fontSize = 12.sp)
             }
+            if (!docs) {
             if (general || long) WebField("금액 (만원)", values["amount"].orEmpty(), { values["amount"] = it }, editable)
             if (long) WebField("결제일 (매월 며칠)", values["payDay"].orEmpty(), { values["payDay"] = it }, editable)
             if (general || long) {
                 WebField("고객명", values["customerName"].orEmpty(), { values["customerName"] = it }, editable)
                 WebField("고객 전화번호", values["customerPhone"].orEmpty(), { values["customerPhone"] = it }, editable)
             }
+            }
             Text("날짜는 YYYY-MM-DD 형식으로 입력해주세요.", color = WebSub, fontSize = 11.sp)
             if (state.message.isNotBlank()) Text(state.message, color = WebSub, fontSize = 12.sp)
-            TextButton(onClick = { deleting = true }, enabled = editable, modifier = Modifier.fillMaxWidth()) { Text("차량 삭제", color = androidx.compose.ui.graphics.Color(0xFFF87171)) }
         }
         Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick = close, modifier = Modifier.weight(1f)) { Text("취소") }
@@ -88,6 +113,11 @@ import java.util.UUID
                 if (FleetSales.needsExtensionChoice(vehicle.rawFields, vehicle.rawFields + changed)) pendingExtension = changed
                 else model.saveVehicle(vehicle, changed, editId) { if (it) close() }
             }, enabled = editable, colors = ButtonDefaults.buttonColors(containerColor = WebAmber, contentColor = WebPanel), modifier = Modifier.weight(1f)) { Text("저장") }
+        }
+        Box(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp).border(1.dp, androidx.compose.ui.graphics.Color(0xFFF87171), RoundedCornerShape(10.dp))
+            .background(if (deleteHeld) androidx.compose.ui.graphics.Color(0xFFF87171).copy(alpha = .3f) else WebPanel, RoundedCornerShape(10.dp))
+            .pointerInput(editable) { detectTapGestures(onPress = { if (editable) { deleteHeld = true; val released = kotlinx.coroutines.withTimeoutOrNull(1100) { tryAwaitRelease() }; deleteHeld = false; if (released == null) deleting = true } }) }.padding(10.dp), contentAlignment = Alignment.Center) {
+            Text("🗑 길게 눌러서 삭제", color = androidx.compose.ui.graphics.Color(0xFFF87171), fontSize = 13.sp)
         }
     }
     if (deleting) AlertDialog(onDismissRequest = { deleting = false }, title = { Text("차량 삭제") },

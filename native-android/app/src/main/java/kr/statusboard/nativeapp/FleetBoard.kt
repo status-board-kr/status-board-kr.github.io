@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -17,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
@@ -64,7 +66,7 @@ private fun palette(type: String): Pair<Color, Color> {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         HeaderIcon(R.drawable.menu_history, "새로고침") { open("새로고침") }
-                        HeaderIcon(R.drawable.menu_settings, "설정") { open("전체 메뉴") }
+                        HeaderIcon(R.drawable.menu_settings, "설정") { open("내 앱 설정") }
                     }
                     Column(Modifier.weight(2f), horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("🚗 ${state.companyName} 현황판", fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -80,7 +82,7 @@ private fun palette(type: String): Pair<Color, Color> {
                     "자주 쓰는 앱" to R.drawable.menu_star, "일정" to R.drawable.menu_calendar,
                     "결제일 알림" to R.drawable.menu_payment) + if (state.session?.isAdmin == true) listOf("견적·계약서" to R.drawable.menu_document) else emptyList()
                 BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                    val columns = if (maxWidth < 340.dp) 3 else 4
+                    val columns = if (maxWidth < 333.dp) 3 else ((maxWidth.value + 6) / if (maxWidth >= 672.dp) 116 else 90).toInt().coerceAtLeast(1)
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         actions.chunked(columns).forEach { row ->
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -138,7 +140,7 @@ private fun palette(type: String): Pair<Color, Color> {
                 if (filtered.isEmpty()) item { Text(if (state.vehicles.isEmpty()) "등록된 차량이 없습니다." else "해당하는 차량이 없습니다.", color = WebSub) }
                 groups.forEach { (branch, vehicles) ->
                     item { Row(Modifier.padding(top = 3.dp)) { Text(branch, color = WebSub, fontSize = 13.sp, modifier = Modifier.weight(1f)); Text("${vehicles.size}대", color = WebSub, fontSize = 11.sp) } }
-                    items(vehicles, key = { "${it.sourceIndex}:${it.plate}" }) { vehicle -> VehicleCard(vehicle, state.longBranch, today) { selected = vehicle } }
+                    items(vehicles, key = { "${it.sourceIndex}:${it.plate}" }) { vehicle -> VehicleCard(vehicle, state.longBranch, today, !state.sending && !state.cached, { model.quickIdle(vehicle, java.util.UUID.randomUUID().toString()) }) { selected = vehicle } }
                 }
                 item { TextButton(onClick = { open("로그아웃") }, modifier = Modifier.fillMaxWidth()) { Text("로그아웃", color = WebSub) } }
             }
@@ -155,16 +157,28 @@ private fun palette(type: String): Pair<Color, Color> {
     }
 }
 
-@Composable private fun VehicleCard(vehicle: FleetVehicle, longBranch: String, today: LocalDate, click: () -> Unit) {
+@Composable private fun VehicleCard(vehicle: FleetVehicle, longBranch: String, today: LocalDate, enabled: Boolean, idle: () -> Unit, click: () -> Unit) {
     val type = when { vehicle.status == "대기" || vehicle.status == "준비중" -> vehicle.status; vehicle.type == longBranch -> "장기"; else -> vehicle.type.orEmpty() }
     val (background, edge) = palette(type)
     val due = FleetPresentation.isDue(vehicle, today)
     val transition = rememberInfiniteTransition(label = "return-warning")
     val opacity by transition.animateFloat(1f, .45f, infiniteRepeatable(tween(750), RepeatMode.Reverse), label = "return-opacity")
     val warning = if (due) Color(0xFFF87171) else edge
+    var pressed by remember { mutableStateOf(false) }
+    var holdTriggered by remember { mutableStateOf(false) }
+    val fill by animateFloatAsState(if (pressed) 1f else 0f, tween(if (pressed) 3000 else 150), label = "web-hold-progress")
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(background)
-        .drawBehind { drawRect(warning, size = androidx.compose.ui.geometry.Size(4.dp.toPx(), size.height)) }
-        .border(if (due) 2.dp else 1.dp, if (due) warning.copy(alpha = opacity) else edge, RoundedCornerShape(12.dp)).clickable(onClick = click).padding(horizontal = 12.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
+        .drawBehind { drawRect(warning, size = androidx.compose.ui.geometry.Size(4.dp.toPx(), size.height)); if (fill > 0) drawRect(WebAmber.copy(alpha = .22f), size = androidx.compose.ui.geometry.Size(size.width * fill, size.height)) }
+        .border(if (due) 2.dp else 1.dp, if (due) warning.copy(alpha = opacity) else edge, RoundedCornerShape(12.dp))
+        .pointerInput(vehicle, enabled) { detectTapGestures(onTap = { if (enabled && !holdTriggered) click() }, onPress = {
+            if (enabled) {
+                holdTriggered = false
+                pressed = true
+                val result = kotlinx.coroutines.withTimeoutOrNull(3000) { tryAwaitRelease() }
+                pressed = false
+                if (result == null) { holdTriggered = true; idle() }
+            }
+        }) }.padding(horizontal = 12.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(vehicle.plate, fontSize = 15.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, letterSpacing = .5.sp)

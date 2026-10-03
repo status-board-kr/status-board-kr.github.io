@@ -73,6 +73,7 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
     }
     fun locationChanged() { _state.value = _state.value.copy(locationRevision = _state.value.locationRevision + 1) }
     fun saveLocationHours(start: String, end: String, complete: (Boolean) -> Unit) = edit({ operations.saveLocationHours(it, start, end) }, complete)
+    fun saveAiKeys(gemini: String, grok: String, complete: (Boolean) -> Unit) = edit({ operations.saveAiKeys(it, gemini, grok) }, complete)
 
     fun login(email: String, password: String) {
         if (_state.value.busy) return
@@ -484,5 +485,8 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
     }
     fun saveVehicle(original: FleetVehicle, fields: Map<String, Any?>, id: String, extend: Boolean = false, complete: (Boolean) -> Unit) =
         edit({ operations.saveVehicle(it, original, fields, id, extend, _state.value.homeBranch, _state.value.longBranch) }, complete)
+    fun quickIdle(original: FleetVehicle, id: String) = edit({ session ->
+        operations.saveVehicle(session, original, mapOf("status" to "대기", "startDate" to null, "note" to "차고지", "type" to "", "amount" to null, "payDay" to null, "returnDate" to null), id, false, _state.value.homeBranch, _state.value.longBranch, true)
+    })
     override fun onCleared() { streams.close(); super.onCleared() }
 }

@@ -88,15 +88,13 @@ internal val WebAmber get() = FleetAppearance.amber
     } }
     WebSheet(close) {
         Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 18.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("💬 직원 메신저", fontSize = 16.sp, modifier = Modifier.weight(1f))
+            Text("💬 직원 메신저", fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
             OutlinedButton(onClick = {
                 model.backupChat { file -> if (file != null) {
                     val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.photos", file)
                     context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_STREAM, uri).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION), "최근 2년 대화 백업"))
                 } }
             }, enabled = !state.sending && !state.cached, contentPadding = PaddingValues(10.dp, 4.dp)) { Text("💾 백업", fontSize = 12.sp) }
-            }
             Text("최근 50개 · 이전 대화 더 보기 · 최근 2년 전체 검색·백업", color = WebSub, fontSize = 12.sp)
         }
         LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp), state = list,

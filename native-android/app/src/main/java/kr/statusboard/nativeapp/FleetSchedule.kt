@@ -96,10 +96,13 @@ import org.json.JSONObject
         confirmButton = { TextButton(onClick = { model.deleteSchedule(key); deleting = null }, enabled = !state.sending && !state.cached) { Text("삭제") } }, dismissButton = { TextButton(onClick = { deleting = null }) { Text("취소") } }) }
 }
 
-@Composable internal fun WebField(label: String, value: String, change: (String) -> Unit, enabled: Boolean = true) {
+@Composable internal fun WebField(label: String, value: String, change: (String) -> Unit, enabled: Boolean = true, action: (@Composable () -> Unit)? = null) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val isDate = listOf("날짜", "일자", "최초등록일", "차령 만료일", "대여일", "YYYY-MM-DD").any { it in label }
-    Text(label, color = WebSub, fontSize = 12.sp, modifier = Modifier.padding(top = 12.dp, bottom = 5.dp))
+    Row(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, color = WebSub, fontSize = 12.sp, modifier = Modifier.weight(1f))
+        action?.invoke()
+    }
     if (isDate) Row(verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.weight(1f)) { WebInput(value, change, enabled) }
         TextButton(onClick = {

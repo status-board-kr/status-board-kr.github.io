@@ -13,6 +13,10 @@ object FleetEditEffects {
         val today = Instant.parse(at).atZone(ZoneId.of("Asia/Seoul")).toLocalDate()
         fun key(value: Any?): String? = value?.toString()?.takeIf(String::isNotBlank)?.also { require(it.none { ch -> ch in ".#$[]/" }) }
         val saleKey = key(next["saleKey"]); val oldKey = key(old["saleKey"])
+        if (op["quickIdle"] == true && (!old["type"]?.toString().isNullOrBlank() || old["status"] == "운행중")) {
+            // A resumed long-press cannot reset a completed office-agent job.
+            store.mutate("wookyJobs/edit-$id") { it ?: mapOf("plate" to plate, "endAt" to at, "status" to "pending", "at" to at, "by" to op["by"], "km" to null) }
+        }
         if (next["type"] == "일반" && saleKey != null) {
             store.mutate("generalSales/$saleKey") { previous ->
                 FleetSales.sale(previous?.let(::map), old, next, op["extend"] == true, id, at, op["by"]?.toString().orEmpty(), today)
