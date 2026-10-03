@@ -1,0 +1,34 @@
+name: 검증 APK 다운로드 주소 만들기
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/download-artifact@v4
+        with:
+          name: native-pilot-apk
+          run-id: 37094190772
+          github-token: ${{ github.token }}
+          path: pilot-artifact
+      - name: 검증한 APK만 별도 경로에 게시
+        shell: bash
+        run: |
+          echo "023cb83c9dea141822ed4714b182e2039ca4c103792c1dc0a37275ec61fb5f8e  pilot-artifact/status-board-native-pilot-0.1.0.apk" | sha256sum -c -
+          git pull --ff-only origin main
+          mkdir -p apk/native-pilot
+          cp pilot-artifact/status-board-native-pilot-0.1.0.apk apk/native-pilot/
+          cp pilot-artifact/READ-ME.md apk/native-pilot/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apk/native-pilot/
+          if ! git diff --cached --quiet; then
+            git commit -m "Publish separate native pilot APK download"
+            git push origin HEAD:main
+          fi
