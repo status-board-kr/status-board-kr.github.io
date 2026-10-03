@@ -14,6 +14,7 @@ class FleetApplication : Application() {
             .setApiKey(config.getString("apiKey"))
             .setApplicationId(config.getString("appId"))
             .setProjectId(config.getString("projectId"))
+            .setGcmSenderId(config.getString("messagingSenderId"))
             .setDatabaseUrl(config.getString("databaseURL"))
             .build())
     }

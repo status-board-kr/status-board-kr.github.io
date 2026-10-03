@@ -58,7 +58,9 @@ import java.time.Instant
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
             Row { Text("자주 쓰는 앱", fontSize = 18.sp, modifier = Modifier.weight(1f))
                 if (state.session?.isAdmin == true) TextButton(onClick = { editKey = null; label = ""; url = ""; editing = true }) { Text("추가") } }
-            val apps = state.quickApps.keys().asSequence().mapNotNull { key -> state.quickApps.optJSONObject(key)?.let { key to it } }.sortedBy { it.second.optString("label") }.toList()
+            val current = state.quickApps.keys().asSequence().mapNotNull { key -> state.quickApps.optJSONObject(key)?.let { key to it } }.sortedBy { it.second.optString("label") }.toList()
+            val legacy = state.legacyQuickApp?.takeIf { it.optString("label").isNotBlank() && it.optString("url").isNotBlank() && current.none { entry -> entry.second.optString("url") == it.optString("url") } }
+            val apps = (legacy?.let { listOf("_legacy" to it) } ?: emptyList()) + current
             apps.forEach { (key, app) ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                     TextButton(onClick = {

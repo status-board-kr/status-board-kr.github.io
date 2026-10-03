@@ -20,6 +20,7 @@ object FleetImportFile {
         val name = context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { if (it.moveToFirst()) it.getString(0) else "" }.orEmpty()
         context.contentResolver.openInputStream(uri)?.use { input ->
             val bytes = input.bounded(10_000_000); require(bytes.size <= 10_000_000) { "파일은 10MB 이내로 나눠주세요." }
+            require(!name.endsWith(".xls", true) && bytes.take(4) != listOf(0xD0.toByte(), 0xCF.toByte(), 0x11.toByte(), 0xE0.toByte())) { "이전 .xls 파일은 .xlsx 또는 CSV로 저장한 뒤 등록해주세요." }
             val rows = if (name.endsWith(".xlsx", true) || bytes.take(2) == listOf(80.toByte(), 75.toByte())) xlsx(bytes)
             else {
                 val utf8 = bytes.toString(Charsets.UTF_8)

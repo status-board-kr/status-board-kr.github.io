@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.sp
         Column(Modifier.weight(1f).fillMaxWidth().padding(16.dp)) {
             Text("내 앱 설정", fontSize = 18.sp)
             Text("알림: ${if (allowed) "허용됨" else "휴대전화에서 허용 필요"}", color = WebSub, fontSize = 12.sp, modifier = Modifier.padding(top = 18.dp))
+            Text(FleetPush.status(context, session), color = WebSub, fontSize = 12.sp)
             TextButton(onClick = {
                 if (Build.VERSION.SDK_INT >= 33 && !allowed) launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
                 else context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))

@@ -382,10 +382,11 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
         val uri = java.net.URI(url.trim()); require(uri.scheme in setOf("https", "http") && !uri.host.isNullOrBlank()) { "http 또는 https 주소를 입력해주세요." }
         require(label.isNotBlank() && label.length <= 12)
         val ref = root(session).child("quickApps"); val id = key ?: ref.push().key!!; validKey(id)
-        ref.child(id).updateChildren(mapOf("label" to label.trim(), "url" to url.trim(), "updatedAt" to Instant.now().toString())).await()
+        val target = if (id == "_legacy") root(session).child("quickApp") else ref.child(id)
+        target.updateChildren(mapOf("label" to label.trim(), "url" to url.trim(), "updatedAt" to Instant.now().toString())).await()
     }
     suspend fun deleteQuickApp(session: FleetSession, key: String) = lock.withLock {
-        check(verify(session).isAdmin); validKey(key); root(session).child("quickApps/$key").removeValue().await()
+        check(verify(session).isAdmin); validKey(key); root(session).child(if (key == "_legacy") "quickApp" else "quickApps/$key").removeValue().await()
     }
 
     suspend fun sendText(session: FleetSession, id: String, text: String, home: String, long: String,

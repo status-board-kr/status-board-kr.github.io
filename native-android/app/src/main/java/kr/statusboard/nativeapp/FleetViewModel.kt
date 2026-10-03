@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.tasks.await
 import kr.statusboard.core.*
@@ -31,7 +32,7 @@ data class FleetUiState(
     val paymentSettings: JSONObject = JSONObject(), val paymentOverrides: JSONObject = JSONObject(),
     val generalSales: JSONObject = JSONObject(), val paymentSendLog: JSONObject = JSONObject(),
     val quickApps: JSONObject = JSONObject(), val companySettings: JSONObject? = null, val history: JSONObject? = null,
-    val documents: JSONObject? = null, val inquiries: JSONObject = JSONObject(), val chatHistory: JSONObject? = null
+    val documents: JSONObject? = null, val inquiries: JSONObject = JSONObject(), val chatHistory: JSONObject? = null, val legacyQuickApp: JSONObject? = null
 )
 class FleetViewModel(application: Application) : AndroidViewModel(application) {
     private val auth = FirebaseAuth.getInstance()
@@ -55,6 +56,12 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
                 FleetWidgets.publish(application, value) { _state.value.session?.cacheKey }
                 if (_state.value.session?.cacheKey == value.session?.cacheKey && auth.currentUser?.uid == value.session?.uid)
                     FleetNotifications.schedule(application, value)
+                value.session?.let { session ->
+                    if (_state.value.session?.cacheKey == session.cacheKey) {
+                        try { FleetPush.sync(application, session) }
+                        catch (error: Exception) { if (error is CancellationException) throw error }
+                    }
+                }
             }
         }
         if (auth.currentUser != null) refresh()
@@ -160,6 +167,7 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
                             "generalSales" -> _state.value = _state.value.copy(generalSales = value as? JSONObject ?: JSONObject())
                             "paymentSendLog" -> _state.value = _state.value.copy(paymentSendLog = value as? JSONObject ?: JSONObject())
                             "quickApps" -> _state.value = _state.value.copy(quickApps = value as? JSONObject ?: JSONObject())
+                            "quickApp" -> _state.value = _state.value.copy(legacyQuickApp = value as? JSONObject)
                             "inquiries" -> _state.value = _state.value.copy(inquiries = value as? JSONObject ?: JSONObject())
                             "connected" -> _state.value = _state.value.copy(realtimeConnected = value == true)
                             "error" -> _state.value = _state.value.copy(message = value.toString())
@@ -215,6 +223,7 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
         FleetLocation.stop(getApplication())
         FleetNotifications.clear(getApplication())
         FleetPrivateFiles.clear(getApplication())
+        FleetPush.clear(getApplication())
         val old = _state.value.session
         auth.signOut()
         _state.value = FleetUiState(message = "업체 접근 권한을 확인하지 못했습니다. 인터넷 연결을 확인하고 다시 로그인해주세요.")
@@ -228,8 +237,14 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
         FleetNotifications.clear(getApplication())
         FleetPrivateFiles.clear(getApplication())
         val previous = _state.value.session
-        auth.signOut(); _state.value = FleetUiState()
-        if (previous != null) viewModelScope.launch { cache.remove(previous.cacheKey) }
+        FleetPush.clear(getApplication())
+        _state.value = FleetUiState(busy = true)
+        viewModelScope.launch {
+            try { withTimeoutOrNull(3000) { FleetPush.detach(getApplication(), previous) } }
+            catch (error: Exception) { if (error is CancellationException) throw error }
+            finally { auth.signOut(); _state.value = FleetUiState() }
+            if (previous != null) cache.remove(previous.cacheKey)
+        }
     }
     fun sendText(text: String, complete: (Boolean) -> Unit) {
         val active = _state.value.session ?: return
@@ -241,6 +256,10 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 operations.sendText(active, pending.first, text, _state.value.homeBranch, _state.value.longBranch)
+                launch {
+                    try { FleetPush.notifyChat(active, pending.first, text, _state.value.members.optJSONObject(active.uid)?.optString("name").orEmpty().ifBlank { "현황판" }) }
+                    catch (error: Exception) { if (error is CancellationException) throw error }
+                }
                 if (epoch == generation) { pendingMessage = null; _state.value = _state.value.copy(sending = false); complete(true) }
             } catch (error: Exception) {
                 if (error is CancellationException) throw error
@@ -284,6 +303,10 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
                 val ids = FleetPhotos.upload(session, id, data, null)
                 if (epoch != generation) return@launch
                 operations.sendText(session, id, caption, _state.value.homeBranch, _state.value.longBranch, ids, applyCommands=false)
+                launch {
+                    try { FleetPush.notifyChat(session, id, caption.ifBlank { "사진 ${ids.size}장" }, "현황판") }
+                    catch (error: Exception) { if (error is CancellationException) throw error }
+                }
                 if (epoch != generation) return@launch
                 if (!FleetPhotoRouting.needsAnalysis(caption, _state.value.longBranch)) { _state.value = _state.value.copy(sending=false, message="사진 전송됨"); complete(true); return@launch }
                 _state.value = _state.value.copy(message = "사진의 번호판·주행거리 확인 중…")
