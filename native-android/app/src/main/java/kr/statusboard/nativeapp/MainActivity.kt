@@ -37,7 +37,7 @@ class MainActivity : ComponentActivity() {
                 val model: FleetViewModel = viewModel()
                 val state by model.state.collectAsStateWithLifecycle()
                 Surface(Modifier.fillMaxSize()) {
-                    if (state.signedIn) FleetBoard(state, model::refresh, model::logout) else Login(state, model::login)
+                    if (state.signedIn) FleetShell(state, model::refresh, model::logout) else Login(state, model::login)
                 }
             }
         }
@@ -64,7 +64,7 @@ private fun palette(type: String): Pair<Color, Color> = when (type) {
     "장기" -> Color(0xFF332D43) to Color(0xFFB7A1D1)
     else -> Color(0xFF20374F) to Color(0xFFCFDBEC)
 }
-@Composable private fun FleetBoard(state: FleetUiState, refresh: () -> Unit, logout: () -> Unit) {
+@Composable internal fun FleetBoard(state: FleetUiState, refresh: () -> Unit, logout: () -> Unit) {
     var filter by rememberSaveable { mutableStateOf("전체") }
     var selected by remember { mutableStateOf<FleetVehicle?>(null) }
     var scheduleOpen by remember { mutableStateOf(false) }
@@ -134,7 +134,7 @@ private fun palette(type: String): Pair<Color, Color> = when (type) {
         FleetPresentation.warnings(vehicle, today).forEach { Text(it, color = Color(0xFFEAC483), fontSize = 11.sp, modifier = Modifier.padding(top = 7.dp)) }
     }
 }
-@Composable private fun ScheduleDialog(state: FleetUiState, initialDate: LocalDate, close: () -> Unit) {
+@Composable internal fun ScheduleDialog(state: FleetUiState, initialDate: LocalDate, close: () -> Unit) {
     var day by remember { mutableStateOf(initialDate) }
     val dayString = day.toString()
     val schedules = state.schedules.keys().asSequence().mapNotNull { state.schedules.optJSONObject(it) }.filter { item ->
