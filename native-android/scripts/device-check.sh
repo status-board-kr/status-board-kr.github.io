@@ -2,6 +2,10 @@
 set -euo pipefail
 task_proof="$(pwd)/native-device-proof"
 mkdir -p "$task_proof"
+# Emulator home process can show its own ANR over an otherwise responsive test Activity.
+# Disable only this disposable emulator's launcher, never any user's installed package.
+adb shell am force-stop com.google.android.apps.nexuslauncher
+adb shell pm disable-user --user 0 com.google.android.apps.nexuslauncher
 adb shell settings put secure location_mode 3
 adb shell settings put system font_scale 1.0
 adb logcat -c

@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.webkit.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import org.json.JSONArray
@@ -21,6 +22,7 @@ internal data class FleetStaffPoint(val uid: String, val name: String, val lat: 
     var ready by remember { mutableStateOf(false) }
     val view = remember {
         WebView(context).apply {
+            setBackgroundColor(android.graphics.Color.rgb(28, 42, 66))
             settings.javaScriptEnabled = true
             settings.allowFileAccess = false
             settings.allowContentAccess = false
@@ -43,7 +45,7 @@ internal data class FleetStaffPoint(val uid: String, val name: String, val lat: 
             loadUrl("https://status-board-kr.github.io/native-location-map.html")
         }
     }
-    AndroidView(factory = { view }, modifier = modifier)
+    AndroidView(factory = { view }, modifier = modifier.clipToBounds())
     val payload = JSONArray(points.map { point -> JSONObject().put("uid", point.uid).put("name", point.name)
         .put("lat", point.lat).put("lng", point.lng).put("at", point.at) }).toString()
     LaunchedEffect(ready, payload, selected, selectionRevision) {

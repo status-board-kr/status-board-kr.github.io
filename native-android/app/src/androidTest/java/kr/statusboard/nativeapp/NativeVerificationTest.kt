@@ -20,6 +20,12 @@ class NativeVerificationTest {
     @get:Rule val permissions = GrantPermissionRule.grant(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
     private fun capture(name: String) {
         compose.waitForIdle()
+        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
+        val windows = automation.windows.flatMap { window ->
+            fun texts(node: android.view.accessibility.AccessibilityNodeInfo?): List<String> = if (node == null) emptyList() else listOf(node.text?.toString().orEmpty()) + (0 until node.childCount).flatMap { texts(node.getChild(it)) }
+            texts(window.root)
+        }
+        assertFalse("System ANR dialog obscures $name", windows.any { it.contains("isn't responding") || it.contains("응답하지") })
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val dir = context.getExternalFilesDir("verification")!!.apply { mkdirs() }
         val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
@@ -28,7 +34,6 @@ class NativeVerificationTest {
         file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
         bitmap.recycle()
         // AGP uninstalls the target after instrumentation. Keep proof outside its removed directory.
-        val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
         for (command in listOf("mkdir -p /data/local/tmp/native-verification", "cp ${file.absolutePath} /data/local/tmp/native-verification/$safeName.png")) {
             automation.executeShellCommand(command).use { output -> android.os.ParcelFileDescriptor.AutoCloseInputStream(output).readBytes() }
         }
@@ -50,6 +55,10 @@ class NativeVerificationTest {
         for ((screen, title) in titles) {
             compose.runOnUiThread { compose.activity.screen = screen }
             compose.onNodeWithText(title, useUnmergedTree = true).assertIsDisplayed()
+            if (screen == "location") {
+                compose.waitUntil(30_000) { compose.onAllNodesWithText("근처", substring = true).fetchSemanticsNodes().isNotEmpty() }
+                compose.onNodeWithText(title, useUnmergedTree = true).assertIsDisplayed()
+            }
             if (screen in setOf("chat", "schedule", "location", "staff")) compose.onAllNodesWithText("닫기").assertCountEquals(1).onFirst().assertIsDisplayed()
             capture(screen)
         }
