@@ -132,6 +132,9 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
         } }
         val changed = normalized.filter { (key, value) -> original.rawFields[key] != value }
         if (changed.isEmpty()) return@withLock
+        // Do not bypass the web app's sales, extension and deposit ledger while that flow is ported.
+        val financial = setOf("type", "startDate", "returnDate", "amount", "payDay", "depositPaid", "customerName", "customerPhone")
+        check(changed.keys.none { it in financial }) { "이 항목은 매출·수납 연동 검증이 남아 있습니다. 현재는 기존 앱에서 변경해주세요." }
         val company = root(session)
         val latest = company.child("vehicles").get().await()
         val hit = latest.children.singleOrNull { it.child("plate").value == original.plate } ?: error("차량을 다시 선택해주세요.")
