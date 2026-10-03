@@ -124,7 +124,13 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
         fields["amount"]?.toString()?.let { require(it.toDoubleOrNull()?.let { value -> value.isFinite() && value >= 0 } == true) { "금액을 확인해주세요." } }
         fields["payDay"]?.toString()?.let { require(it.toIntOrNull()?.let { value -> value in 1..31 } == true) { "결제일은 1~31일입니다." } }
         fields["asYears"]?.toString()?.let { require(it.toIntOrNull()?.let { value -> value in 1..10 } == true) { "A/S 기간은 1~10년입니다." } }
-        val changed = fields.filter { (key, value) -> original.rawFields[key] != value }
+        val normalized = fields.mapValues { (key, value) -> when {
+            value == null -> null
+            key in setOf("asYears", "payDay") -> value.toString().toLong()
+            key == "amount" -> value.toString().toDouble()
+            else -> value
+        } }
+        val changed = normalized.filter { (key, value) -> original.rawFields[key] != value }
         if (changed.isEmpty()) return@withLock
         val company = root(session)
         val latest = company.child("vehicles").get().await()

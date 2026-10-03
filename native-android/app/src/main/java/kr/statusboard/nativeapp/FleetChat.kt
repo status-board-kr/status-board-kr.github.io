@@ -7,6 +7,8 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -21,8 +23,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.tasks.await
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.FirebaseDatabase
 
 internal val WebPanel = androidx.compose.ui.graphics.Color(0xFF16213A)
 internal val WebPanel2 = androidx.compose.ui.graphics.Color(0xFF1C2947)
@@ -32,10 +43,13 @@ internal val WebAmber = androidx.compose.ui.graphics.Color(0xFFF5A623)
 
 @Composable internal fun WebSheet(close: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     Dialog(onDismissRequest = close, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        MaterialTheme(colorScheme = darkColorScheme(primary = WebAmber, onPrimary = WebPanel, surface = WebPanel,
+            onSurface = androidx.compose.ui.graphics.Color(0xFFE8ECF7), outline = WebLine, secondary = WebSub)) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
             Column(Modifier.fillMaxWidth().widthIn(max = 480.dp).fillMaxHeight(.94f)
                 .background(WebPanel, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
                 .border(1.dp, WebLine, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)).imePadding(), content = content)
+        }
         }
     }
 }
@@ -46,14 +60,12 @@ internal val WebAmber = androidx.compose.ui.graphics.Color(0xFFF5A623)
     var searchOpen by rememberSaveable { mutableStateOf(false) }
     var query by rememberSaveable { mutableStateOf("") }
     var photos by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    var openedPhoto by remember { mutableStateOf<String?>(null) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(12)) { if (it.isNotEmpty()) photos = it }
-    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
-        // Keep camera output in app-private storage; never upload until the user presses send.
-        if (bitmap != null) {
-            val file = java.io.File(context.cacheDir, "chat-${System.nanoTime()}.jpg")
-            file.outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, it) }
-            photos = photos + Uri.fromFile(file)
-        }
+    var cameraUri by rememberSaveable { mutableStateOf<String?>(null) }
+    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { ok ->
+        if (ok) cameraUri?.let { photos = (photos + Uri.parse(it)).take(12) }
+        cameraUri = null
     }
     val messages = state.chat.keys().asSequence().mapNotNull { key -> state.chat.optJSONObject(key)?.let { key to it } }
         .sortedBy { it.second.optString("at") }.toList()
@@ -80,8 +92,11 @@ internal val WebAmber = androidx.compose.ui.graphics.Color(0xFFF5A623)
                     if (!system) Text("${message.optString("email")} · ${message.optString("at").take(16).replace('T', ' ')}", color = WebSub, fontSize = 11.sp)
                     Column(Modifier.fillMaxWidth(if (system) .92f else .85f).background(fill, RoundedCornerShape(12.dp))
                         .border(1.dp, edge, RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 9.dp)) {
-                        if (message.has("photoId") || message.optJSONArray("photoIds")?.length()?.let { it > 0 } == true)
-                            Text("📷 첨부 사진 ${message.optJSONArray("photoIds")?.length() ?: 1}장", color = WebSub, fontSize = 12.sp)
+                        val ids = message.optJSONArray("photoIds")?.let { array -> (0 until array.length()).map { array.optString(it) } }
+                            ?: listOfNotNull(message.optString("photoId").takeIf { it.isNotBlank() && it != "null" })
+                        ids.chunked(3).forEach { row -> Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                            row.forEach { id -> FleetChatPhoto(state, id, Modifier.weight(1f).height(95.dp).clickable { openedPhoto = id }) }
+                        } }
                         Text(message.optString("text"), fontSize = if (system) 13.sp else 14.sp)
                     }
                 }
@@ -94,21 +109,32 @@ internal val WebAmber = androidx.compose.ui.graphics.Color(0xFFF5A623)
                 TextButton(onClick = { photos = emptyList() }, enabled = !state.sending) { Text("✕") }
             }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { camera.launch(null) }, enabled = !state.sending, contentPadding = PaddingValues(0.dp), modifier = Modifier.width(34.dp)) { Text("📷") }
-                TextButton(onClick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, enabled = !state.sending, contentPadding = PaddingValues(0.dp), modifier = Modifier.width(34.dp)) { Text("▧") }
-                TextButton(onClick = { searchOpen = !searchOpen; if (!searchOpen) query = "" }, contentPadding = PaddingValues(0.dp), modifier = Modifier.width(30.dp)) { Text("⌕") }
+                TextButton(onClick = {
+                    val directory = java.io.File(context.cacheDir, "camera").apply { mkdirs() }
+                    val file = java.io.File(directory, "chat-${System.nanoTime()}.jpg")
+                    val uri = androidx.core.content.FileProvider.getUriForFile(context, "${context.packageName}.photos", file)
+                    cameraUri = uri.toString(); camera.launch(uri)
+                }, enabled = !state.sending, contentPadding = PaddingValues(0.dp), modifier = Modifier.width(34.dp)) { Icon(painterResource(R.drawable.chat_camera), "카메라로 찍기", tint = WebSub, modifier = Modifier.size(21.dp)) }
+                TextButton(onClick = { picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }, enabled = !state.sending, contentPadding = PaddingValues(0.dp), modifier = Modifier.width(34.dp)) { Icon(painterResource(R.drawable.chat_album), "사진 고르기", tint = WebSub, modifier = Modifier.size(21.dp)) }
+                TextButton(onClick = { searchOpen = !searchOpen; if (!searchOpen) query = "" }, contentPadding = PaddingValues(0.dp), modifier = Modifier.width(30.dp)) { Icon(painterResource(R.drawable.chat_search), "대화 검색", tint = WebSub, modifier = Modifier.size(20.dp)) }
                 OutlinedTextField(input, { if (it.length <= 2000) input = it }, placeholder = { Text("메시지를 입력하세요", fontSize = 12.sp) },
                     singleLine = true, enabled = !state.sending, shape = RoundedCornerShape(24.dp), modifier = Modifier.weight(1f))
                 Button(onClick = {
                     val done: (Boolean) -> Unit = { ok -> if (ok) { input = ""; photos = emptyList() } }
                     if (photos.isEmpty()) model.sendText(input, done) else model.sendPhotos(input, photos, done)
                 }, enabled = !state.sending && (input.isNotBlank() || photos.isNotEmpty()), shape = CircleShape,
-                    colors = ButtonDefaults.buttonColors(containerColor = WebAmber, contentColor = WebPanel), contentPadding = PaddingValues(0.dp), modifier = Modifier.padding(start = 6.dp).size(40.dp)) { Text("➤") }
+                    colors = ButtonDefaults.buttonColors(containerColor = WebAmber, contentColor = WebPanel), contentPadding = PaddingValues(0.dp), modifier = Modifier.padding(start = 6.dp).size(40.dp)) { Icon(painterResource(R.drawable.chat_send), "보내기", tint = WebPanel, modifier = Modifier.size(19.dp)) }
             }
             if (state.message.isNotBlank()) Text(state.message, color = WebSub, fontSize = 11.sp)
             OutlinedButton(onClick = close, modifier = Modifier.fillMaxWidth()) { Text("닫기", color = WebSub) }
         }
     }
+    openedPhoto?.let { id -> Dialog(onDismissRequest = { openedPhoto = null }) {
+        Column(Modifier.fillMaxWidth().background(WebPanel).padding(12.dp)) {
+            FleetChatPhoto(state, id, Modifier.fillMaxWidth().height(400.dp), ContentScale.Fit)
+            TextButton(onClick = { openedPhoto = null }) { Text("닫기") }
+        }
+    } }
     state.pendingPhoto?.let { pending ->
         AlertDialog(onDismissRequest = { model.choosePhotoVehicle(null) }, title = { Text("처리할 우리 차량 선택") },
             text = { Column { Text("사진은 전송됐습니다. 명령을 적용할 차량을 확인해주세요.")
@@ -116,5 +142,30 @@ internal val WebAmber = androidx.compose.ui.graphics.Color(0xFFF5A623)
                     TextButton(onClick = { model.choosePhotoVehicle(vehicle.plate) }) { Text("${vehicle.plate} · ${vehicle.model}") }
                 }
             } }, confirmButton = {}, dismissButton = { TextButton(onClick = { model.choosePhotoVehicle(null) }) { Text("명령 취소") } })
+    }
+}
+
+@Composable private fun FleetChatPhoto(state: FleetUiState, id: String, modifier: Modifier, scale: ContentScale = ContentScale.Crop) {
+    var bitmap by remember(state.session?.cacheKey, id) { mutableStateOf<ImageBitmap?>(null) }
+    var failed by remember(state.session?.cacheKey, id) { mutableStateOf(false) }
+    LaunchedEffect(state.session?.cacheKey, id) {
+        val session = state.session ?: return@LaunchedEffect
+        if (id.isBlank() || id.any { it in ".#$[]/" }) { failed = true; return@LaunchedEffect }
+        try {
+            check(FirebaseAuth.getInstance().currentUser?.uid == session.uid)
+            val data = FirebaseDatabase.getInstance().getReference(session.path("photos/$id/data")).get().await().getValue(String::class.java) ?: error("No photo")
+            val decoded = withContext(Dispatchers.Default) {
+                val bytes = android.util.Base64.decode(data.substringAfter(','), android.util.Base64.DEFAULT)
+                android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+            }
+            if (FirebaseAuth.getInstance().currentUser?.uid == session.uid) bitmap = decoded
+        } catch (error: Exception) {
+            if (error is kotlinx.coroutines.CancellationException) throw error
+            failed = true
+        }
+    }
+    Box(modifier.background(WebPanel2), contentAlignment = Alignment.Center) {
+        bitmap?.let { Image(it, contentDescription = "첨부 사진", contentScale = scale, modifier = Modifier.fillMaxSize()) }
+            ?: Text(if (failed) "사진 확인 불가" else "사진 불러오는 중", fontSize = 10.sp, color = WebSub)
     }
 }
