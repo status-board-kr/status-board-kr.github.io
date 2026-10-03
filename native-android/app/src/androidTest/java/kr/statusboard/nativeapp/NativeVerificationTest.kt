@@ -23,8 +23,11 @@ class NativeVerificationTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val dir = context.getExternalFilesDir("verification")!!.apply { mkdirs() }
         val bitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
-        File(dir, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        val file = File(dir, "$name.png")
+        file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
         bitmap.recycle()
+        // AGP uninstalls the target after instrumentation. Keep proof outside its removed directory.
+        InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand("mkdir -p /data/local/tmp/native-verification; cp '${file.absolutePath}' '/data/local/tmp/native-verification/$name.png'").use { output -> android.os.ParcelFileDescriptor.AutoCloseInputStream(output).readBytes() }
     }
     @Test fun filtersAndActionsPreserveWebOrder() {
         compose.onNodeWithText("예시1234").assertIsDisplayed()
@@ -48,8 +51,8 @@ class NativeVerificationTest {
         }
         for (screen in listOf("payments", "documents", "inquiries")) {
             compose.runOnUiThread { compose.activity.screen = screen }
-            compose.onNodeWithText("닫기").assertIsDisplayed()
             capture(screen)
+            try { compose.onNodeWithText("닫기").assertIsDisplayed() } catch (failure: AssertionError) { throw AssertionError("$screen footer is clipped", failure) }
         }
     }
     @Test fun documentTabsKeepOriginalCustomerSectionsAndLabels() {
