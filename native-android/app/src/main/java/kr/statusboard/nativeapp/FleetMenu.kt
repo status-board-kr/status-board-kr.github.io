@@ -11,6 +11,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -31,6 +32,7 @@ private data class MenuItem(val title: String, val icon: Int)
     var menu by rememberSaveable(state.session?.cacheKey) { mutableStateOf(false) }
     var schedule by rememberSaveable(state.session?.cacheKey) { mutableStateOf(false) }
     var pending by remember { mutableStateOf<String?>(null) }
+    val screens = rememberSaveableStateHolder()
     val open: (String) -> Unit = { title ->
         when (title) {
             "차량 현황" -> menu = false
@@ -45,7 +47,7 @@ private data class MenuItem(val title: String, val icon: Int)
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f)) {
             if (menu) FleetMenu(state, open)
-            else FleetBoard(state, refresh, logout)
+            else screens.SaveableStateProvider("fleet") { FleetBoard(state, refresh, logout) }
         }
         MaterialTheme(colorScheme = lightColorScheme(onSurface = Ink, surface = Color.White, primary = Accent)) {
             Row(Modifier.fillMaxWidth().background(Color.White).border(1.dp, Line)
