@@ -18,7 +18,7 @@ import org.json.JSONObject
 data class PendingFleetPhoto(val id: String, val caption: String, val photoIds: List<String>, val reading: PhotoReading, val candidates: List<String>)
 
 data class FleetUiState(
-    val signedIn: Boolean = false, val busy: Boolean = false, val message: String = "",
+    val signedIn: Boolean = false, val busy: Boolean = false, val message: String = "", val unassigned: Boolean = false,
     val session: FleetSession? = null, val companyName: String = "현황판",
     val vehicles: List<FleetVehicle> = emptyList(), val cached: Boolean = false,
     val schedules: JSONObject = JSONObject(), val scheduleLoaded: Boolean = false,
@@ -30,7 +30,8 @@ data class FleetUiState(
     val locationRevision: Int = 0,
     val paymentSettings: JSONObject = JSONObject(), val paymentOverrides: JSONObject = JSONObject(),
     val generalSales: JSONObject = JSONObject(), val paymentSendLog: JSONObject = JSONObject(),
-    val quickApps: JSONObject = JSONObject(), val companySettings: JSONObject? = null
+    val quickApps: JSONObject = JSONObject(), val companySettings: JSONObject? = null, val history: JSONObject? = null,
+    val documents: JSONObject? = null
 )
 class FleetViewModel(application: Application) : AndroidViewModel(application) {
     private val auth = FirebaseAuth.getInstance()
@@ -78,6 +79,26 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+    fun resetPassword(email: String) {
+        if (_state.value.busy || email.isBlank()) return
+        _state.value = _state.value.copy(busy = true, message = "")
+        viewModelScope.launch {
+            try { auth.sendPasswordResetEmail(email.trim()).await(); _state.value = _state.value.copy(busy = false, message = "비밀번호 재설정 메일을 요청했습니다. 받은 편지함을 확인해주세요.") }
+            catch (error: Exception) { if (error is CancellationException) throw error; _state.value = _state.value.copy(busy = false, message = "재설정 메일을 요청하지 못했습니다. 이메일과 연결을 확인해주세요.") }
+        }
+    }
+    fun enroll(email: String, password: String, company: String?, invite: String?) {
+        if (_state.value.busy) return
+        _state.value = _state.value.copy(busy = true, message = "")
+        viewModelScope.launch {
+            try { FleetEnrollment(auth, transport).enroll(email, password, company, invite); _state.value = _state.value.copy(busy = false); refresh() }
+            catch (error: Exception) {
+                if (error is CancellationException) throw error
+                _state.value = _state.value.copy(busy = false, unassigned = auth.currentUser != null,
+                    message = if (error is IllegalArgumentException || error is IllegalStateException) error.message.orEmpty() else "가입을 완료하지 못했습니다. 이미 가입한 이메일이면 로그인한 뒤 업체 연결을 진행해주세요.")
+            }
+        }
+    }
     fun refresh() {
         if (_state.value.busy) return
         val user = auth.currentUser ?: return
@@ -88,7 +109,12 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
             var verified: FleetSession? = null
             try {
                 // Resolve membership from the server on every refresh, before exposing cache.
-                val session = FleetAccessResolver(NativeMembership(transport)).resolve(user.uid) ?: throw AccessDenied()
+                val membership = NativeMembership(transport)
+                if (membership.companyFor(user.uid) == null) {
+                    if (epoch == generation) _state.value = FleetUiState(unassigned = true, message = "연결된 업체가 없습니다. 초대코드 가입 또는 업체 만들기를 진행해주세요.")
+                    return@launch
+                }
+                val session = FleetAccessResolver(membership).resolve(user.uid) ?: throw AccessDenied()
                 verified = session
                 if (epoch != generation) return@launch
                 if (_state.value.session?.cacheKey != session.cacheKey) { older = JSONObject(); _state.value = FleetUiState(busy = true) }
@@ -121,7 +147,9 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
                                 val own = members.optJSONObject(session.uid)
                                 if (own == null) viewModelScope.launch { revoke(epoch) }
                                 else _state.value = _state.value.copy(members = members, session = session.copy(role = own.optString("role", "staff")),
-                                    companySettings = if (own.optString("role") == "owner") _state.value.companySettings else null)
+                                    companySettings = if (own.optString("role") == "owner") _state.value.companySettings else null,
+                                    documents = if (own.optString("role") == "owner") _state.value.documents else null,
+                                    history = if (own.optString("role") == "owner") _state.value.history else null)
                             }
                             "wookyJobs" -> _state.value = _state.value.copy(wookyJobs = value as? JSONObject ?: JSONObject())
                             "locations" -> _state.value = _state.value.copy(locations = value as? JSONObject ?: JSONObject())
@@ -331,6 +359,20 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
         if (_state.value.session?.cacheKey == session.cacheKey) _state.value = _state.value.copy(companySettings = result)
     })
     fun clearSettings() { _state.value = _state.value.copy(companySettings = null) }
+    fun loadHistory() = edit({ session ->
+        val result = operations.history(session)
+        if (_state.value.session?.cacheKey == session.cacheKey) _state.value = _state.value.copy(history = result)
+    })
+    fun restoreHistory(key: String, id: String, complete: (Boolean) -> Unit) = edit({ operations.restoreHistory(it, key, id) }, complete)
+    fun loadDocuments() = edit({ session ->
+        val result = operations.documents(session)
+        if (_state.value.session?.cacheKey == session.cacheKey) _state.value = _state.value.copy(documents = result)
+    })
+    fun clearDocuments() { _state.value = _state.value.copy(documents = null) }
+    fun newDocumentKey(): String? = _state.value.session?.let(operations::newId)
+    fun saveDocument(key: String, request: String, data: Map<String, Any?>, version: String?, complete: (Boolean) -> Unit) = edit({ operations.saveDocument(it, key, request, data, version) }, complete)
+    fun deleteDocument(key: String) = edit({ operations.deleteDocument(it, key) }) { if (it) loadDocuments() }
+    fun saveDocumentRates(rates: Map<String, Any?>, complete: (Boolean) -> Unit) = edit({ operations.saveDocumentRates(it, rates) }, complete)
     fun saveSettings(profile: Map<String, Any?>, ai: Map<String, Any?>, start: String, end: String, complete: (Boolean) -> Unit) = edit({ operations.saveSettings(it, profile, ai, start, end) }, complete)
     fun saveQuickApp(key: String?, label: String, url: String, complete: (Boolean) -> Unit) = edit({ operations.saveQuickApp(it, key, label, url) }, complete)
     fun deleteQuickApp(key: String) = edit({ operations.deleteQuickApp(it, key) })

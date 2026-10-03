@@ -161,6 +161,54 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
         return org.json.JSONObject().put("profile", org.json.JSONObject(asMap(company.child("profile").get().await().value)))
             .put("aiSettings", org.json.JSONObject(asMap(company.child("aiSettings").get().await().value)))
     }
+    suspend fun history(session: FleetSession): org.json.JSONObject {
+        check(verify(session).isAdmin) { "관리자만 변경기록을 볼 수 있습니다." }
+        val snapshots = root(session).child("history").orderByChild("savedAt").limitToLast(30).get().await()
+        // Only summaries enter UI state; full vehicle snapshots are fetched on explicit restore.
+        return org.json.JSONObject(snapshots.children.associate { record -> record.key!! to mapOf("savedAt" to record.child("savedAt").value,
+            "count" to record.child("vehicles").childrenCount) })
+    }
+    suspend fun documents(session: FleetSession): org.json.JSONObject {
+        check(verify(session).isAdmin) { "관리자만 견적·계약서를 이용할 수 있습니다." }
+        return org.json.JSONObject(asMap(db.getReference("companyDocs/${session.companyId}").get().await().value))
+    }
+    suspend fun saveDocument(session: FleetSession, key: String, request: String, data: Map<String, Any?>, version: String?) = lock.withLock {
+        check(verify(session).isAdmin); validKey(key); validKey(request)
+        require(data["type"] in setOf("simple", "statement", "quote", "newcar", "contract", "receipt"))
+        val ref = db.getReference("companyDocs/${session.companyId}/$key")
+        transact(ref) { value ->
+            val previous = asMap(value)
+            if (previous["_nativeSaveId"] == request) previous else {
+                check(previous["updatedAt"]?.toString() == version || (previous.isEmpty() && version == null)) { "다른 관리자가 문서를 수정했습니다. 다시 불러와주세요." }
+                previous + data + mapOf("_nativeSaveId" to request, "createdAt" to (previous["createdAt"] ?: Instant.now().toString()),
+                    "updatedAt" to Instant.now().toString(), "by" to auth.currentUser?.email.orEmpty())
+            }
+        }
+    }
+    suspend fun deleteDocument(session: FleetSession, key: String) = lock.withLock {
+        check(verify(session).isAdmin); validKey(key)
+        check(!key.startsWith("_"))
+        db.getReference("companyDocs/${session.companyId}/$key").removeValue().await()
+    }
+    suspend fun saveDocumentRates(session: FleetSession, rates: Map<String, Any?>) = lock.withLock {
+        check(verify(session).isAdmin)
+        val allowed = setOf("rate", "months", "down", "acq", "reg", "ins", "maint", "fee", "etc", "margin", "age21", "d2", "d3", "cars")
+        require(rates.keys.all { it in allowed })
+        require(rates.filterKeys { it != "cars" }.values.all { it.toString().toDoubleOrNull()?.let { value -> value.isFinite() && value >= 0 } == true })
+        db.getReference("companyDocs/${session.companyId}/_newcarRates").updateChildren(rates).await()
+    }
+    suspend fun restoreHistory(session: FleetSession, key: String, id: String) = lock.withLock {
+        check(verify(session).isAdmin); validKey(key); validKey(id)
+        val company = root(session); val snapshot = company.child("history/$key").get().await()
+        check(snapshot.exists() && snapshot.child("savedAt").value is Number) { "복원할 기록이 없습니다." }
+        val ref = company.child("vehicles"); val before = ref.get().await()
+        FleetHistory.restore(before.value, snapshot.child("vehicles").value)
+        createOnce(company.child("history/$id"), mapOf("vehicles" to before.value, "savedAt" to Instant.now().toEpochMilli()))
+        transact(ref) { value ->
+            check(FleetRegistry.indexed(value) == FleetRegistry.indexed(before.value)) { "다른 직원이 차량을 수정했습니다. 기록을 다시 열어주세요." }
+            FleetHistory.restore(value, snapshot.child("vehicles").value)
+        }
+    }
     suspend fun saveSettings(session: FleetSession, profile: Map<String, Any?>, ai: Map<String, Any?>, start: String, end: String) = lock.withLock {
         check(verify(session).isAdmin) { "관리자만 회사 설정을 변경할 수 있습니다." }
         require(profile.keys.all { it in setOf("name", "homeBranch", "longTermBranch") })

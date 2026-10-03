@@ -50,6 +50,9 @@ private data class MenuItem(val title: String, val icon: Int)
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
     var quickAppsOpen by rememberSaveable { mutableStateOf(false) }
     var appSettingsOpen by rememberSaveable { mutableStateOf(false) }
+    var historyOpen by rememberSaveable { mutableStateOf(false) }
+    var documentsOpen by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(state.session?.isAdmin) { if (state.session?.isAdmin != true) { settingsOpen = false; historyOpen = false; documentsOpen = false } }
     LaunchedEffect(widgetOpen, state.scheduleLoaded) {
         if (widgetOpen == "chat") { chatOpen = true; acknowledgeOpen() }
         else if (widgetOpen == "payment") { paymentOpen = true; acknowledgeOpen() }
@@ -77,6 +80,8 @@ private data class MenuItem(val title: String, val icon: Int)
             "회사 설정" -> settingsOpen = true
             "자주 쓰는 앱" -> quickAppsOpen = true
             "내 앱 설정" -> appSettingsOpen = true
+            "변경기록" -> historyOpen = true
+            "견적·계약서" -> documentsOpen = true
             "카카오톡" -> {
                 val launch = context.packageManager.getLaunchIntentForPackage("com.kakao.talk")
                 context.startActivity(launch ?: Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=com.kakao.talk")))
@@ -115,6 +120,8 @@ private data class MenuItem(val title: String, val icon: Int)
     if (settingsOpen) FleetCompanySettings(state, model) { settingsOpen = false }
     if (quickAppsOpen) FleetQuickApps(state, model) { quickAppsOpen = false }
     if (appSettingsOpen) FleetAppSettings(state, model) { appSettingsOpen = false }
+    if (historyOpen) FleetHistoryDialog(state, model) { historyOpen = false }
+    if (documentsOpen) FleetDocuments(state, model) { documentsOpen = false }
     FleetNotificationPermission(state, model)
     FleetLocationConsent(state)
     if (botOpen) {

@@ -47,22 +47,33 @@ class MainActivity : ComponentActivity() {
                 val state by model.state.collectAsStateWithLifecycle()
                 Surface(Modifier.fillMaxSize()) {
                     if (state.signedIn) FleetShell(state, model::refresh, model::logout, model::retryWooky, model, widgetOpen.value) { widgetOpen.value = null }
-                    else Login(state, model::login)
+                    else Login(state, model)
                 }
             }
         }
     }
 }
-@Composable private fun Login(state: FleetUiState, login: (String, String) -> Unit) {
+@Composable private fun Login(state: FleetUiState, model: FleetViewModel) {
     var email by rememberSaveable { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var mode by rememberSaveable { mutableIntStateOf(0) }
+    var invite by rememberSaveable { mutableStateOf("") }
+    var company by rememberSaveable { mutableStateOf("") }
     Column(Modifier.fillMaxSize().padding(WindowInsets.systemBars.asPaddingValues()).padding(24.dp), verticalArrangement = Arrangement.Center) {
         Text("현황판", fontSize = 28.sp, fontWeight = FontWeight.Bold)
         Text("전용 앱 시험판 · 기존 현황판 계정으로 로그인", color = Muted, modifier = Modifier.padding(vertical = 12.dp))
-        OutlinedTextField(email, { email = it }, label = { Text("이메일") }, singleLine = true, enabled = !state.busy, modifier = Modifier.fillMaxWidth())
+        Row { listOf("로그인", "초대코드 가입", "업체 만들기").forEachIndexed { index, title -> TextButton(onClick = { mode = index }, enabled = !state.busy && (!state.unassigned || index != 0), modifier = Modifier.weight(1f)) { Text(title, fontSize = 11.sp) } }
+        OutlinedTextField(email, { email = it }, label = { Text("이메일") }, singleLine = true, enabled = !state.busy && !state.unassigned, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(10.dp))
-        OutlinedTextField(password, { password = it }, label = { Text("비밀번호") }, singleLine = true, visualTransformation = PasswordVisualTransformation(), enabled = !state.busy, modifier = Modifier.fillMaxWidth())
-        Button(onClick = { login(email, password); password = "" }, enabled = !state.busy && email.isNotBlank() && password.isNotEmpty(), modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) { Text(if (state.busy) "로그인 확인 중…" else "로그인") }
+        if (!state.unassigned) OutlinedTextField(password, { password = it }, label = { Text("비밀번호") }, singleLine = true, visualTransformation = PasswordVisualTransformation(), enabled = !state.busy, modifier = Modifier.fillMaxWidth())
+        if (mode == 1) OutlinedTextField(invite, { invite = it.uppercase().take(6) }, label = { Text("초대코드 6자리") }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
+        if (mode == 2) OutlinedTextField(company, { company = it }, label = { Text("업체명") }, enabled = !state.busy, modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
+        Button(onClick = {
+            when (mode) { 0 -> model.login(email, password); 1 -> model.enroll(email, password, null, invite); else -> model.enroll(email, password, company, null) }
+            password = ""
+        }, enabled = !state.busy && (state.unassigned || (email.isNotBlank() && password.isNotEmpty())) && (mode != 1 || invite.length == 6) && (mode != 2 || company.isNotBlank()) && (!state.unassigned || mode != 0), modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) { Text(if (state.busy) "확인 중…" else when (mode) { 0 -> "로그인"; 1 -> "초대코드로 가입"; else -> "업체 만들기" }) }
+        if (!state.unassigned) TextButton(onClick = { model.resetPassword(email) }, enabled = !state.busy && email.isNotBlank()) { Text("비밀번호 재설정", fontSize = 12.sp) }
+        else TextButton(onClick = model::logout) { Text("다른 계정으로 로그인", fontSize = 12.sp) }
         if (state.message.isNotBlank()) Text(state.message, color = Color(0xFFEAC483), modifier = Modifier.padding(top = 16.dp))
     }
 }

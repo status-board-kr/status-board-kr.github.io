@@ -1,0 +1,2353 @@
+{
+  "source": "docs.html",
+  "tabs": [
+    {
+      "key": "simple",
+      "label": "일반 견적서",
+      "prefix": "s",
+      "fields": [
+        {
+          "id": "s_name",
+          "label": "고객명",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "s_phone",
+          "label": "연락처",
+          "kind": "input",
+          "type": "tel",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "s_birth",
+          "label": "법인",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "s_biznum",
+          "label": "사업자등록번호",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "s_corpnum",
+          "label": "법인등록번호",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "s_ceo",
+          "label": "대표자 이름",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "s_date",
+          "label": "견적일자",
+          "kind": "input",
+          "type": "date",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "s_addr",
+          "label": "주소",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "s_model",
+          "label": "차량모델",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "s_carnum",
+          "label": "차량번호",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "s_year",
+          "label": "연식",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "s_color",
+          "label": "색상",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "s_mileage",
+          "label": "주행거리 (km)",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "s_fuel",
+          "label": "연료",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "",
+              "label": "선택",
+              "selected": false
+            },
+            {
+              "value": "가솔린",
+              "label": "가솔린",
+              "selected": false
+            },
+            {
+              "value": "디젤",
+              "label": "디젤",
+              "selected": false
+            },
+            {
+              "value": "LPG",
+              "label": "LPG",
+              "selected": false
+            },
+            {
+              "value": "하이브리드",
+              "label": "하이브리드",
+              "selected": false
+            },
+            {
+              "value": "전기",
+              "label": "전기",
+              "selected": false
+            },
+            {
+              "value": "수소",
+              "label": "수소",
+              "selected": false
+            }
+          ],
+          "value": ""
+        },
+        {
+          "id": "s_type",
+          "label": "대여 유형",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "단기대여",
+              "label": "단기대여",
+              "selected": false
+            },
+            {
+              "value": "장기대여",
+              "label": "장기대여",
+              "selected": false
+            },
+            {
+              "value": "사고대차",
+              "label": "사고대차",
+              "selected": false
+            }
+          ],
+          "value": "단기대여"
+        },
+        {
+          "id": "s_unit",
+          "label": "기간 단위",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "hour",
+              "label": "24시간 단위",
+              "selected": false
+            },
+            {
+              "value": "day",
+              "label": "일 단위",
+              "selected": false
+            }
+          ],
+          "value": "hour"
+        },
+        {
+          "id": "s_start",
+          "label": "대여 시작일",
+          "kind": "input",
+          "type": "date",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "s_end",
+          "label": "대여 종료일",
+          "kind": "input",
+          "type": "date",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "s_period",
+          "label": "대여 기간 (자동계산)",
+          "kind": "input",
+          "type": "text",
+          "readonly": true,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "s_price",
+          "label": "렌트료 (일/24시간)",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "s_discount",
+          "label": "할인율 (%)",
+          "kind": "input",
+          "type": "number",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "s_total",
+          "label": "할인 후 총 렌트료",
+          "kind": "input",
+          "type": "text",
+          "readonly": true,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "s_formula",
+          "label": "산식 (자동생성)",
+          "kind": "input",
+          "type": "text",
+          "readonly": true,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "s_etc",
+          "label": "기타비용",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "s_special",
+          "label": "특이사항 (선택)",
+          "kind": "textarea",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        }
+      ],
+      "radios": {
+        "s_birth_type": [
+          {
+            "value": "birth",
+            "label": "> 개인",
+            "checked": true
+          },
+          {
+            "value": "biz",
+            "label": "> 법인",
+            "checked": false
+          }
+        ]
+      }
+    },
+    {
+      "key": "statement",
+      "label": "거래명세서",
+      "prefix": "st",
+      "fields": [
+        {
+          "id": "st_name",
+          "label": "상호(고객명)",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "st_phone",
+          "label": "연락처",
+          "kind": "input",
+          "type": "tel",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "st_birth",
+          "label": "법인",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "st_biznum",
+          "label": "사업자등록번호",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "st_corpnum",
+          "label": "법인등록번호",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "st_ceo",
+          "label": "대표자 이름",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "st_date",
+          "label": "발행일자",
+          "kind": "input",
+          "type": "date",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "st_addr",
+          "label": "주소",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "st_model",
+          "label": "차량모델",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "st_carnum",
+          "label": "차량번호",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "st_year",
+          "label": "연식",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "st_color",
+          "label": "색상",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "st_mileage",
+          "label": "주행거리 (km)",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "st_fuel",
+          "label": "연료",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "",
+              "label": "선택",
+              "selected": false
+            },
+            {
+              "value": "가솔린",
+              "label": "가솔린",
+              "selected": false
+            },
+            {
+              "value": "디젤",
+              "label": "디젤",
+              "selected": false
+            },
+            {
+              "value": "LPG",
+              "label": "LPG",
+              "selected": false
+            },
+            {
+              "value": "하이브리드",
+              "label": "하이브리드",
+              "selected": false
+            },
+            {
+              "value": "전기",
+              "label": "전기",
+              "selected": false
+            },
+            {
+              "value": "수소",
+              "label": "수소",
+              "selected": false
+            }
+          ],
+          "value": ""
+        },
+        {
+          "id": "st_tax_type",
+          "label": "세금 구분",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "none",
+              "label": "비과세",
+              "selected": false
+            },
+            {
+              "value": "include",
+              "label": "VAT 포함",
+              "selected": false
+            },
+            {
+              "value": "add",
+              "label": "VAT 별도 (10% 추가)",
+              "selected": false
+            }
+          ],
+          "value": "none"
+        },
+        {
+          "id": "st_total",
+          "label": "합계금액 (자동계산)",
+          "kind": "input",
+          "type": "text",
+          "readonly": true,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "st_note",
+          "label": "비고 (선택)",
+          "kind": "textarea",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        }
+      ],
+      "radios": {
+        "st_birth_type": [
+          {
+            "value": "birth",
+            "label": "> 개인",
+            "checked": true
+          },
+          {
+            "value": "biz",
+            "label": "> 법인",
+            "checked": false
+          }
+        ]
+      }
+    },
+    {
+      "key": "quote",
+      "label": "장기 견적서",
+      "prefix": "q",
+      "fields": [
+        {
+          "id": "q_name",
+          "label": "고객명 *",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "q_phone",
+          "label": "연락처 *",
+          "kind": "input",
+          "type": "tel",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "q_birth",
+          "label": "법인",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "q_biznum",
+          "label": "사업자등록번호",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "q_corpnum",
+          "label": "법인등록번호",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "q_ceo",
+          "label": "대표자 이름",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "q_date",
+          "label": "견적일자",
+          "kind": "input",
+          "type": "date",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "q_addr",
+          "label": "주소",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "q_model",
+          "label": "차량모델 *",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "q_carnum",
+          "label": "차량번호",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "q_year",
+          "label": "연식",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "q_color",
+          "label": "색상",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "q_mileage",
+          "label": "주행거리 (km)",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "q_fuel",
+          "label": "연료",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "",
+              "label": "선택",
+              "selected": false
+            },
+            {
+              "value": "가솔린",
+              "label": "가솔린",
+              "selected": false
+            },
+            {
+              "value": "디젤",
+              "label": "디젤",
+              "selected": false
+            },
+            {
+              "value": "LPG",
+              "label": "LPG",
+              "selected": false
+            },
+            {
+              "value": "하이브리드",
+              "label": "하이브리드",
+              "selected": false
+            },
+            {
+              "value": "전기",
+              "label": "전기",
+              "selected": false
+            },
+            {
+              "value": "수소",
+              "label": "수소",
+              "selected": false
+            }
+          ],
+          "value": ""
+        },
+        {
+          "id": "q_grade",
+          "label": "차종 등급",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "",
+              "label": "선택",
+              "selected": false
+            },
+            {
+              "value": "경형",
+              "label": "경형 (모닝·레이·캐스퍼) — 450,000원~",
+              "selected": false
+            },
+            {
+              "value": "소형",
+              "label": "소형 (아반떼·K3·베뉴) — 550,000원~",
+              "selected": false
+            },
+            {
+              "value": "중형",
+              "label": "중형 (소나타·K5·SM6) — 650,000원~",
+              "selected": false
+            },
+            {
+              "value": "SUV",
+              "label": "SUV (투싼·스포티지·셀토스) — 650,000원~",
+              "selected": false
+            }
+          ],
+          "value": ""
+        },
+        {
+          "id": "q_age",
+          "label": "운전자 나이",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "21",
+              "label": "만 21세 이상 (기본)",
+              "selected": false
+            },
+            {
+              "value": "26",
+              "label": "만 26세 이상 (-50,000원)",
+              "selected": false
+            }
+          ],
+          "value": "21"
+        },
+        {
+          "id": "q_driver_special",
+          "label": "운전자 특약",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "",
+              "label": "없음 (기본)",
+              "selected": false
+            },
+            {
+              "value": "지정1인",
+              "label": "지정 1인 운전자 추가",
+              "selected": false
+            },
+            {
+              "value": "지정2인",
+              "label": "지정 2인 운전자 추가",
+              "selected": false
+            },
+            {
+              "value": "임직원한정",
+              "label": "임직원 한정 특약",
+              "selected": false
+            }
+          ],
+          "value": ""
+        },
+        {
+          "id": "q_mileage_limit",
+          "label": "약정 주행거리",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "0",
+              "label": "월 2,000km (기본)",
+              "selected": false
+            },
+            {
+              "value": "1",
+              "label": "월 3,000km (+50,000원)",
+              "selected": false
+            },
+            {
+              "value": "2",
+              "label": "월 4,000km (+100,000원)",
+              "selected": false
+            },
+            {
+              "value": "3",
+              "label": "월 5,000km (+150,000원)",
+              "selected": false
+            }
+          ],
+          "value": "0"
+        },
+        {
+          "id": "q_own",
+          "label": "자기차량손해(자차)",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "0",
+              "label": "미포함",
+              "selected": false
+            },
+            {
+              "value": "1",
+              "label": "포함 (+50,000원)",
+              "selected": false
+            }
+          ],
+          "value": "0"
+        },
+        {
+          "id": "q_maint",
+          "label": "정비 서비스",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "50000",
+              "label": "포함 (+50,000원 · 필수)",
+              "selected": false
+            }
+          ],
+          "value": "50000"
+        },
+        {
+          "id": "q_period",
+          "label": "계약기간 *",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "",
+              "label": "선택",
+              "selected": false
+            },
+            {
+              "value": "1",
+              "label": "1개월",
+              "selected": false
+            },
+            {
+              "value": "2",
+              "label": "2개월",
+              "selected": false
+            },
+            {
+              "value": "3",
+              "label": "3개월",
+              "selected": false
+            },
+            {
+              "value": "6",
+              "label": "6개월",
+              "selected": false
+            },
+            {
+              "value": "12",
+              "label": "12개월",
+              "selected": false
+            },
+            {
+              "value": "24",
+              "label": "24개월",
+              "selected": false
+            },
+            {
+              "value": "36",
+              "label": "36개월",
+              "selected": false
+            }
+          ],
+          "value": ""
+        },
+        {
+          "id": "q_start",
+          "label": "계약 시작일",
+          "kind": "input",
+          "type": "date",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "q_end",
+          "label": "계약 종료일 (자동계산)",
+          "kind": "input",
+          "type": "date",
+          "readonly": true,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "q_price",
+          "label": "월렌트료 *",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "q_discount",
+          "label": "할인율 (%)",
+          "kind": "input",
+          "type": "number",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "q_insurance",
+          "label": "대물 배상",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "3천만원",
+              "label": "대물 3천만원",
+              "selected": false
+            },
+            {
+              "value": "5천만원",
+              "label": "대물 5천만원",
+              "selected": false
+            },
+            {
+              "value": "1억원",
+              "label": "대물 1억원",
+              "selected": false
+            }
+          ],
+          "value": "3천만원"
+        },
+        {
+          "id": "q_deposit",
+          "label": "보증금",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "q_delivery",
+          "label": "탁송비",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "q_etc",
+          "label": "기타비용",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "q_total",
+          "label": "계약기간 총액 (자동계산)",
+          "kind": "input",
+          "type": "text",
+          "readonly": true,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "q_special",
+          "label": "특약사항",
+          "kind": "textarea",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        }
+      ],
+      "radios": {
+        "q_birth_type": [
+          {
+            "value": "birth",
+            "label": "> 개인",
+            "checked": true
+          },
+          {
+            "value": "biz",
+            "label": "> 법인",
+            "checked": false
+          }
+        ]
+      }
+    },
+    {
+      "key": "newcar",
+      "label": "신차 렌트 견적서",
+      "prefix": "n",
+      "fields": [
+        {
+          "id": "n_name",
+          "label": "고객명 *",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "n_phone",
+          "label": "연락처 *",
+          "kind": "input",
+          "type": "tel",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "n_birth",
+          "label": "법인",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "n_biznum",
+          "label": "사업자등록번호",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "n_corpnum",
+          "label": "법인등록번호",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "n_ceo",
+          "label": "대표자 이름",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "n_date",
+          "label": "견적일자",
+          "kind": "input",
+          "type": "date",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "n_addr",
+          "label": "주소",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "n_maker",
+          "label": "제조사",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "n_model",
+          "label": "차량모델 *",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "n_trim",
+          "label": "트림",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "n_fuel",
+          "label": "연료",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "",
+              "label": "선택",
+              "selected": false
+            },
+            {
+              "value": "가솔린",
+              "label": "가솔린",
+              "selected": false
+            },
+            {
+              "value": "디젤",
+              "label": "디젤",
+              "selected": false
+            },
+            {
+              "value": "LPG",
+              "label": "LPG",
+              "selected": false
+            },
+            {
+              "value": "하이브리드",
+              "label": "하이브리드",
+              "selected": false
+            },
+            {
+              "value": "전기",
+              "label": "전기",
+              "selected": false
+            },
+            {
+              "value": "수소",
+              "label": "수소",
+              "selected": false
+            }
+          ],
+          "value": ""
+        },
+        {
+          "id": "n_color",
+          "label": "외장 색상",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "n_incolor",
+          "label": "내장 색상",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "n_carprice",
+          "label": "차량 가격 * (옵션 포함, 원)",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "n_eta",
+          "label": "출고 예정",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "n_options",
+          "label": "선택 옵션",
+          "kind": "textarea",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "n_period",
+          "label": "계약기간 *",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "",
+              "label": "선택",
+              "selected": false
+            },
+            {
+              "value": "12",
+              "label": "12개월",
+              "selected": false
+            },
+            {
+              "value": "24",
+              "label": "24개월",
+              "selected": false
+            },
+            {
+              "value": "36",
+              "label": "36개월",
+              "selected": false
+            },
+            {
+              "value": "48",
+              "label": "48개월",
+              "selected": true
+            },
+            {
+              "value": "60",
+              "label": "60개월",
+              "selected": false
+            }
+          ],
+          "value": "48"
+        },
+        {
+          "id": "n_age",
+          "label": "운전자 나이",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "21",
+              "label": "만 21세 이상",
+              "selected": false
+            },
+            {
+              "value": "26",
+              "label": "만 26세 이상",
+              "selected": true
+            }
+          ],
+          "value": "26"
+        },
+        {
+          "id": "n_driver_special",
+          "label": "운전자 범위",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "",
+              "label": "누구나 (나이 조건 내)",
+              "selected": false
+            },
+            {
+              "value": "지정1인",
+              "label": "지정 1인",
+              "selected": false
+            },
+            {
+              "value": "지정2인",
+              "label": "지정 2인",
+              "selected": false
+            },
+            {
+              "value": "임직원한정",
+              "label": "임직원 한정",
+              "selected": false
+            }
+          ],
+          "value": ""
+        },
+        {
+          "id": "n_km",
+          "label": "약정 주행거리",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "연 10,000km",
+              "label": "연 10,000km",
+              "selected": false
+            },
+            {
+              "value": "연 15,000km",
+              "label": "연 15,000km",
+              "selected": false
+            },
+            {
+              "value": "연 20,000km",
+              "label": "연 20,000km",
+              "selected": true
+            },
+            {
+              "value": "연 30,000km",
+              "label": "연 30,000km",
+              "selected": false
+            },
+            {
+              "value": "연 40,000km",
+              "label": "연 40,000km",
+              "selected": false
+            },
+            {
+              "value": "무제한",
+              "label": "무제한",
+              "selected": false
+            }
+          ],
+          "value": "연 20,000km"
+        },
+        {
+          "id": "n_insurance",
+          "label": "대물 배상",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "1억원",
+              "label": "대물 1억원",
+              "selected": false
+            },
+            {
+              "value": "2억원",
+              "label": "대물 2억원",
+              "selected": false
+            },
+            {
+              "value": "3억원",
+              "label": "대물 3억원",
+              "selected": false
+            },
+            {
+              "value": "5천만원",
+              "label": "대물 5천만원",
+              "selected": false
+            }
+          ],
+          "value": "1억원"
+        },
+        {
+          "id": "n_own",
+          "label": "자차 (자기차량손해)",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "1",
+              "label": "포함",
+              "selected": false
+            },
+            {
+              "value": "0",
+              "label": "미포함",
+              "selected": false
+            }
+          ],
+          "value": "1"
+        },
+        {
+          "id": "n_selfpay",
+          "label": "자차 면책금",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "n_maint",
+          "label": "정비 서비스",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "포함",
+              "label": "포함 (소모품 교환 · 필수)",
+              "selected": false
+            }
+          ],
+          "value": "포함"
+        },
+        {
+          "id": "n_vat",
+          "label": "월 렌트료 부가세",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "포함",
+              "label": "부가세 포함",
+              "selected": false
+            },
+            {
+              "value": "별도",
+              "label": "부가세 별도",
+              "selected": false
+            }
+          ],
+          "value": "포함"
+        },
+        {
+          "id": "n_delivery",
+          "label": "탁송",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "n_special",
+          "label": "특약사항",
+          "kind": "textarea",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "n_p1_deposit",
+          "label": "조건 1 · 보증금 (%)",
+          "kind": "input",
+          "type": "text",
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "n_p1_prepay",
+          "label": "조건 1 · 선납금 (%)",
+          "kind": "input",
+          "type": "text",
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "n_p1_price",
+          "label": "조건 1 · 월 렌트료 (원)",
+          "kind": "input",
+          "type": "text",
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "n_p2_deposit",
+          "label": "조건 2 · 보증금 (%)",
+          "kind": "input",
+          "type": "text",
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "n_p2_prepay",
+          "label": "조건 2 · 선납금 (%)",
+          "kind": "input",
+          "type": "text",
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "n_p2_price",
+          "label": "조건 2 · 월 렌트료 (원)",
+          "kind": "input",
+          "type": "text",
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "n_p3_deposit",
+          "label": "조건 3 · 보증금 (%)",
+          "kind": "input",
+          "type": "text",
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "n_p3_prepay",
+          "label": "조건 3 · 선납금 (%)",
+          "kind": "input",
+          "type": "text",
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "n_p3_price",
+          "label": "조건 3 · 월 렌트료 (원)",
+          "kind": "input",
+          "type": "text",
+          "options": [],
+          "value": ""
+        }
+      ],
+      "radios": {
+        "n_birth_type": [
+          {
+            "value": "birth",
+            "label": "> 개인",
+            "checked": true
+          },
+          {
+            "value": "biz",
+            "label": "> 법인",
+            "checked": false
+          }
+        ]
+      }
+    },
+    {
+      "key": "contract",
+      "label": "계약서",
+      "prefix": "c",
+      "fields": [
+        {
+          "id": "c_name",
+          "label": "고객명 *",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "c_phone",
+          "label": "연락처 *",
+          "kind": "input",
+          "type": "tel",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "c_birth",
+          "label": "법인",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "c_biznum",
+          "label": "사업자등록번호",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "c_corpnum",
+          "label": "법인등록번호",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "c_ceo",
+          "label": "대표자 이름",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "c_addr",
+          "label": "주소",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "c_addr2",
+          "label": "나머지 주소",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "c_model",
+          "label": "차량모델 *",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "c_carnum",
+          "label": "차량번호",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "c_year",
+          "label": "연식",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "c_color",
+          "label": "색상",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "c_mileage",
+          "label": "주행거리 (km)",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "c_fuel",
+          "label": "연료",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "",
+              "label": "선택",
+              "selected": false
+            },
+            {
+              "value": "가솔린",
+              "label": "가솔린",
+              "selected": false
+            },
+            {
+              "value": "디젤",
+              "label": "디젤",
+              "selected": false
+            },
+            {
+              "value": "LPG",
+              "label": "LPG",
+              "selected": false
+            },
+            {
+              "value": "하이브리드",
+              "label": "하이브리드",
+              "selected": false
+            },
+            {
+              "value": "전기",
+              "label": "전기",
+              "selected": false
+            },
+            {
+              "value": "수소",
+              "label": "수소",
+              "selected": false
+            }
+          ],
+          "value": ""
+        },
+        {
+          "id": "c_grade",
+          "label": "차종 등급",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "",
+              "label": "선택",
+              "selected": false
+            },
+            {
+              "value": "경형",
+              "label": "경형 (모닝·레이·캐스퍼) — 450,000원~",
+              "selected": false
+            },
+            {
+              "value": "소형",
+              "label": "소형 (아반떼·K3·베뉴) — 550,000원~",
+              "selected": false
+            },
+            {
+              "value": "중형",
+              "label": "중형 (소나타·K5·SM6) — 650,000원~",
+              "selected": false
+            },
+            {
+              "value": "SUV",
+              "label": "SUV (투싼·스포티지·셀토스) — 650,000원~",
+              "selected": false
+            }
+          ],
+          "value": ""
+        },
+        {
+          "id": "c_age",
+          "label": "운전자 나이",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "21",
+              "label": "만 21세 이상 (기본)",
+              "selected": false
+            },
+            {
+              "value": "26",
+              "label": "만 26세 이상 (-50,000원)",
+              "selected": false
+            }
+          ],
+          "value": "21"
+        },
+        {
+          "id": "c_driver_special",
+          "label": "운전자 특약",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "",
+              "label": "없음 (기본)",
+              "selected": false
+            },
+            {
+              "value": "지정1인",
+              "label": "지정 1인 운전자 추가",
+              "selected": false
+            },
+            {
+              "value": "지정2인",
+              "label": "지정 2인 운전자 추가",
+              "selected": false
+            },
+            {
+              "value": "임직원한정",
+              "label": "임직원 한정 특약",
+              "selected": false
+            }
+          ],
+          "value": ""
+        },
+        {
+          "id": "c_mileage_limit",
+          "label": "약정 주행거리",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "0",
+              "label": "월 2,000km (기본)",
+              "selected": false
+            },
+            {
+              "value": "1",
+              "label": "월 3,000km (+50,000원)",
+              "selected": false
+            },
+            {
+              "value": "2",
+              "label": "월 4,000km (+100,000원)",
+              "selected": false
+            },
+            {
+              "value": "3",
+              "label": "월 5,000km (+150,000원)",
+              "selected": false
+            }
+          ],
+          "value": "0"
+        },
+        {
+          "id": "c_own",
+          "label": "자차",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "0",
+              "label": "미포함",
+              "selected": false
+            },
+            {
+              "value": "1",
+              "label": "포함 (+50,000원)",
+              "selected": false
+            }
+          ],
+          "value": "0"
+        },
+        {
+          "id": "c_maint",
+          "label": "정비",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "50000",
+              "label": "포함 (+50,000원 · 필수)",
+              "selected": false
+            }
+          ],
+          "value": "50000"
+        },
+        {
+          "id": "c_start",
+          "label": "계약시작일 *",
+          "kind": "input",
+          "type": "date",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "c_end",
+          "label": "계약종료일 *",
+          "kind": "input",
+          "type": "date",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "c_period",
+          "label": "계약기간",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "",
+              "label": "선택",
+              "selected": false
+            },
+            {
+              "value": "1",
+              "label": "1개월",
+              "selected": false
+            },
+            {
+              "value": "2",
+              "label": "2개월",
+              "selected": false
+            },
+            {
+              "value": "3",
+              "label": "3개월",
+              "selected": false
+            },
+            {
+              "value": "6",
+              "label": "6개월",
+              "selected": false
+            },
+            {
+              "value": "12",
+              "label": "12개월",
+              "selected": false
+            },
+            {
+              "value": "24",
+              "label": "24개월",
+              "selected": false
+            },
+            {
+              "value": "36",
+              "label": "36개월",
+              "selected": false
+            },
+            {
+              "value": "48",
+              "label": "48개월",
+              "selected": false
+            },
+            {
+              "value": "60",
+              "label": "60개월",
+              "selected": false
+            }
+          ],
+          "value": ""
+        },
+        {
+          "id": "c_payday",
+          "label": "납입일",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "c_price",
+          "label": "월렌트료 *",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "c_bankinfo",
+          "label": "입금계좌 (월렌트료 옆에 표시)",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": "농협 301-0215-4589-81 (유)팡팡렌트카"
+        },
+        {
+          "id": "c_discount",
+          "label": "할인율 (%)",
+          "kind": "input",
+          "type": "number",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "c_insurance",
+          "label": "대물 배상",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "3천만원",
+              "label": "3천만원",
+              "selected": false
+            },
+            {
+              "value": "5천만원",
+              "label": "5천만원",
+              "selected": false
+            },
+            {
+              "value": "1억원",
+              "label": "1억원",
+              "selected": false
+            }
+          ],
+          "value": "3천만원"
+        },
+        {
+          "id": "c_deposit",
+          "label": "보증금",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "c_delivery",
+          "label": "탁송비",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "c_etc",
+          "label": "기타비용",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "c_total",
+          "label": "총액",
+          "kind": "input",
+          "type": "text",
+          "readonly": true,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "c_special",
+          "label": "특약사항",
+          "kind": "textarea",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        }
+      ],
+      "radios": {
+        "c_id_type": [
+          {
+            "value": "rrn",
+            "label": "> 개인",
+            "checked": true
+          },
+          {
+            "value": "biz",
+            "label": "> 법인",
+            "checked": false
+          }
+        ]
+      }
+    },
+    {
+      "key": "receipt",
+      "label": "영수증",
+      "prefix": "r",
+      "fields": [
+        {
+          "id": "r_name",
+          "label": "고객명",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "r_phone",
+          "label": "연락처",
+          "kind": "input",
+          "type": "tel",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "r_birth",
+          "label": "법인",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "r_biznum",
+          "label": "사업자등록번호",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "r_corpnum",
+          "label": "법인등록번호",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "r_ceo",
+          "label": "대표자 이름",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "r_date",
+          "label": "발행일자",
+          "kind": "input",
+          "type": "date",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "r_addr",
+          "label": "주소 (선택)",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "r_cust_model",
+          "label": "차량모델",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "r_cust_carnum",
+          "label": "차량번호",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "r_model",
+          "label": "차량모델",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "r_carnum",
+          "label": "차량번호",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "r_type",
+          "label": "대여 유형",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "단기대여",
+              "label": "단기대여",
+              "selected": false
+            },
+            {
+              "value": "장기대여",
+              "label": "장기대여",
+              "selected": false
+            },
+            {
+              "value": "사고대차",
+              "label": "사고대차",
+              "selected": false
+            }
+          ],
+          "value": "단기대여"
+        },
+        {
+          "id": "r_unit",
+          "label": "기간 단위",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "hour",
+              "label": "24시간 단위",
+              "selected": false
+            },
+            {
+              "value": "day",
+              "label": "일 단위",
+              "selected": false
+            }
+          ],
+          "value": "hour"
+        },
+        {
+          "id": "r_start",
+          "label": "대여 시작일",
+          "kind": "input",
+          "type": "date",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "r_end",
+          "label": "대여 종료일",
+          "kind": "input",
+          "type": "date",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "r_period",
+          "label": "대여 기간 (자동계산)",
+          "kind": "input",
+          "type": "text",
+          "readonly": true,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "r_price",
+          "label": "결제 금액",
+          "kind": "input",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        },
+        {
+          "id": "r_pay",
+          "label": "결제 수단",
+          "kind": "select",
+          "type": "text",
+          "readonly": false,
+          "options": [
+            {
+              "value": "현금",
+              "label": "현금",
+              "selected": false
+            },
+            {
+              "value": "카드",
+              "label": "카드",
+              "selected": false
+            },
+            {
+              "value": "계좌이체",
+              "label": "계좌이체",
+              "selected": false
+            }
+          ],
+          "value": "현금"
+        },
+        {
+          "id": "r_note",
+          "label": "특이사항 (선택)",
+          "kind": "textarea",
+          "type": "text",
+          "readonly": false,
+          "options": [],
+          "value": ""
+        }
+      ],
+      "radios": {
+        "r_birth_type": [
+          {
+            "value": "birth",
+            "label": "> 개인",
+            "checked": true
+          },
+          {
+            "value": "biz",
+            "label": "> 법인",
+            "checked": false
+          }
+        ]
+      }
+    }
+  ],
+  "terms": {
+    "special": "임대차 계약 특약 사항\n제1조 (임대료 납부 및 미납 시 계약 해지)\n1. 임차인은 임대료를 정해진 기일에 선불로 입금해야 하며, 지체 시 미납 금액에 대해 연 20%의 지연손해금을 가산한다.\n2. 임대료 입금이 3일 이상 지연되거나, 미납 상태에서 24시간 이상 연락이 두절될 경우 임대인은 별도의 독촉 없이 즉시 계약을 해지할 수 있다.\n3. 계약 해지 후 차량 반납이 지체될 경우 임대인은 임의로 차량을 회수할 수 있으며, 이에 따른 모든 비용(견인, 인건비 등)은 임차인이 부담한다.\n\n제2조 (임대료 미납 시 보험 적용 제한)\n임차인이 임대료를 기한 내에 입금하지 않은 상태에서 발생한 사고에 대하여, 임대인은 보험 처리 의무를 지지 않는다.\n\n제3조 (중도 해지 위약금)\n임차인의 사정으로 본 계약을 중도 해지할 경우, 잔여 기간 임대료 총액의 20%를 중도해지 위약금으로 지급해야 한다.\n\n제4조 (차량 원상복구 의무)\n1. 임차인은 차량 반납 시 대여 당시의 상태로 원상복구하여 반납해야 한다.\n2. 통상적인 마모를 제외한 파손·오염·불법 개조 시 복구 비용은 임차인이 부담한다.\n\n제5조 (월간 주행거리 제한)\n본 계약의 월간 약정 주행거리는 {{km}}로 제한하며, 초과 주행 시 1km당 200원의 요금을 별도로 납부한다.\n\n제6조 (차량 관리 및 금연 의무)\n차량 내 전면 금연(전자담배 포함)하며, 위반 시 실내 클리닝 비용 및 휴차보상료를 청구한다. GPS 등 차량 관리 장치를 임의로 조작하거나 탈거할 수 없다.\n\n제7조 (사고 시 면책금 및 통보 의무)\n사고 발생 시 임차인은 담보별 면책금을 각각 납부하여야 하며, 휴차보상료(표준 대여 요금의 80%)를 별도로 부담한다. 사고 발생 시 지체 없이 담당자에게 통보해야 하며, 사고 은폐·통보 지연으로 인한 손해는 임차인이 전액 배상한다.\n※ 담보별 면책금(1건당) : 자차·대물·대인·자손 각 500,000원\n\n제8조 (임차인 과실 파손)\n혼유 사고, 요소수 미보충, 타이어 파손, 침수 지역 주행 등 임차인의 관리 소홀로 발생한 파손은 보험 적용 여부와 관계없이 임차인이 실비 전액을 부담한다.\n\n제9조 (보험 면책 및 계약 해지 사유)\n다음 각 호에 해당하는 경우 보험 혜택을 받을 수 없으며, 즉시 계약 해지 사유가 된다.\n1. 지정 운전자 외 제3자 운전, 음주운전, 무면허 운전, 약물 복용 후 운전\n2. 도로교통법상 12대 중과실 해당 사고(신호위반, 중앙선침범, 속도위반, 앞지르기 위반, 철길건널목 위반, 횡단보도 위반, 무면허, 음주, 보도 침범, 승객 추락 방지 위반, 어린이보호구역 위반, 화물 고정 위반)는 보험처리 불가, 모든 민·형사상 책임 및 비용을 임차인이 전액 부담한다.\n\n제10조 (도달 간주 및 관할 법원)\n연락처 변경 미고지 시 기존 주소로 발송된 통지서는 3일 후 도달한 것으로 간주한다. 본 계약 관련 분쟁의 관할 법원은 광주지방법원으로 한다.",
+    "privacy": "개인정보 수집·이용 및 제3자 제공 동의\n1. 개인정보 수집 및 이용 동의\n• 수집항목: 성명, 주민등록번호, 주소, 연락처, 운전면허정보, 위치정보(GPS)\n• 이용목적: 계약 이행, 운전자격 확인, 사고 처리, 차량 미반납 시 위치 확인\n• 보유기간: 계약 종료 후 5년 보관\n\n2. 고유식별정보 및 제3자 제공\n• 고유식별정보 처리: 과태료 체납 및 계약 불이행 시 관련 법령에 의거하여 처리할 수 있습니다.\n• 제3자 제공: 경찰청(범칙금), 보험사(사고처리), 긴급출동 서비스 등\n\n본인은 위 내용을 충분히 설명 듣고 동의함에 서명합니다.\n\n□ 동의함      □ 동의하지 않음",
+    "rental": "대여용자동차 임대차 표준약관\n제1장 총칙\n제1조(목적) 이 약관은 대여용자동차 임대인(이하 \"회사\"라 합니다)과 임차인(이하 \"고객\"이라 합니다) 사이의 대여용자동차 임대차계약상의 권리·의무에 관한 사항을 규정함을 목적으로 합니다.\n제2장 대여계약\n제2조(예약의 체결) ①렌터카를 임차하려는 자는 차종, 대여요금, 지연손해금, 임차예정일시, 임차장소, 임차기간, 반환장소, 운전자 등을 확인하여 예약을 할 수 있으며, 회사는 대여예정요금의 10% 범위 내에서 예약금을 청구할 수 있습니다. ②고객이 예약내용을 변경하고자 할 때에는 사전에 회사와 합의하여야 합니다.\n제3조(예약의 취소) ①임차예정 시간을 1시간 이상 경과하여도 대여계약이 체결되지 아니한 경우에는 예약은 취소된 것으로 하며, 예약금은 반환하지 아니합니다. ②고객이 임차예정일시로부터 24시간 이전에 예약을 취소하는 경우에는 예약금 전액을 반환합니다. ③고객이 임차예정일시 직전 24시간 내에 예약을 취소하는 경우에는 예약금을 반환하지 아니합니다. ④회사의 사정으로 예약을 취소하거나 대여계약을 체결하지 못할 경우에는 예약금의 배액을 지급합니다. ⑤천재지변 등 불가항력으로 계약을 체결할 수 없는 경우 예약금을 반환합니다.\n제4조(대여계약의 체결) ①대여계약의 체결은 임대차계약서에 의하며, 차종, 대여요금, 임차기간 등을 명시하여야 합니다. ②운전면허증 미소지, 신원확인 불가, 음주·약물 상태, 예약 운전자 불일치, 과거 고의사고 또는 체납 사실 등의 경우 계약 체결을 거절할 수 있습니다.\n제5조(렌터카의 대체) ①회사는 예약 차종을 대여할 수 없을 경우 유사한 다른 차종으로 대체할 수 있습니다. ②대체 렌터카의 대여요금이 예약차종보다 비싼 경우 예약 요금을, 싼 경우 대체 요금을 각 적용합니다. ③고객은 대체 임차를 거절할 수 있으며, 이 경우 예약금 전액을 반환합니다.\n제6조(요금의 수령방법) ①고객은 원칙적으로 대여요금을 선납하여야 합니다. ②고객의 요구로 인한 추가비용은 고객이 부담합니다. ③임차기간을 초과 사용한 경우 추가 대여요금을 지급하여야 합니다.\n제7조(회사의 대여계약 해지) 계약의 중요한 사항 위반, 허위 개인정보, 대여요금 2기 이상 연체, 면허 취소·정지, 교통사고 야기, 음주·약물 운전, 지정 운전자 외 제3자 운전, 제15조의 금지행위 등의 경우 계약을 해지할 수 있습니다. 해지 시 잔여기간 대여요금의 10%를 공제한 후 반환합니다.\n제8조(고객의 대여계약 해지) ①렌터카 인도이전의 하자로 사용 불능 시 계약을 해지할 수 있으며, 회사는 수령한 대여요금 전액을 반환합니다. ③고객은 임차기간 중이라도 회사와 합의하여 계약을 해지할 수 있습니다. ④고객의 사정에 의한 해지 시 잔여기간 대여요금의 10% 상당액을 지급하여야 합니다. 6개월 이상 장기계약의 경우 별도 약정 가능합니다.\n제9조(불가항력 사유로 인한 해지) 천재지변, 전쟁, 폭동 등 불가항력으로 렌터카를 사용할 수 없는 경우 대여계약은 종료되며, 회사는 잔여 대여요금을 반환합니다. 고객은 즉시 회사에 통보하여야 합니다.\n제10조(임차조건의 변경) 고객이 임차조건을 변경하고자 하는 경우 사전에 회사의 승낙을 받아야 합니다. 임차기간 연장 시 변경 후의 임차기간에 해당하는 대여요금을 지불하여야 합니다.\n제3장 보험 및 점검\n제11조(보험가입) ①회사는 자동차손해배상보장법에 따라 책임보험과 자동차종합보험(대인배상, 대물배상, 자기신체사고)에 가입된 렌터카를 대여합니다. 고객은 자동차보험약관상 승낙피보험자가 됩니다. ②고객은 자기차량손해보험 또는 차량손해면책제도 중 하나를 선택하여 가입할 수 있습니다.\n제12조(점검표 작성) 회사는 고객과 함께 외관, 연료량, 타이어, 와이퍼, 라이트, 사이드미러, 안전벨트 등을 점검한 후 렌터카를 인도합니다.\n제4장 책임\n제13조(고객의 점검의무) 고객은 임차기간 중 사용 전에 타이어, 차체 외관, 엔진상태 등을 점검하여야 하며, 이상 발견 시 즉시 회사에 통보하여야 합니다.\n제14조(고객의 관리책임) 고객은 렌터카를 인도받은 시점부터 반환하는 시점까지 선량한 관리자의 주의의무를 다하여 사용하고 보관하여야 합니다.\n제15조(금지행위) ①유상운송·재대여 ②매각·전대·담보제공 등 소유권 침해 ③번호판 위조·변조 또는 개조 ④무허가 운전연습·경기 ⑤법령 위반 사용 ⑥지정 운전자 외 운전·무면허 운전 ⑦음주·약물 운전 ⑧유사석유 사용 ⑨차량 손상 우려 행위 금지.\n제16조(배상책임) 고객은 제15조의 금지행위 기타 고객의 귀책사유로 회사 또는 제3자에게 손해를 끼쳤을 경우 그 손해를 배상할 책임을 집니다. 정상적인 마모를 제외하고 차량이 훼손된 경우 완전한 상태로 수리하여야 합니다. 과태료·범칙금·주차료 등은 반환 후에도 고객이 부담합니다.\n제5장 자동차 사고의 조치\n제17조(사고처리) 고객은 사고 발생 시 부상자 후송 및 경찰서 신고 등 도로교통법상의 조치를 취함과 동시에 ①사고상황 즉시 회사에 통보 ②보험회사가 요청하는 서류 또는 증거 제출 ③제3자와 합의 또는 협의 시 사전에 회사와 협의 ④지정 공장에서 수리 의뢰하여야 합니다. 미준수로 발생한 추가비용은 고객이 부담합니다.\n제18조(보험처리) ①고의, 무면허, 유상운송, 범죄, 음주·약물 운전, 경기·연습 사용, 지정 운전자 외 운전 사고는 보상받지 못합니다. ②귀책사유 사고 시 대인·대물·자손 각 50만원의 자기부담금을 별도로 지급하여야 합니다. ③자기차량손해 미가입 시 사고 당시 차량기준가액 등을 기준으로 배상하여야 합니다.\n제19조(휴차손해) 고객의 귀책사유로 렌터카를 수리할 경우 수리기간의 영업손해를 배상하여야 합니다. 회사가 객관적인 산정자료를 제시하지 않는 경우 수리기간에 해당하는 일일대여요금의 50%를 부담합니다.\n제20조(고객의 렌터카 이상·고장 발견 시 조치) 고객은 이상 또는 고장을 발견한 때에는 즉시 회사에 연락하고 처리방향에 대하여 협의하여야 합니다. 고객의 귀책으로 이상·고장이 발생한 경우 수리비는 고객이 부담합니다. 인도이전 하자로 사용 불능 시 대체 렌터카를 제공받을 수 있습니다.\n제6장 반환\n제21조(렌터카의 반환시기) 고객은 약정한 대여기간 종료시점 또는 대여계약 중도해지 시에 렌터카를 회사에 반환하여야 합니다.\n제22조(렌터카의 확인) 고객은 렌터카 반환 시 통상적 사용으로 인한 마모 등을 제외하고는 인수시 확인한 상태 그대로 반환하여야 합니다. 반환 시 고객 입회하에 상태를 확인하며 잔여 연료량을 정산합니다.\n제23조(렌터카의 반환장소) 고객은 약정한 반환장소에서 렌터카를 반환하여야 합니다. 고객의 사정으로 반환장소가 변경되어 추가비용이 발생한 경우 고객이 부담합니다.\n제24조(렌터카 미반환에 대한 조치) 대여기간 종료 후 24시간을 경과하여도 반환하지 아니하거나 반환 청구에 응하지 않을 때에는 법적 조치를 취할 수 있습니다. 7일 경과 시 도난신고 등 필요한 조치를 취할 수 있습니다. 미반환으로 발생한 손해 및 회수비용은 고객이 부담합니다.\n제7장 보칙\n제25조(지연손해금) 회사와 고객은 이 약관에 따른 금전채무의 이행을 지체한 경우 상사법정이율에 따른 지연손해금을 지급하여야 합니다.\n제26조(계약의 세칙) 회사는 이 약관이 정한 범위 내에서 세부사항을 규정하는 세칙을 정할 수 있습니다.\n제27조(신용조회) 회사는 고객의 동의를 받아 대여계약 체결 전 신용정보기관을 통하여 고객의 신용상태를 조회·확인할 수 있습니다.\n제28조(관할법원) 이 약관의 해석과 이에 근거한 대여계약에 관련된 법적 분쟁이 발생할 경우 민사소송법상의 관할법원에 제기합니다. 단, 별도 약정 시 그에 따릅니다. 본 계약의 관할법원은 광주지방법원으로 합니다.\n팡팡렌트카  |  사업자번호 : 803-81-00790  |  통신판매업 신고번호 : 제 2017-광주광산-00652호  |  Tel : 062-973-6635 / 010-3900-4199"
+  },
+  "priceTable": {
+    "경형": {
+      "21": 450000,
+      "26": 400000
+    },
+    "소형": {
+      "21": 550000,
+      "26": 500000
+    },
+    "중형": {
+      "21": 650000,
+      "26": 600000
+    },
+    "SUV": {
+      "21": 650000,
+      "26": 600000
+    }
+  },
+  "newcarRates": {
+    "rate": 6,
+    "months": 60,
+    "down": 0,
+    "acq": 4,
+    "reg": 0,
+    "ins": 100000,
+    "maint": 50000,
+    "fee": 50000,
+    "etc": 0,
+    "margin": 50000,
+    "age21": 30000,
+    "d2": 10,
+    "d3": 30,
+    "cars": "현대 캐스퍼 가솔린 스마트 1546\n현대 캐스퍼 가솔린 디에센셜 1792\n현대 캐스퍼 가솔린 인스퍼레이션 2035\n현대 아반떼 가솔린 모던 2398\n현대 아반떼 가솔린 프리미엄 2771\n현대 아반떼 가솔린 인스퍼레이션 3152\n현대 아반떼 하이브리드 모던 3042\n현대 아반떼 하이브리드 프리미엄 3361\n현대 아반떼 하이브리드 인스퍼레이션 3699\n현대 쏘나타 가솔린 프리미엄 2826\n현대 쏘나타 가솔린 익스클루시브 3260\n현대 쏘나타 가솔린 인스퍼레이션 3549\n현대 쏘나타 하이브리드 프리미엄 3270\n현대 쏘나타 하이브리드 익스클루시브 3674\n현대 쏘나타 하이브리드 인스퍼레이션 3979\n현대 그랜저 가솔린 프리미엄 4245\n현대 그랜저 가솔린 익스클루시브 4694\n현대 그랜저 가솔린 캘리그래피 5310\n현대 그랜저 하이브리드 프리미엄 4833\n현대 그랜저 하이브리드 익스클루시브 5282\n현대 그랜저 하이브리드 캘리그래피 5899\n현대 코나 가솔린 모던 2429\n현대 코나 가솔린 프리미엄 2875\n현대 코나 가솔린 인스퍼레이션 3102\n현대 코나 하이브리드 모던 2896\n현대 코나 하이브리드 프리미엄 3318\n현대 코나 하이브리드 인스퍼레이션 3512\n현대 투싼 가솔린 모던 2844\n현대 투싼 가솔린 프리미엄 3069\n현대 투싼 가솔린 인스퍼레이션 3407\n현대 투싼 하이브리드 모던 3270\n현대 투싼 하이브리드 프리미엄 3514\n현대 투싼 하이브리드 인스퍼레이션 3861\n현대 싼타페 가솔린 익스클루시브 3657\n현대 싼타페 하이브리드 익스클루시브 4022\n현대 팰리세이드 가솔린 익스클루시브 4478\n현대 팰리세이드 가솔린 H-Pick 5040\n현대 팰리세이드 가솔린 XRT 5211\n현대 팰리세이드 가솔린 캘리그래피 5606\n현대 팰리세이드 가솔린 블랙잉크 5767\n현대 팰리세이드 하이브리드 익스클루시브 5077\n현대 팰리세이드 하이브리드 H-Pick 5640\n현대 팰리세이드 하이브리드 캘리그래피 6206\n현대 팰리세이드 하이브리드 블랙잉크 6367\n현대 스타리아 LPG 투어러스마트 3502\n기아 모닝 가솔린 트렌디 1421\n기아 모닝 가솔린 프레스티지 1601\n기아 모닝 가솔린 시그니처 1816\n기아 모닝 가솔린 GT라인 1911\n기아 레이 가솔린 트렌디 1555\n기아 레이 가솔린 프레스티지 1815\n기아 레이 가솔린 시그니처 1955\n기아 K5 가솔린 프레스티지 2892\n기아 K5 가솔린 노블레스 3244\n기아 K5 가솔린 시그니처 3558\n기아 K5 하이브리드 프레스티지 3334\n기아 K5 하이브리드 노블레스 3670\n기아 K5 하이브리드 시그니처 3964\n기아 K8 가솔린 노블레스라이트 3679\n기아 K8 가솔린 노블레스 4085\n기아 K8 가솔린 시그니처 4440\n기아 K8 하이브리드 노블레스라이트 4206\n기아 K8 하이브리드 노블레스 4611\n기아 K8 하이브리드 시그니처 4966\n기아 셀토스 가솔린 트렌디 2477\n기아 셀토스 가솔린 프레스티지 2840\n기아 셀토스 가솔린 시그니처 3101\n기아 셀토스 가솔린 X-라인 3217\n기아 셀토스 하이브리드 트렌디 2898\n기아 셀토스 하이브리드 프레스티지 3208\n기아 셀토스 하이브리드 시그니처 3469\n기아 셀토스 하이브리드 X-라인 3584\n기아 스포티지 가솔린 프레스티지 2944\n기아 스포티지 가솔린 X-Line 3622\n기아 스포티지 하이브리드 프레스티지 3436\n기아 스포티지 하이브리드 X-Line 4103\n기아 쏘렌토 가솔린 프레스티지 3641\n기아 쏘렌토 가솔린 노블레스 3966\n기아 쏘렌토 가솔린 시그니처 4247\n기아 쏘렌토 가솔린 X-Line 4341\n기아 쏘렌토 하이브리드 프레스티지 3963\n기아 쏘렌토 하이브리드 노블레스 4299\n기아 쏘렌토 하이브리드 시그니처 4576\n기아 쏘렌토 하이브리드 X-Line 4670\n기아 카니발 가솔린 프레스티지 3686\n기아 카니발 가솔린 X-Line 4532\n기아 카니발 하이브리드 프레스티지 4141\n기아 카니발 하이브리드 X-Line 4987\n현대 캐스퍼 전기 프리미엄 2847\n현대 캐스퍼 전기 인스퍼레이션 3212\n현대 캐스퍼 전기 크로스 3412\n현대 코나 전기 모던 4152\n현대 코나 전기 프리미엄 4899\n현대 아이오닉5 전기 E-Value+ 4735\n현대 아이오닉5 전기 E-Lite 5064\n현대 아이오닉5 전기 모던 5290\n현대 아이오닉5 전기 프리미엄 5825\n현대 아이오닉5 전기 인스퍼레이션 6150\n현대 아이오닉6 전기 스탠다드 4856\n현대 아이오닉6 전기 익스클루시브 5095\n기아 레이 전기 에어 3062\n기아 EV3 전기 에어 3995\n기아 EV3 전기 GT라인 4475\n기아 EV4 전기 에어 4042\n기아 EV4 전기 어스 4501\n기아 EV4 전기 GT라인 4611\n기아 EV5 전기 에어 4155\n기아 EV6 전기 에어 5260\n기아 EV9 전기 에어 6857\n기아 EV9 전기 어스 7336\n기아 EV9 전기 GT라인 7917"
+  }
+}
