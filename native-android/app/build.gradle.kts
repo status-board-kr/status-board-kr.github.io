@@ -18,6 +18,7 @@ android {
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
     sourceSets["main"].java.srcDir("../core/src/main/kotlin")
+    sourceSets["test"].java.srcDir("../core/src/test/kotlin")
     testOptions { unitTests.isReturnDefaultValues = true }
 }
 dependencies {
@@ -33,6 +34,7 @@ dependencies {
     implementation(platform("com.google.firebase:firebase-bom:33.12.0"))
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-database")
+    implementation("com.google.android.gms:play-services-location:21.0.1")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
     testImplementation("org.json:json:20240303")

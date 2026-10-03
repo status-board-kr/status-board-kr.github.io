@@ -10,6 +10,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kr.statusboard.core.FleetVehicle
 import kr.statusboard.core.FleetSales
+import kr.statusboard.core.FleetVehicleDocuments
 import java.util.UUID
 
 @Composable internal fun FleetVehicleEditor(state: FleetUiState, vehicle: FleetVehicle, model: FleetViewModel, close: () -> Unit) {
@@ -22,6 +23,8 @@ import java.util.UUID
     var types by remember { mutableStateOf(false) }
     var deposit by remember { mutableStateOf(vehicle.rawFields["depositPaid"] == true) }
     var inspectionDone by remember { mutableStateOf(vehicle.rawFields["inspectionDone"] == true) }
+    var documentAction by remember { mutableStateOf<String?>(null) }
+    var documentError by remember { mutableStateOf("") }
     val editId = remember(vehicle.plate) { UUID.randomUUID().toString() }
     var pendingExtension by remember { mutableStateOf<Map<String, Any?>?>(null) }
     val type = values["type"].orEmpty()
@@ -51,7 +54,17 @@ import java.util.UUID
             TextButton(onClick = { docs = !docs }, modifier = Modifier.fillMaxWidth()) { Text("📋 보험 · 검사 · 차령 관리 ${if (docs) "▾" else "▸"}") }
             if (docs) listOf(field("최초등록일", "regDate"), field("차령 만료일", "ageExpireDate"), field("A/S 기간 (년)", "asYears"), field("보험 갱신일자", "insuranceDate"),
                 field("검사종류 (일반 / 연장)", "inspectionType"), field("검사일자", "inspectionDate")).forEach { (label, key) -> WebField(label, values[key].orEmpty(), { values[key] = it }, editable) }
-            if (docs) Row { Checkbox(inspectionDone, { inspectionDone = it }, enabled = editable); Text("검사 완료", fontSize = 13.sp) }
+            if (docs) {
+                Row { Checkbox(inspectionDone, { if (it) documentAction = "검사 완료" else inspectionDone = false }, enabled = editable); Text("검사 완료", fontSize = 13.sp) }
+                Row {
+                    TextButton(onClick = { documentAction = "보험 갱신 완료" }, enabled = editable) { Text("보험 갱신 완료", fontSize = 11.sp) }
+                    TextButton(onClick = { documentAction = "A/S 확인" }, enabled = editable) { Text("A/S 확인", fontSize = 11.sp) }
+                }
+                TextButton(onClick = {
+                    FleetVehicleDocuments.defaults(vehicle.rawFields + values).forEach { (key, value) -> values[key] = value.toString() }
+                }, enabled = editable) { Text("최초등록일 기준 날짜 계산", fontSize = 11.sp) }
+                if (documentError.isNotBlank()) Text(documentError, color = WebSub, fontSize = 12.sp)
+            }
             if (general || long) WebField("금액 (만원)", values["amount"].orEmpty(), { values["amount"] = it }, editable)
             if (long) WebField("결제일 (매월 며칠)", values["payDay"].orEmpty(), { values["payDay"] = it }, editable)
             if (general || long) {
@@ -74,6 +87,28 @@ import java.util.UUID
                 else model.saveVehicle(vehicle, changed, editId) { if (it) close() }
             }, enabled = editable, colors = ButtonDefaults.buttonColors(containerColor = WebAmber, contentColor = WebPanel), modifier = Modifier.weight(1f)) { Text("저장") }
         }
+    }
+    documentAction?.let { action ->
+        val inspection = action == "검사 완료"
+        AlertDialog(onDismissRequest = { documentAction = null }, title = { Text(action) },
+            text = { Text(when {
+                inspection && values["inspectionType"] == "연장" -> "검사일을 1년 뒤로 변경합니다. 차령 연장은 최대 두 번까지 적용됩니다. 저장 버튼을 눌러 반영해주세요."
+                inspection -> "다음 검사일을 1년 뒤로 변경합니다. 저장 버튼을 눌러 반영해주세요."
+                action == "보험 갱신 완료" -> "보험 갱신일을 1년 뒤로 변경합니다. 저장 버튼을 눌러 반영해주세요."
+                else -> "현재 A/S 만료일을 확인한 것으로 표시합니다. 저장 버튼을 눌러 반영해주세요."
+            }) }, confirmButton = { TextButton(onClick = {
+                val current = vehicle.rawFields + values
+                runCatching {
+                    when (action) {
+                        "검사 완료" -> FleetVehicleDocuments.completeInspection(current).forEach { (key, value) ->
+                            if (key == "inspectionDone") inspectionDone = value == true else values[key] = value.toString()
+                        }
+                        "보험 갱신 완료" -> values["insuranceDate"] = FleetVehicleDocuments.renewInsurance(current)
+                        else -> values["asAckExpire"] = FleetVehicleDocuments.warrantyExpiry(current) ?: error("최초등록일을 먼저 입력해주세요.")
+                    }
+                }.onFailure { documentError = it.message.orEmpty() }
+                documentAction = null
+            }) { Text("확인") } }, dismissButton = { TextButton(onClick = { documentAction = null }) { Text("취소") } })
     }
     pendingExtension?.let { changes ->
         AlertDialog(onDismissRequest = { pendingExtension = null }, title = { Text("연장으로 기록할까요?") },

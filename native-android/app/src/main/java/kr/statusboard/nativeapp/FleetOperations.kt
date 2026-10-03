@@ -85,6 +85,64 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
         check(current.isAdmin || message.child("uid").value == current.uid) { "본인 메시지만 삭제할 수 있습니다." }
         ref.removeValue().await()
     }
+    private fun validKey(key: String) { require(key.isNotBlank() && key.none { it in ".#$[]/" }) }
+    suspend fun savePaymentSettings(session: FleetSession, settings: Map<String, Any?>) = lock.withLock {
+        check(verify(session).isAdmin) { "관리자만 결제 설정을 변경할 수 있습니다." }
+        require(settings.keys.all { it in setOf("company", "template", "accounts") })
+        require(settings["template"].toString().length <= 8000)
+        root(session).child("paymentSettings").updateChildren(settings).await()
+    }
+    suspend fun savePaymentOverride(session: FleetSession, plate: String, fields: Map<String, Any?>) = lock.withLock {
+        verify(session)
+        require(fields.keys.all { it in setOf("accountType", "customMessage") })
+        if (fields.containsKey("accountType")) require(fields["accountType"] in setOf("corp", "personal"))
+        root(session).child("paymentOverrides/${FleetPayments.key(plate)}").updateChildren(fields).await()
+    }
+    suspend fun markPaymentSent(session: FleetSession, plate: String, month: String, message: String, sent: Boolean) = lock.withLock {
+        verify(session); java.time.YearMonth.parse(month); require(message.length <= 8000)
+        val company = root(session); val key = FleetPayments.key(plate); validKey(key)
+        val vehicle = company.child("vehicles").get().await().children.singleOrNull { it.child("plate").value == plate }
+            ?: error("차량을 다시 선택해주세요.")
+        // One atomic, narrow multi-path write; stable record id makes retry idempotent.
+        val updates = mutableMapOf<String, Any?>("paymentOverrides/$key/lastSentMonth" to if (sent) month else null,
+            "paymentOverrides/$key/lastSentBy" to if (sent) "manual" else null)
+        val id = "native-$key-$month"
+        if (sent) updates["paymentSendLog/$id"] = mapOf("plate" to plate, "name" to vehicle.child("customerName").value,
+            "ym" to month, "sentAt" to Instant.now().toString(), "message" to message, "sentBy" to "manual", "success" to true)
+        else {
+            val matching = company.child("paymentSendLog").get().await().children.filter {
+                it.child("plate").value == plate && it.child("ym").value == month && it.child("success").value != false
+            }
+            matching.forEach { updates["paymentSendLog/${it.key}"] = null }
+        }
+        company.updateChildren(updates).await()
+    }
+    suspend fun markBilled(session: FleetSession, key: String, billed: Boolean) = lock.withLock {
+        verify(session); validKey(key)
+        transact(root(session).child("schedules/$key")) { value ->
+            check(value != null) { "회수 기록이 삭제되었습니다." }
+            val record = asMap(value)
+            check(record["done"] == true && (record["auto"] == true || record["manual"] == true)) { "완료된 회수 기록만 청구 처리할 수 있습니다." }
+            record + mapOf("billed" to billed, "billedAt" to if (billed) Instant.now().toString() else null)
+        }
+    }
+    suspend fun setSalePaid(session: FleetSession, key: String, paid: Boolean) = lock.withLock {
+        verify(session); validKey(key)
+        val company = root(session)
+        transact(company.child("generalSales/$key")) { value ->
+            check(value != null) { "매출 기록이 삭제되었습니다." }
+            asMap(value) + mapOf("depositPaid" to paid, "updatedAt" to Instant.now().toString())
+        }
+        company.child("vehicles").get().await().children.filter { it.child("saleKey").value == key }.forEach { vehicle ->
+            transact(vehicle.ref) { value ->
+                val raw = asMap(value)
+                if (raw["saleKey"] == key && raw["type"] == "일반") raw + ("depositPaid" to paid) else value
+            }
+        }
+    }
+    suspend fun deletePaymentLog(session: FleetSession, key: String) = lock.withLock {
+        verify(session); validKey(key); root(session).child("paymentSendLog/$key").removeValue().await()
+    }
 
     suspend fun sendText(session: FleetSession, id: String, text: String, home: String, long: String,
         photos: List<String> = emptyList(), command: FleetCommand? = null, applyCommands: Boolean = true): String = lock.withLock {
@@ -173,7 +231,7 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
     suspend fun saveVehicle(session: FleetSession, original: FleetVehicle, fields: Map<String, Any?>, id: String, extend: Boolean, home: String, long: String) = lock.withLock {
         verify(session)
         val editable = setOf("type", "startDate", "returnDate", "status", "note", "extra", "depositPaid", "regDate",
-            "ageExpireDate", "asYears", "insuranceDate", "inspectionType", "inspectionDate", "inspectionDone", "amount", "payDay", "customerName", "customerPhone")
+            "ageExpireDate", "ageExtendCount", "asYears", "asAckExpire", "insuranceDate", "inspectionType", "inspectionDate", "inspectionDone", "amount", "payDay", "customerName", "customerPhone")
         require(fields.keys.all { it in editable })
         for (key in listOf("startDate", "returnDate", "regDate", "ageExpireDate", "insuranceDate", "inspectionDate")) {
             fields[key]?.toString()?.takeIf(String::isNotBlank)?.let { LocalDate.parse(it.take(10)) }
@@ -183,7 +241,7 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
         fields["asYears"]?.toString()?.let { require(it.toIntOrNull()?.let { value -> value in 1..10 } == true) { "A/S 기간은 1~10년입니다." } }
         val normalized = fields.mapValues { (key, value) -> when {
             value == null -> null
-            key in setOf("asYears", "payDay") -> value.toString().toLong()
+            key in setOf("asYears", "payDay", "ageExtendCount") -> value.toString().toLong()
             key == "amount" -> value.toString().toDouble()
             else -> value
         } }
@@ -280,7 +338,11 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
     private suspend fun system(company: DatabaseReference, id: String, text: String, now: Instant) =
         createOnce(company.child("chat/$id-result"), mapOf("text" to text, "uid" to "system", "email" to "현황판", "at" to now.toString(), "type" to "system"))
     private suspend fun createOnce(ref: DatabaseReference, payload: Map<String, Any?>) { transact(ref) { it ?: payload } }
-    private suspend fun transact(ref: DatabaseReference, transform: (Any?) -> Any?): Any? = suspendCancellableCoroutine { continuation ->
+    private suspend fun transact(ref: DatabaseReference, transform: (Any?) -> Any?): Any? {
+        // Prime the local SDK cache: a first transaction callback may otherwise receive null
+        // for an existing child, which is indistinguishable from a deleted record.
+        ref.get().await()
+        return suspendCancellableCoroutine { continuation ->
         var failure: Exception? = null
         ref.runTransaction(object : Transaction.Handler {
             override fun doTransaction(data: MutableData): Transaction.Result {
@@ -295,6 +357,7 @@ class FleetOperations(private val auth: FirebaseAuth, private val transport: Fle
                 else continuation.resume(snapshot?.value)
             }
         }, false)
+        }
     }
     @Suppress("UNCHECKED_CAST")
     private fun asMap(value: Any?): Map<String, Any?> = value as? Map<String, Any?> ?: emptyMap()

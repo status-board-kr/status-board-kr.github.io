@@ -40,6 +40,8 @@ private data class MenuItem(val title: String, val icon: Int)
     var botOpen by remember { mutableStateOf(false) }
     var chatOpen by rememberSaveable { mutableStateOf(false) }
     var staffOpen by rememberSaveable { mutableStateOf(false) }
+    var locationOpen by rememberSaveable { mutableStateOf(false) }
+    var paymentOpen by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(widgetOpen, state.scheduleLoaded) {
         if (widgetOpen == "chat") { chatOpen = true; acknowledgeOpen() }
         else if (widgetOpen?.startsWith("date:") == true && state.scheduleLoaded) {
@@ -60,6 +62,8 @@ private data class MenuItem(val title: String, val icon: Int)
             "로그아웃" -> logout()
             "종결 봇" -> botOpen = true
             "직원 관리", "직원 목록" -> staffOpen = true
+            "위치보기", "내 위치 공유" -> locationOpen = true
+            "결제·미청구" -> paymentOpen = true
             else -> pending = title
         }
     }
@@ -88,6 +92,9 @@ private data class MenuItem(val title: String, val icon: Int)
     if (schedule) FleetScheduleDialog(state, LocalDate.parse(scheduleDate), model) { schedule = false }
     if (chatOpen) FleetChatDialog(state, model) { chatOpen = false }
     if (staffOpen) FleetStaffDialog(state, model) { staffOpen = false }
+    if (locationOpen) FleetLocationDialog(state, model) { locationOpen = false }
+    if (paymentOpen) FleetPaymentDialog(state, model) { paymentOpen = false }
+    FleetLocationConsent(state)
     if (botOpen) {
         val connection = botConnection(state)
         val failed = state.wookyJobs.keys().asSequence().mapNotNull { state.wookyJobs.optJSONObject(it) }.count { it.optString("status") == "done" && it.optString("result") in listOf("fail", "error") }

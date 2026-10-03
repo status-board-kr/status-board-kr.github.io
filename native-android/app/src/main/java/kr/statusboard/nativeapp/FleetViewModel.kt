@@ -25,7 +25,11 @@ data class FleetUiState(
     val homeBranch: String = "기본 지점", val longBranch: String = "장기",
     val chat: JSONObject = JSONObject(), val members: JSONObject = JSONObject(), val wookyJobs: JSONObject = JSONObject(),
     val realtimeConnected: Boolean = false, val sending: Boolean = false, val pendingPhoto: PendingFleetPhoto? = null,
-    val loadingOlder: Boolean = false, val noOlder: Boolean = false, val inviteCode: String = ""
+    val loadingOlder: Boolean = false, val noOlder: Boolean = false, val inviteCode: String = "",
+    val locations: JSONObject = JSONObject(), val locationSettings: JSONObject = JSONObject(), val locationSettingsLoaded: Boolean = false,
+    val locationRevision: Int = 0,
+    val paymentSettings: JSONObject = JSONObject(), val paymentOverrides: JSONObject = JSONObject(),
+    val generalSales: JSONObject = JSONObject(), val paymentSendLog: JSONObject = JSONObject()
 )
 class FleetViewModel(application: Application) : AndroidViewModel(application) {
     private val auth = FirebaseAuth.getInstance()
@@ -56,6 +60,7 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
         FleetWidgets.markChatRead(getApplication(), session.cacheKey)
         viewModelScope.launch { FleetWidgets.publish(getApplication(), _state.value) { _state.value.session?.cacheKey } }
     }
+    fun locationChanged() { _state.value = _state.value.copy(locationRevision = _state.value.locationRevision + 1) }
 
     fun login(email: String, password: String) {
         if (_state.value.busy) return
@@ -116,6 +121,12 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
                                 else _state.value = _state.value.copy(members = members, session = session.copy(role = own.optString("role", "staff")))
                             }
                             "wookyJobs" -> _state.value = _state.value.copy(wookyJobs = value as? JSONObject ?: JSONObject())
+                            "locations" -> _state.value = _state.value.copy(locations = value as? JSONObject ?: JSONObject())
+                            "locationSettings" -> _state.value = _state.value.copy(locationSettings = value as? JSONObject ?: JSONObject(), locationSettingsLoaded = true)
+                            "paymentSettings" -> _state.value = _state.value.copy(paymentSettings = value as? JSONObject ?: JSONObject())
+                            "paymentOverrides" -> _state.value = _state.value.copy(paymentOverrides = value as? JSONObject ?: JSONObject())
+                            "generalSales" -> _state.value = _state.value.copy(generalSales = value as? JSONObject ?: JSONObject())
+                            "paymentSendLog" -> _state.value = _state.value.copy(paymentSendLog = value as? JSONObject ?: JSONObject())
                             "connected" -> _state.value = _state.value.copy(realtimeConnected = value == true)
                             "error" -> _state.value = _state.value.copy(message = value.toString())
                         }
@@ -167,6 +178,7 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
         generation++
         streams.close(); pendingMessage = null; older = JSONObject()
         FleetWidgets.clear(getApplication())
+        FleetLocation.stop(getApplication())
         val old = _state.value.session
         auth.signOut()
         _state.value = FleetUiState(message = "업체 접근 권한을 확인하지 못했습니다. 인터넷 연결을 확인하고 다시 로그인해주세요.")
@@ -176,6 +188,7 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
         generation++
         streams.close(); pendingMessage = null; older = JSONObject()
         FleetWidgets.clear(getApplication())
+        FleetLocation.stop(getApplication())
         val previous = _state.value.session
         auth.signOut(); _state.value = FleetUiState()
         if (previous != null) viewModelScope.launch { cache.remove(previous.cacheKey) }
@@ -300,6 +313,12 @@ class FleetViewModel(application: Application) : AndroidViewModel(application) {
         edit({ operations.saveSchedule(it, key, title, date, repeat, memo) }, complete)
     fun toggleSchedule(key: String, date: String) = edit({ operations.toggleSchedule(it, key, date) })
     fun deleteSchedule(key: String) = edit({ operations.deleteSchedule(it, key) })
+    fun savePaymentSettings(settings: Map<String, Any?>, complete: (Boolean) -> Unit) = edit({ operations.savePaymentSettings(it, settings) }, complete)
+    fun savePaymentOverride(plate: String, fields: Map<String, Any?>) = edit({ operations.savePaymentOverride(it, plate, fields) })
+    fun markPaymentSent(plate: String, month: String, message: String, sent: Boolean) = edit({ operations.markPaymentSent(it, plate, month, message, sent) })
+    fun markBilled(key: String, billed: Boolean) = edit({ operations.markBilled(it, key, billed) })
+    fun setSalePaid(key: String, paid: Boolean) = edit({ operations.setSalePaid(it, key, paid) })
+    fun deletePaymentLog(key: String) = edit({ operations.deletePaymentLog(it, key) })
     fun setMemberName(uid: String, name: String, complete: (Boolean) -> Unit) = edit({ operations.setMemberName(it, uid, name) }, complete)
     fun setMemberRole(uid: String, role: String) = edit({ operations.setMemberRole(it, uid, role) })
     fun removeMember(uid: String) = edit({ operations.removeMember(it, uid) })

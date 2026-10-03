@@ -15,6 +15,7 @@ internal fun plainJson(value: Any?): Any? = when (value) {
     is JSONArray -> (0 until value.length()).map { plainJson(value.opt(it)) }
     else -> value
 }
+@Suppress("UNCHECKED_CAST") internal fun jsonMap(value: JSONObject?): Map<String, Any?> = plainJson(value) as? Map<String, Any?> ?: emptyMap()
 object FleetWidgets {
     suspend fun publish(context: Context, state: FleetUiState, currentKey: () -> String?) = withContext(Dispatchers.Default) {
         if (state.session == null || !state.signedIn || !state.scheduleLoaded || state.cached) return@withContext
