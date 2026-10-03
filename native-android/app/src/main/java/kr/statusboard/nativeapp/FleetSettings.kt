@@ -28,7 +28,7 @@ import java.time.Instant
     } }
     val editable = source != null && state.session?.isAdmin == true && !state.sending && !state.cached
     WebSheet(close) {
-        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
+        Column(Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
             Text("회사 설정", fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
             if (source == null) Text("설정 불러오는 중…", color = WebSub, fontSize = 12.sp)
             listOf("name" to "회사명", "homeBranch" to "기본 지점", "longTermBranch" to "장기 구분 이름").forEach { (key, title) -> WebField(title, fields[key].orEmpty(), { fields[key] = it }, editable && key != "longTermBranch") }
@@ -55,7 +55,7 @@ import java.time.Instant
     var editKey by remember { mutableStateOf<String?>(null) }; var editing by remember { mutableStateOf(false) }
     var label by remember { mutableStateOf("") }; var url by remember { mutableStateOf("") }; var removing by remember { mutableStateOf<String?>(null) }
     WebSheet(close) {
-        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
+        Column(Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
             Row { Text("자주 쓰는 앱", fontSize = 18.sp, modifier = Modifier.weight(1f))
                 if (state.session?.isAdmin == true) TextButton(onClick = { editKey = null; label = ""; url = ""; editing = true }) { Text("추가") } }
             val current = state.quickApps.keys().asSequence().mapNotNull { key -> state.quickApps.optJSONObject(key)?.let { key to it } }.sortedBy { it.second.optString("label") }.toList()

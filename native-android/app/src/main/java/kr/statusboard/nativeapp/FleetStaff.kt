@@ -32,13 +32,15 @@ import androidx.compose.ui.unit.sp
     val members = state.members.keys().asSequence().mapNotNull { uid -> state.members.optJSONObject(uid)?.let { uid to it } }
         .sortedWith(compareBy<Pair<String, org.json.JSONObject>> { if (it.second.optString("role") == "owner") 0 else 1 }.thenBy { it.second.optString("joinedAt") }).toList()
     WebSheet(close) {
-        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp, 18.dp)) {
+        Column(Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp, 18.dp)) {
             Text("👥 직원 관리", fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
             Text("이 업체에 속한 직원 목록입니다. 새 직원은 초대코드로 참여시킬 수 있어요.", color = WebSub, fontSize = 12.sp)
             members.forEach { (uid, member) ->
-                Column(Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
-                    Text("${member.optString("name").ifBlank { "(이름 없음)" }} · ${if (member.optString("role") == "owner") "관리자" else "직원"}${if (uid == session.uid) " (나)" else ""}", fontSize = 14.sp)
-                    Text(member.optString("email"), color = WebSub, fontSize = 11.sp)
+                Row(Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
+                    Column(Modifier.weight(1f)) {
+                        Text("${member.optString("name").ifBlank { "(이름 없음)" }} · ${if (member.optString("role") == "owner") "관리자" else "직원"}${if (uid == session.uid) " (나)" else ""}", fontSize = 14.sp)
+                        Text(member.optString("email"), color = WebSub, fontSize = 11.sp)
+                    }
                     Row {
                         if (session.isAdmin || uid == session.uid) TextButton(onClick = { naming = uid; name = member.optString("name") }, enabled = !state.sending) { Text("✏ 이름", fontSize = 11.sp) }
                         if (session.isAdmin && uid != session.uid) {
@@ -47,8 +49,8 @@ import androidx.compose.ui.unit.sp
                             TextButton(onClick = { confirmation = uid to "remove" }, enabled = !state.sending) { Text("내보내기", fontSize = 11.sp) }
                         }
                     }
-                    HorizontalDivider(color = WebLine)
                 }
+                HorizontalDivider(color = WebLine)
             }
             if (members.isEmpty()) Text("등록된 직원이 없습니다.", color = WebSub, modifier = Modifier.padding(vertical = 20.dp))
             if (session.isAdmin) {

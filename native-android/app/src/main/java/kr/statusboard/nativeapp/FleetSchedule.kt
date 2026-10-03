@@ -35,12 +35,12 @@ import org.json.JSONObject
         date = item?.optString("date") ?: (day ?: initialDate).toString(); repeat = item?.optBoolean("repeat") == true; form = true
     }
     WebSheet(close) {
-        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp, 18.dp)) {
+        Column(Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp, 18.dp)) {
             Text("📅 일정 관리", fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
             Text("날짜를 눌러 그날 일정을 보세요. 오늘/내일 일정은 상단 배너에도 표시돼요.", color = WebSub, fontSize = 12.sp)
             Row(Modifier.fillMaxWidth().padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                 TextButton(onClick = { month = month.minusMonths(1) }) { Text("‹") }
-                Text("${month.year}년 ${month.monthValue}월", fontSize = 14.sp)
+                Text("${month.year}년 ${month.monthValue}월", fontSize = 20.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
                 TextButton(onClick = { month = month.plusMonths(1) }) { Text("›") }
             }
             Row { listOf("일", "월", "화", "수", "목", "금", "토").forEach { Text(it, color = WebSub, fontSize = 12.sp, modifier = Modifier.weight(1f).wrapContentWidth(Alignment.CenterHorizontally)) } }
@@ -50,10 +50,10 @@ import org.json.JSONObject
                 Row(Modifier.fillMaxWidth().padding(top = 5.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     (week + List(7 - week.size) { null }).forEach { cell ->
                         val marked = cell != null && records.any { (_, item) -> if (item.optBoolean("repeat")) item.optString("date").takeLast(2) == cell.toString().takeLast(2) else item.optString("date").take(10) == cell.toString() }
-                        Column(Modifier.weight(1f).height(32.dp).background(if (cell == null) WebPanel else if (cell == day) WebAmber else WebPanel2, RoundedCornerShape(8.dp))
+                        Column(Modifier.weight(1f).height(49.dp).background(if (cell == null) WebPanel else if (cell == day) WebAmber else WebPanel2, RoundedCornerShape(8.dp))
                             .border(1.dp, if (cell == LocalDate.now() && cell != day) WebAmber else androidx.compose.ui.graphics.Color.Transparent, RoundedCornerShape(8.dp))
                             .clickable(enabled = cell != null) { day = cell }, verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-                            if (cell != null) { Text(cell.dayOfMonth.toString(), fontSize = 12.sp, color = if (cell == day) WebPanel else if (cell == LocalDate.now()) WebAmber else FleetAppearance.text)
+                            if (cell != null) { Text(cell.dayOfMonth.toString(), fontSize = 17.sp, color = if (cell == day) WebPanel else if (cell == LocalDate.now()) WebAmber else FleetAppearance.text)
                                 if (marked) Box(Modifier.padding(top = 2.dp).size(4.dp).background(if (cell == day) WebPanel else androidx.compose.ui.graphics.Color(0xFF5B9DFF), RoundedCornerShape(50))) }
                         }
                     }
@@ -114,6 +114,7 @@ import org.json.JSONObject
             android.app.DatePickerDialog(context, { _, year, month, day -> change(LocalDate.of(year, month + 1, day).toString()) }, date.year, date.monthValue - 1, date.dayOfMonth).show()
         }, enabled = enabled, modifier = Modifier.width(36.dp), contentPadding = PaddingValues(4.dp)) { Text("📅", fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold) }
     }
-    else
-    WebInput(value, change, enabled)
+    else {
+        WebInput(value, change, enabled)
+    }
 }

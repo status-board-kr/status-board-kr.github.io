@@ -12,6 +12,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -44,8 +45,8 @@ internal val WebAmber get() = FleetAppearance.amber
 @Composable internal fun WebSheet(close: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     Dialog(onDismissRequest = close, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         MaterialTheme(colorScheme = FleetAppearance.scheme()) {
-        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-            Column(Modifier.widthIn(max = 480.dp).fillMaxWidth().fillMaxHeight(.94f)
+        BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+            Column(Modifier.widthIn(max = 480.dp).fillMaxWidth().heightIn(max = maxHeight * .94f)
                 .background(WebPanel, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
                 .border(1.dp, WebLine, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)).imePadding(), content = content)
         }
@@ -55,6 +56,7 @@ internal val WebAmber get() = FleetAppearance.amber
 
 @Composable internal fun FleetChatDialog(state: FleetUiState, model: FleetViewModel, close: () -> Unit) {
     val context = LocalContext.current
+    val bubbleWidth = (androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp.coerceAtMost(480) - 32).dp
     DisposableEffect(state.session?.cacheKey) {
         val owner = state.session?.cacheKey
         FleetPush.visibleChatOwner = owner
@@ -97,7 +99,7 @@ internal val WebAmber get() = FleetAppearance.amber
             }, enabled = !state.sending && !state.cached, contentPadding = PaddingValues(10.dp, 4.dp)) { Text("💾 백업", fontSize = 12.sp) }
             Text("최근 50개 · 이전 대화 더 보기 · 최근 2년 전체 검색·백업", color = WebSub, fontSize = 12.sp)
         }
-        LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp), state = list,
+        LazyColumn(Modifier.weight(1f, fill = false).fillMaxWidth().padding(horizontal = 16.dp), state = list,
             contentPadding = PaddingValues(vertical = 14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
                 if (state.chatHistory != null || searchHits != null) TextButton(onClick = { model.recentChat(); searchHits = null; query = ""; jumpTarget = null }, modifier = Modifier.fillMaxWidth()) { Text("최근 대화로 돌아가기") }
@@ -105,19 +107,21 @@ internal val WebAmber get() = FleetAppearance.amber
                     Text(if (state.loadingOlder) "불러오는 중…" else "이전 대화 더 보기", fontSize = 12.sp)
                 }
             }
-            items(visible, key = { it.first }) { (key, message) ->
+            itemsIndexed(visible, key = { _, item -> item.first }) { index, (key, message) ->
+                fun dayOf(value: org.json.JSONObject) = runCatching { java.time.Instant.parse(value.optString("at")).atZone(java.time.ZoneId.of("Asia/Seoul")).toLocalDate().toString() }.getOrDefault("")
+                if (index == 0 || dayOf(message) != dayOf(visible[index - 1].second)) Text(dayOf(message), color = WebSub, fontSize = 11.sp, modifier = Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 10.dp).wrapContentWidth(Alignment.CenterHorizontally))
                 val system = message.optString("type") == "system" || message.optString("uid") == "system"
                 val mine = message.optString("uid") == state.session?.uid
                 val edge = when { system -> androidx.compose.ui.graphics.Color(0xFF34D399); mine -> WebAmber; else -> WebLine }
                 val fill = when { system -> edge.copy(alpha = .10f); mine -> edge.copy(alpha = .16f); else -> WebPanel2 }
                 Column(Modifier.fillMaxWidth(), horizontalAlignment = if (system) Alignment.CenterHorizontally else if (mine) Alignment.End else Alignment.Start) {
                     if (!system) Text("${state.members.optJSONObject(message.optString("uid"))?.optString("name").orEmpty().ifBlank { message.optString("email") }} · ${runCatching { java.time.Instant.parse(message.optString("at")).atZone(java.time.ZoneId.of("Asia/Seoul")).format(java.time.format.DateTimeFormatter.ofPattern("a h:mm", java.util.Locale.KOREAN)) }.getOrDefault(message.optString("at"))}", color = WebSub, fontSize = 11.sp)
-                    Column(Modifier.fillMaxWidth(if (system) .92f else .85f).background(fill, RoundedCornerShape(12.dp))
+                    Column(Modifier.widthIn(max = bubbleWidth * if (system) .92f else .85f).background(fill, RoundedCornerShape(12.dp))
                         .border(1.dp, edge, RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 9.dp)) {
                         val ids = message.optJSONArray("photoIds")?.let { array -> (0 until array.length()).map { array.optString(it) } }
                             ?: listOfNotNull(message.optString("photoId").takeIf { it.isNotBlank() && it != "null" })
                         ids.chunked(3).forEach { row -> Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                            row.forEach { id -> FleetChatPhoto(state, id, Modifier.weight(1f).height(95.dp).clickable { openedPhoto = id }) }
+                            row.forEach { id -> FleetChatPhoto(state, id, (if (ids.size == 1) Modifier.width(180.dp).heightIn(min = 60.dp) else Modifier.size(88.dp)).clickable { openedPhoto = id }, naturalHeight = ids.size == 1) }
                         } }
                         Text(message.optString("text"), fontSize = if (system) 13.sp else 14.sp)
                         if (searchHits != null) TextButton(onClick = { model.jumpChat(key) { ok -> if (ok) { searchHits = null; searchOpen = false; query = ""; jumpTarget = key } } }, enabled = !state.sending) { Text("그때 대화 보기", fontSize = 11.sp) }
@@ -135,9 +139,12 @@ internal val WebAmber get() = FleetAppearance.amber
                 }
                 searchHits?.let { Text("검색 ${it.length()}건${if (it.length() == 100) " · 최근 100건 표시" else ""}", color = WebSub, fontSize = 11.sp) }
             }
-            if (photos.isNotEmpty()) Row(Modifier.fillMaxWidth().background(WebPanel2).padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("사진 ${photos.size}장 · 아래에 명령 입력", fontSize = 12.sp, modifier = Modifier.weight(1f))
-                TextButton(onClick = { photos = emptyList() }, enabled = !state.sending) { Text("✕") }
+            if (photos.isNotEmpty()) Column(Modifier.fillMaxWidth().background(WebPanel2).padding(8.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("사진 ${photos.size}장 · 아래에 명령 입력", fontSize = 12.sp, modifier = Modifier.weight(1f))
+                    TextButton(onClick = { photos = emptyList() }, enabled = !state.sending) { Text("✕") }
+                }
+                photos.take(4).chunked(4).forEach { row -> Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { row.forEach { uri -> FleetLocalPhoto(uri) } } }
             }
             Row(Modifier.fillMaxWidth().background(WebPanel2, RoundedCornerShape(24.dp)).border(1.dp, WebLine, RoundedCornerShape(24.dp)).padding(horizontal = 6.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = {
@@ -181,7 +188,25 @@ internal val WebAmber get() = FleetAppearance.amber
     }
 }
 
-@Composable private fun FleetChatPhoto(state: FleetUiState, id: String, modifier: Modifier, scale: ContentScale = ContentScale.Crop) {
+@Composable private fun FleetLocalPhoto(uri: Uri) {
+    val context = LocalContext.current
+    var bitmap by remember(uri) { mutableStateOf<ImageBitmap?>(null) }
+    LaunchedEffect(uri) {
+        bitmap = withContext(Dispatchers.IO) {
+            runCatching {
+                val options = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                context.contentResolver.openInputStream(uri)?.use { android.graphics.BitmapFactory.decodeStream(it, null, options) }
+                options.inSampleSize = 1
+                while (options.outWidth / options.inSampleSize > 256 || options.outHeight / options.inSampleSize > 256) options.inSampleSize *= 2
+                options.inJustDecodeBounds = false
+                context.contentResolver.openInputStream(uri)?.use { android.graphics.BitmapFactory.decodeStream(it, null, options)?.asImageBitmap() }
+            }.getOrNull()
+        }
+    }
+    Box(Modifier.size(64.dp).background(WebPanel), contentAlignment = Alignment.Center) { bitmap?.let { Image(it, "전송할 사진", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop) } }
+}
+
+@Composable private fun FleetChatPhoto(state: FleetUiState, id: String, modifier: Modifier, scale: ContentScale = ContentScale.Crop, naturalHeight: Boolean = false) {
     var bitmap by remember(state.session?.cacheKey, id) { mutableStateOf<ImageBitmap?>(null) }
     var failed by remember(state.session?.cacheKey, id) { mutableStateOf(false) }
     LaunchedEffect(state.session?.cacheKey, id) {
@@ -201,7 +226,7 @@ internal val WebAmber get() = FleetAppearance.amber
         }
     }
     Box(modifier.background(WebPanel2), contentAlignment = Alignment.Center) {
-        bitmap?.let { Image(it, contentDescription = "첨부 사진", contentScale = scale, modifier = Modifier.fillMaxSize()) }
+        bitmap?.let { Image(it, contentDescription = "첨부 사진", contentScale = scale, modifier = if (naturalHeight) Modifier.fillMaxWidth().aspectRatio(it.width.toFloat() / it.height.coerceAtLeast(1)) else Modifier.fillMaxSize()) }
             ?: Text(if (failed) "사진 확인 불가" else "사진 불러오는 중", fontSize = 10.sp, color = WebSub)
     }
 }

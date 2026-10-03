@@ -26,7 +26,7 @@ import java.util.UUID
     } }
     val enabled = !state.sending && !state.cached
     WebSheet(close) {
-        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
+        Column(Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
             Text("${record.optString("plate")} 매출 수정", fontSize = 18.sp)
             WebField("고객명", name, { name = it }, enabled)
             Row { Checkbox(paid, { paid = it }, enabled = enabled); Text("입금 완료", modifier = Modifier.padding(top = 12.dp)) }

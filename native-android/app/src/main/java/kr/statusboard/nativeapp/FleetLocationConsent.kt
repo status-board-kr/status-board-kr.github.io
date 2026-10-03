@@ -112,7 +112,7 @@ import java.time.Instant
         else -> "위치 공유 준비 중…"
     }
     WebSheet(close) {
-        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp, 18.dp)) {
+        Column(Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp, 18.dp)) {
             Text("📍 직원 위치", fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
             Text("위치 공유를 켠 직원끼리만 서로 위치가 보여요. 🟢 실시간 · ⚪ 마지막으로 확인된 위치", color = WebSub, fontSize = 12.sp)
             Text("근무시간 ${state.locationSettings.optString("start", "09:00")}~${state.locationSettings.optString("end", "18:00")} · 주말·공휴일 제외", color = WebSub, fontSize = 12.sp)

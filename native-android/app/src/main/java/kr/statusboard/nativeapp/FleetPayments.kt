@@ -3,6 +3,13 @@ package kr.statusboard.nativeapp
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -34,15 +41,42 @@ import java.time.ZoneId
     var returnView by remember { mutableStateOf("전체") }; var logView by remember { mutableStateOf("전체") }
     var returnPhoto by remember { mutableStateOf<String?>(null) }
     val editable = !state.cached && !state.sending
+    val expanded = remember { mutableStateListOf<String>() }
+    val longVehicles = state.vehicles.filter { it.type == state.longBranch && (it.rawFields["amount"]?.toString()?.toDoubleOrNull() ?: 0.0) > 0 }
+    val sentCount = longVehicles.count { state.paymentOverrides.optJSONObject(FleetPayments.key(it.plate))?.optString("lastSentMonth") == month }
+    val dueCount = longVehicles.count { vehicle -> vehicle.rawFields["payDay"]?.toString()?.toIntOrNull()?.takeIf { it in 1..31 }?.let { FleetPayments.dueDate(today, it) <= today.plusDays(3) } == true && state.paymentOverrides.optJSONObject(FleetPayments.key(vehicle.plate))?.optString("lastSentMonth") != month }
+    val unbilledCount = state.schedules.keys().asSequence().mapNotNull { state.schedules.optJSONObject(it) }.count { it.optBoolean("auto") && it.optBoolean("done") && !it.optBoolean("billed") && it.optString("type") != "일반" }
+    val totalSales = state.generalSales.keys().asSequence().mapNotNull { state.generalSales.optJSONObject(it) }.sumOf { sale ->
+        val values = jsonMap(sale)
+        @Suppress("UNCHECKED_CAST") val items = values["items"] as? List<Map<String, Any?>>
+        (items ?: listOf(mapOf("amount" to values["amount"], "date" to values["date"], "to" to values["returnDate"]))).sumOf { FleetSales.monthAmount(it, YearMonth.from(today), split) }
+    }
     fun share(text: String) { context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text), "결제 안내 공유")) }
     WebSheet(close) {
-        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp, 18.dp)) {
-            Row { Text("결제·미청구", fontSize = 18.sp, modifier = Modifier.weight(1f))
-                if (state.session?.isAdmin == true) TextButton(onClick = { settings = true }) { Text("메시지 · 계좌 설정", fontSize = 10.sp) } }
-            Text("${today.year}년 ${today.monthValue}월", color = WebSub, fontSize = 12.sp)
-            Row(Modifier.fillMaxWidth()) { listOf("장기", "일반 매출", "회수·미청구", "발송 기록").forEachIndexed { index, title ->
-                TextButton(onClick = { tab = index }, modifier = Modifier.weight(1f)) { Text(title, fontSize = 10.sp, color = if (tab == index) WebAmber else WebSub) }
-            } }
+        Column(Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp, 18.dp)) {
+            Text("결제일 알림 대시보드", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Text("차량 현황판의 '장기' 차량을 실시간으로 불러옵니다", color = WebSub, fontSize = 13.sp)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(if (state.cached) "● 저장된 자료" else if (state.realtimeConnected) "● 연결됨" else "● 연결 중...", color = WebSub, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                Text("${today.year}년 ${today.monthValue}월", color = WebSub, fontSize = 12.sp)
+            }
+            val summary = listOf(longVehicles.size.toString() to "장기 차량", dueCount.toString() to "임박 (D-3 이내)", sentCount.toString() to "이번 달 발송완료", unbilledCount.toString() to "청구 미완료 (회수됨)", "${"%.1f".format(totalSales)}만" to "이번 달 일반 매출", "${"%.1f".format(longVehicles.sumOf { it.rawFields["amount"]?.toString()?.toDoubleOrNull() ?: 0.0 })}만" to "장기금액")
+            summary.chunked(2).forEachIndexed { rowIndex, row -> Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) { row.forEachIndexed { column, (count, label) ->
+                val index = rowIndex * 2 + column
+                Column(Modifier.weight(1f).background(WebPanel2, RoundedCornerShape(6.dp)).border(1.dp, WebLine, RoundedCornerShape(6.dp)).clickable(enabled = index != 5) { when(index) { 0 -> { tab = 0; longFilter = "전체" }; 1 -> { tab = 0; longFilter = "발송 필요" }; 2 -> { tab = 0; longFilter = "발송 완료" }; 3 -> { tab = 2; unbilled = true }; 4 -> tab = 1 } }.padding(14.dp, 12.dp)) {
+                    Text(count, fontSize = 24.sp, fontWeight = FontWeight.SemiBold, color = when(index) { 1 -> WebAmber; 2,4 -> Color(0xFF34D399); 5 -> Color(0xFFA78BCE); else -> FleetAppearance.text })
+                    Text(label, color = WebSub, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp))
+                }
+            } } }
+            Row(Modifier.fillMaxWidth().padding(top = 22.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(if (tab == 0) "결제 대상 고객" else listOf("", "일반 매출", "회수 기록", "발송 기록")[tab], color = WebSub, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                if (tab != 0) TextButton(onClick = { tab = 0 }) { Text("← 고객 목록", fontSize = 11.sp) }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                OutlinedButton(onClick = { tab = 2 }, modifier = Modifier.weight(1f)) { Text("회수 기록", fontSize = 11.sp) }
+                OutlinedButton(onClick = { tab = 3 }, modifier = Modifier.weight(1f)) { Text("발송 기록", fontSize = 11.sp) }
+                if (state.session?.isAdmin == true) OutlinedButton(onClick = { settings = true }, modifier = Modifier.weight(1f)) { Text("메시지 · 계좌 설정", fontSize = 11.sp) }
+            }
             WebField("차량번호 · 고객명 검색", query, { query = it }, true)
             when (tab) {
                 0 -> {
@@ -57,9 +91,15 @@ import java.time.ZoneId
                     }.forEach { vehicle ->
                         val override = state.paymentOverrides.optJSONObject(FleetPayments.key(vehicle.plate))
                         val values = jsonMap(override); val text = FleetPayments.message(vehicle.rawFields, values, jsonMap(state.paymentSettings), today)
-                        HorizontalDivider(Modifier.padding(vertical = 12.dp))
-                        Text("${vehicle.plate} · ${vehicle.model}", fontSize = 15.sp)
-                        Text("${vehicle.rawFields["customerName"] ?: "이름 미등록"} · ${vehicle.rawFields["amount"]}만원 · ${FleetPayments.status(vehicle.rawFields, values, today)}", color = WebSub, fontSize = 12.sp)
+                        Column(Modifier.fillMaxWidth().padding(top = 12.dp).background(WebPanel2, RoundedCornerShape(6.dp)).border(1.dp, WebLine, RoundedCornerShape(6.dp)).padding(14.dp)) {
+                        Row(Modifier.fillMaxWidth().clickable { if (vehicle.plate in expanded) expanded.remove(vehicle.plate) else expanded.add(vehicle.plate) }, verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("${vehicle.plate} · ${vehicle.model}", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                                Text("${vehicle.rawFields["customerName"] ?: "이름 미등록"} · ${vehicle.rawFields["amount"]}만원 · ${FleetPayments.status(vehicle.rawFields, values, today)}", color = WebSub, fontSize = 12.sp)
+                            }
+                            Text(if (vehicle.plate in expanded) "▴" else "▾", color = WebSub)
+                        }
+                        if (vehicle.plate in expanded) {
                         Text(text, fontSize = 12.sp, modifier = Modifier.padding(vertical = 8.dp))
                         Row { listOf("corp" to "법인 계좌", "personal" to "개인 계좌").forEach { (key, label) ->
                             TextButton(onClick = { model.savePaymentOverride(vehicle.plate, mapOf("accountType" to key)) }, enabled = editable) { Text("${if ((values["accountType"] ?: "corp") == key) "✓ " else ""}$label", fontSize = 11.sp) }
@@ -76,6 +116,8 @@ import java.time.ZoneId
                         val sent = override?.optString("lastSentMonth") == month
                         Row { Checkbox(sent, { model.markPaymentSent(vehicle.plate, month, text, it) }, enabled = editable); Text("발송 완료", fontSize = 12.sp, modifier = Modifier.padding(top = 14.dp)) }
                         Text("문자·공유 앱에서 실제로 보낸 뒤 발송 완료를 체크해주세요.", color = WebSub, fontSize = 10.sp)
+                        }
+                        }
                     }
                 }
                 1 -> {
@@ -167,7 +209,7 @@ private fun localLogDate(raw: String): String = runCatching { java.time.Instant.
         listOf("corp", "personal").forEach { kind -> listOf("bank", "number", "holder").forEach { field -> this["$kind-$field"] = source.optJSONObject("accounts")?.optJSONObject(kind)?.optString(field).orEmpty() } }
     } }
     WebSheet(close) {
-        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
+        Column(Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
             Text("메시지 · 계좌 설정", fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
             WebField("회사명", company, { company = it }, !state.sending)
             WebField("메시지 템플릿", template, { template = it }, !state.sending)

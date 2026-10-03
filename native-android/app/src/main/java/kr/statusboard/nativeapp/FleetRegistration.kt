@@ -18,7 +18,7 @@ import java.util.UUID
     var bulk by remember { mutableStateOf(false) }
     val enabled = !state.sending && !state.cached
     WebSheet(close) {
-        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp, 18.dp)) {
+        Column(Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp, 18.dp)) {
             Text("차량 추가", fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
             Text("새 차량 정보를 입력하세요", color = WebSub, fontSize = 12.sp)
             OutlinedButton(onClick = { bulk = true }, enabled = enabled, modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) { Text("📥 엑셀·등록증 사진으로 여러 대 한번에 등록", fontSize = 13.sp) }

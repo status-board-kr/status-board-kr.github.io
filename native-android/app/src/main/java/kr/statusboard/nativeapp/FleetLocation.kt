@@ -25,7 +25,7 @@ object FleetLocation {
     fun permission(context: Context): Boolean = listOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
         .any { ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED }
     fun consent(context: Context, key: String) = context.getSharedPreferences(CONSENT, Context.MODE_PRIVATE).getBoolean(key, false)
-    fun enabled(context: Context): Boolean = context.getSystemService(LocationManager::class.java)?.isLocationEnabled == true
+    fun enabled(context: Context): Boolean = context.getSystemService(LocationManager::class.java)?.let { androidx.core.location.LocationManagerCompat.isLocationEnabled(it) } == true
     fun decide(context: Context, session: FleetSession, settings: JSONObject, now: Instant = Instant.now()): FleetLocationDecision {
         val start = runCatching { LocalTime.parse(settings.optString("start", "09:00")) }.getOrNull()
         val end = runCatching { LocalTime.parse(settings.optString("end", "18:00")) }.getOrNull()

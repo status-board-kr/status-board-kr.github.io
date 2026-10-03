@@ -26,18 +26,27 @@ import java.util.UUID
 @Composable internal fun FleetDocuments(state: FleetUiState, model: FleetViewModel, close: () -> Unit) {
     val context = LocalContext.current; val schema = remember { FleetDocumentSchema.load(context) }
     val tabs = schema.getJSONArray("tabs").let { list -> (0 until list.length()).map(list::getJSONObject) }
-    var editor by remember { mutableStateOf<JSONObject?>(null) }; var record by remember { mutableStateOf<JSONObject?>(null) }; var key by remember { mutableStateOf<String?>(null) }
+    var editor by remember { mutableStateOf<JSONObject?>(tabs.first()) }; var record by remember { mutableStateOf<JSONObject?>(null) }; var key by remember { mutableStateOf<String?>(model.newDocumentKey()) }
     var query by remember { mutableStateOf("") }; var removing by remember { mutableStateOf<String?>(null) }
     var ratesOpen by remember { mutableStateOf(false) }
     LaunchedEffect(state.session?.cacheKey) { model.loadDocuments() }
     DisposableEffect(Unit) { onDispose { model.clearDocuments() } }
-    WebSheet(close) {
-        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
-            Text("견적·계약서", fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
-            TextButton(onClick = { ratesOpen = true }, enabled = state.session?.isAdmin == true && !state.cached) { Text("신차 렌트 계산 기준 · 가격표") }
-            tabs.chunked(2).forEach { row -> Row { row.forEach { tab ->
-                OutlinedButton(onClick = { editor = tab; record = null; key = model.newDocumentKey() }, enabled = state.session?.isAdmin == true && !state.sending && !state.cached, modifier = Modifier.weight(1f).padding(3.dp)) { Text(tab.getString("label"), fontSize = 11.sp) }
-            } } }
+    val header: @Composable () -> Unit = {
+        Column(Modifier.fillMaxWidth().padding(12.dp)) {
+            Text("${state.companyName} 관리자", fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+            val choices = tabs.map { it.getString("key") to it.getString("label") } + ("saved" to "📂 저장된 문서")
+            choices.chunked(3).forEach { row -> Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                row.forEach { (type, label) -> OutlinedButton(onClick = {
+                    editor = tabs.firstOrNull { it.getString("key") == type }; record = null; key = model.newDocumentKey()
+                }, modifier = Modifier.weight(1f), contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)) { Text(label, fontSize = 12.sp, color = if ((editor?.getString("key") ?: "saved") == type) androidx.compose.ui.graphics.Color(0xFF38BDF8) else FleetAppearance.text, maxLines = 2) } }
+                repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
+            } }
+            if (editor?.getString("key") == "newcar") TextButton(onClick = { ratesOpen = true }, enabled = !state.cached) { Text("신차 렌트 계산 기준 · 가격표") }
+        }
+    }
+    if (editor == null) WebSheet(close) {
+        header()
+        Column(Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
             Text("저장된 문서", modifier = Modifier.padding(top = 18.dp))
             WebField("고객명 · 차량 · 연락처 검색", query, { query = it }, true)
             val data = state.documents
@@ -57,7 +66,7 @@ import java.util.UUID
     }
     if (ratesOpen) FleetDocumentRates(state, model, schema) { ratesOpen = false }
     editor?.let { tab -> key?.let { id -> FleetDocumentEditor(state, model, schema, tab, record, id, {
-        editor = null; model.loadDocuments()
+        close()
     }, { draft ->
         val contract = tabs.first { it.getString("key") == "contract" }
         val oldPrefix = tab.getString("prefix"); val from = draft.optJSONObject("fields") ?: JSONObject()
@@ -69,12 +78,12 @@ import java.util.UUID
         fields.put("c_special", from.optString("${oldPrefix}_special").ifBlank { from.optString("${oldPrefix}_note") })
         record = JSONObject().put("fields", fields).put("radios", JSONObject().put("c_id_type", draft.optJSONObject("radios")?.optString("${oldPrefix}_birth_type", "birth")?.let { if (it == "biz") "biz" else "rrn" }))
         key = model.newDocumentKey(); editor = contract
-    }) } }
+    }, header) } }
     removing?.let { id -> AlertDialog(onDismissRequest = { removing = null }, title = { Text("문서 삭제") }, text = { Text("선택한 저장 문서를 삭제할까요? 삭제한 문서는 복원할 수 없습니다.") },
         confirmButton = { TextButton(onClick = { model.deleteDocument(id); removing = null }) { Text("삭제") } }, dismissButton = { TextButton(onClick = { removing = null }) { Text("취소") } }) }
 }
 
-@Composable private fun FleetDocumentEditor(state: FleetUiState, model: FleetViewModel, schema: JSONObject, tab: JSONObject, original: JSONObject?, key: String, close: () -> Unit, toContract: (JSONObject) -> Unit) {
+@Composable private fun FleetDocumentEditor(state: FleetUiState, model: FleetViewModel, schema: JSONObject, tab: JSONObject, original: JSONObject?, key: String, close: () -> Unit, toContract: (JSONObject) -> Unit, header: @Composable () -> Unit) {
     val context = LocalContext.current; val scope = rememberCoroutineScope(); val type = tab.getString("key"); val prefix = tab.getString("prefix")
     val fields = remember(key) { mutableStateMapOf<String, String>().apply { putAll(FleetDocumentSchema.defaults(tab)); original?.optJSONObject("fields")?.let { values -> values.keys().forEach { put(it, values.optString(it)) } } } }
     val radios = remember(key) { mutableStateMapOf<String, String>().apply {
@@ -132,7 +141,8 @@ import java.util.UUID
                 }
             }
     WebSheet(close) {
-        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
+        header()
+        Column(Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
             Text(tab.getString("label"), fontSize = 18.sp)
             val radioDefinitions = tab.getJSONObject("radios")
             radioDefinitions.keys().forEach { name ->

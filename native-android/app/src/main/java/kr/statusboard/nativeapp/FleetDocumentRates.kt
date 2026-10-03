@@ -16,7 +16,7 @@ import org.json.JSONObject
     var error by remember { mutableStateOf("") }
     val editable = !state.sending && !state.cached && state.session?.isAdmin == true
     WebSheet(close) {
-        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
+        Column(Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
             Text("신차 렌트 · 계산 기준", fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
             listOf("rate" to "할부 연 금리 (%)", "months" to "할부 기간 (개월)", "down" to "내 선수금 (%)", "acq" to "취등록세 (%)", "reg" to "등록 부대비용 (원)",
                 "ins" to "월 보험료 (원)", "maint" to "월 정비비 (원)", "fee" to "월 지입료 (원)", "etc" to "월 기타비용 (원)", "margin" to "월 마진 (원)", "age21" to "21세 추가 (원)", "d2" to "2안 기본 보증금 (%)", "d3" to "3안 기본 보증금 (%)").forEach { (key, title) -> WebField(title, fields[key].orEmpty(), { fields[key] = it }, editable) }

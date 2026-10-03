@@ -16,9 +16,9 @@ import java.util.UUID
     var restoring by remember { mutableStateOf<String?>(null) }
     val id = remember(restoring) { UUID.randomUUID().toString() }
     WebSheet(close) {
-        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
-            Text("변경기록", fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
-            Text("최근 30개 차량 저장 기록. 복원 직전의 현재 자료도 기록으로 남깁니다.", color = WebSub, fontSize = 12.sp)
+        Column(Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
+            Text("🕒 변경 기록", fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+            Text("저장할 때마다 그 직전 상태가 자동으로 남아요. 실수했으면 원하는 시점으로 되돌릴 수 있어요.", color = WebSub, fontSize = 12.sp)
             val history = state.history
             if (history == null) Text("불러오는 중…", color = WebSub)
             else history.keys().asSequence().mapNotNull { key -> history.optJSONObject(key)?.let { key to it } }.sortedByDescending { it.second.optLong("savedAt") }.forEach { (key, record) ->

@@ -43,7 +43,7 @@ import java.util.UUID
     val editable = !state.sending && !state.cached
     fun field(label: String, key: String): Pair<String, String> = label to key
     WebSheet(close) {
-        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp, 18.dp)) {
+        Column(Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp, 18.dp)) {
             Text(vehicle.plate, fontSize = 16.sp); Text(vehicle.model, color = WebSub, fontSize = 12.sp)
             if (!docs) {
             Text("구분", color = WebSub, fontSize = 12.sp, modifier = Modifier.padding(top = 14.dp))
@@ -56,7 +56,6 @@ import java.util.UUID
             WebField("대여일 (입력하면 그날부터 자동으로 일수 카운팅)", values["startDate"].orEmpty(), { values["startDate"] = it }, editable)
             if (general) WebField("반납일자", values["returnDate"].orEmpty(), { values["returnDate"] = it }, editable)
             WebField("상태 (자동 일수 카운팅 중이 아닐 때 사용)", values["status"].orEmpty(), { values["status"] = it }, editable)
-            Row { listOf("운행중", "대기", "준비중", "차고지").forEach { status -> TextButton(onClick = { values["status"] = status }, enabled = editable, modifier = Modifier.weight(1f)) { Text(status, fontSize = 11.sp) } } }
             WebField("비고 (담당자 / 반납예정일 등)", values["note"].orEmpty(), { values["note"] = it }, editable)
             Row { Text("추가정보 (자차 / 연령 / 특약 등)", color = WebSub, fontSize = 12.sp, modifier = Modifier.weight(1f).padding(top = 12.dp))
                 TextButton(onClick = { extraEditable = !extraEditable }, enabled = editable) { Text("✎ 수정", fontSize = 11.sp) } }

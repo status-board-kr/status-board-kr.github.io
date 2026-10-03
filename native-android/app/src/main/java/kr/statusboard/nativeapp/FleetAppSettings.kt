@@ -34,7 +34,7 @@ import androidx.compose.ui.unit.sp
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { revision++; model.locationChanged() }
     val allowed = remember(revision) { FleetNotifications.permitted(context) }
     WebSheet(close) {
-        Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
+        Column(Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
             Text("📱 처음 한 번 설정해주세요", fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
             Text("이 3가지를 해두어야 앱을 닫아도 근무시간에 위치가 공유되고, 메신저 알림이 옵니다.\n\n① 위치 권한 → 허용\n② 알림 권한 → 허용\n③ 배터리 → 제한 없음\n\n버튼을 누르면 해당 설정 화면이 바로 열려요.", color = WebSub, fontSize = 13.sp, modifier = Modifier.padding(vertical = 14.dp))
             Button(onClick = { context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.parse("package:${context.packageName}"))) }, modifier = Modifier.fillMaxWidth()) { Text("① 위치·앱 권한 설정 열기") }

@@ -34,11 +34,12 @@ import java.time.temporal.ChronoUnit
 private fun palette(type: String): Pair<Color, Color> {
     val light = !FleetAppearance.dark
     return when (type) {
-        "대기" -> if (light) Color(0xFFEEF6F0) to Color(0xFF387151) else Color(0xFF203B32) to Color(0xFF88B99E)
-        "준비중" -> if (light) Color(0xFFFAF4E8) to Color(0xFF8A662D) else Color(0xFF403928) to Color(0xFFC9AD79)
-        "보험" -> if (light) Color(0xFFEDF3FA) to Color(0xFF36618E) else Color(0xFF20374F) to Color(0xFF85B3DE)
-        "일반" -> if (light) Color(0xFFF7EFEC) to Color(0xFF8B5944) else Color(0xFF3C3030) to Color(0xFFCFB0A0)
-        "장기" -> if (light) Color(0xFFF2EEF8) to Color(0xFF70548D) else Color(0xFF332D43) to Color(0xFFB7A1D1)
+        "대기" -> if (light) Color(0xFFEEF6F0) to Color(0xFF387151) else Color(0xFF173C30) to Color(0xFF8DC7A3)
+        "준비중" -> if (light) Color(0xFFEEF0F4) to Color(0xFF627182) else Color(0xFF30353D) to Color(0xFF9DA3AA)
+        "보험" -> if (light) Color(0xFFEDF3FA) to Color(0xFF36618E) else Color(0xFF1C3553) to Color(0xFF80ADEB)
+        "일반" -> if (light) Color(0xFFFAF1E7) to Color(0xFFA26B35) else Color(0xFF383026) to Color(0xFFD1A06B)
+        "장기" -> if (light) Color(0xFFF1EDF8) to Color(0xFF755690) else Color(0xFF30273F) to Color(0xFFA78BCE)
+        "서비스" -> if (light) Color(0xFFF2EEF8) to Color(0xFF70548D) else Color(0xFF362A4B) to Color(0xFFA586CF)
         else -> FleetAppearance.panel to FleetAppearance.sub
     }
 }
@@ -93,7 +94,7 @@ private fun palette(type: String): Pair<Color, Color> {
                     "자주 쓰는 앱" to R.drawable.menu_star, "일정" to R.drawable.menu_calendar,
                     "결제일 알림" to R.drawable.menu_payment) + if (state.session?.isAdmin == true) listOf("견적·계약서" to R.drawable.menu_document) else emptyList()
                 BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                    val columns = if (maxWidth < 333.dp) 3 else ((maxWidth.value + 6) / if (maxWidth >= 672.dp) 116 else 90).toInt().coerceAtLeast(1)
+                    val columns = if (maxWidth >= 672.dp) 8 else 4
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         actions.chunked(columns).forEach { row ->
                             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -118,8 +119,8 @@ private fun palette(type: String): Pair<Color, Color> {
                         val edge = palette(type).second
                         Column(Modifier.weight(1f).background(if (filter == type) WebPanel2 else WebPanel, RoundedCornerShape(10.dp))
                             .border(1.dp, if (filter == type) edge else WebLine, RoundedCornerShape(10.dp)).clickable { filter = type }.padding(vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(state.vehicles.count { FleetPresentation.matches(it, type, state.longBranch) }.toString(), color = edge, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                            Text(type, color = edge, fontSize = 9.sp)
+                            Text(state.vehicles.count { FleetPresentation.matches(it, type, state.longBranch) }.toString(), color = edge, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            Text(type, color = edge, fontSize = 11.sp)
                         }
                     }
                 }
@@ -195,9 +196,9 @@ private fun palette(type: String): Pair<Color, Color> {
     var pressed by remember { mutableStateOf(false) }
     var holdTriggered by remember { mutableStateOf(false) }
     val fill by animateFloatAsState(if (pressed) 1f else 0f, tween(if (pressed) 3000 else 150), label = "web-hold-progress")
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(background)
-        .drawBehind { drawRect(warning, size = androidx.compose.ui.geometry.Size(4.dp.toPx(), size.height)); if (fill > 0) drawRect(WebAmber.copy(alpha = .22f), size = androidx.compose.ui.geometry.Size(size.width * fill, size.height)) }
-        .border(if (due) 2.dp else 1.dp, if (due) warning.copy(alpha = opacity) else edge, RoundedCornerShape(12.dp))
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(9.dp)).background(background)
+        .drawBehind { drawRect(warning, size = androidx.compose.ui.geometry.Size(3.dp.toPx(), size.height)); if (fill > 0) drawRect(WebAmber.copy(alpha = .22f), size = androidx.compose.ui.geometry.Size(size.width * fill, size.height)) }
+        .border(if (due) 2.dp else 1.dp, if (due) warning.copy(alpha = opacity) else edge.copy(alpha = .55f), RoundedCornerShape(9.dp))
         .pointerInput(vehicle, enabled) { detectTapGestures(onTap = { if (enabled && !holdTriggered) click() }, onPress = {
             if (enabled) {
                 holdTriggered = false
@@ -209,7 +210,7 @@ private fun palette(type: String): Pair<Color, Color> {
         }) }.padding(horizontal = 12.dp, vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(vehicle.plate, fontSize = 15.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, letterSpacing = .5.sp)
+                Text(vehicle.plate, fontSize = 19.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace, letterSpacing = .2.sp)
                 if (type.isNotBlank()) Text(type, fontSize = 10.sp, color = edge, modifier = Modifier.background(edge.copy(alpha = .12f), RoundedCornerShape(6.dp)).padding(horizontal = 5.dp, vertical = 2.dp))
                 Text(statusLabel(vehicle, today), fontSize = 10.sp, color = if (due) warning else WebSub, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.background(if (due) warning.copy(alpha = .18f) else WebPanel2, RoundedCornerShape(20.dp)).padding(horizontal = 7.dp, vertical = 2.dp).alpha(if (due) opacity else 1f))
