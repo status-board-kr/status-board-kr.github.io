@@ -18,7 +18,8 @@ const schema = Object.entries(tabs).map(([key,[label,prefix]]) => {
     const tag=match[0], attrs=match[2], kind=match[1]; const id=attr(attrs,'id'), type=attr(attrs,'type') || 'text';
     if(type==='radio') {
       const name=attr(attrs,'name'); if(!name)continue;
-      (radios[name]??=[]).push({value:attr(attrs,'value')||'',label:text(body.slice(match.index+tag.length).split('</label>')[0]), checked:/\bchecked\b/.test(attrs)}); continue;
+      const tagEnd = body.indexOf('>', match.index) + 1;
+      (radios[name]??=[]).push({value:attr(attrs,'value')||'',label:text(body.slice(tagEnd).split('</label>')[0]), checked:/\bchecked\b/.test(attrs)}); continue;
     }
     if(!id || !id.startsWith(prefix+'_') || type==='hidden')continue;
     const before=body.slice(0,match.index); const labels=[...before.matchAll(/<label[^>]*>([\s\S]*?)<\/label>/g)];

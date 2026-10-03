@@ -299,12 +299,12 @@
         "s_birth_type": [
           {
             "value": "birth",
-            "label": "> 개인",
+            "label": "개인",
             "checked": true
           },
           {
             "value": "biz",
-            "label": "> 법인",
+            "label": "법인",
             "checked": false
           }
         ]
@@ -525,12 +525,12 @@
         "st_birth_type": [
           {
             "value": "birth",
-            "label": "> 개인",
+            "label": "개인",
             "checked": true
           },
           {
             "value": "biz",
-            "label": "> 법인",
+            "label": "법인",
             "checked": false
           }
         ]
@@ -1014,12 +1014,12 @@
         "q_birth_type": [
           {
             "value": "birth",
-            "label": "> 개인",
+            "label": "개인",
             "checked": true
           },
           {
             "value": "biz",
-            "label": "> 법인",
+            "label": "법인",
             "checked": false
           }
         ]
@@ -1538,12 +1538,12 @@
         "n_birth_type": [
           {
             "value": "birth",
-            "label": "> 개인",
+            "label": "개인",
             "checked": true
           },
           {
             "value": "biz",
-            "label": "> 법인",
+            "label": "법인",
             "checked": false
           }
         ]
@@ -2055,12 +2055,12 @@
         "c_id_type": [
           {
             "value": "rrn",
-            "label": "> 개인",
+            "label": "개인",
             "checked": true
           },
           {
             "value": "biz",
-            "label": "> 법인",
+            "label": "법인",
             "checked": false
           }
         ]
@@ -2299,12 +2299,12 @@
         "r_birth_type": [
           {
             "value": "birth",
-            "label": "> 개인",
+            "label": "개인",
             "checked": true
           },
           {
             "value": "biz",
-            "label": "> 법인",
+            "label": "법인",
             "checked": false
           }
         ]
