@@ -96,6 +96,8 @@
     fb: window._fb,
     auth: window._auth,
     onReady: async function(info){
+      // 업체 접근 확인은 FleetAuth에서 끝났습니다. 제목 조회는 차량 로딩을 막지 않습니다.
+      const startup = startApp();
       // 업체명을 제목에 표시 (예: "🚗 OOO렌트카 현황판")
       try{
         const snap = await get(ref(db, 'companies/' + info.companyId + '/profile/name'));
@@ -106,7 +108,7 @@
           if(t) t.textContent = '🚗 ' + name + ' 현황판';
         }
       }catch(e){ /* 이름을 못 불러와도 앱은 그대로 동작 */ }
-      startApp();
+      await startup;
     }
   });
 </script>
@@ -4772,14 +4774,18 @@ async function aiHttpPost(url, headers, body, timeoutMs){
 async function callVisionAi(prompt, b64s, timeoutMs){
   const keys = getAiKeys();
   if(!keys.gemini && !keys.grok) return { text: null, reason: 'nokey' };
+  const deadline = Date.now() + 45000;
+  const remainingTimeout = () => Math.max(0, Math.min(timeoutMs || 25000, deadline - Date.now()));
   let lastReason = '';
   if(keys.gemini){
     for(const model of GEMINI_MODELS){
+      const attemptTimeout = remainingTimeout();
+      if(!attemptTimeout) return { text: null, reason: lastReason || '사진 인식 시간이 초과됐어요' };
       try{
         const r = await aiHttpPost(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
           { 'x-goog-api-key': keys.gemini, 'content-type': 'application/json' },
           { contents: [{ parts: [ ...b64s.map(d => ({ inline_data: { mime_type: 'image/jpeg', data: d } })), { text: prompt } ] }],
-            generationConfig: { responseMimeType: 'application/json', temperature: 0 } }, timeoutMs);
+            generationConfig: { responseMimeType: 'application/json', temperature: 0 } }, attemptTimeout);
         if(r.status >= 200 && r.status < 300){
           const cand = r.data && r.data.candidates && r.data.candidates[0];
           const text = cand && cand.content ? (cand.content.parts || []).map(p => p.text || '').join('') : '';
@@ -4790,6 +4796,8 @@ async function callVisionAi(prompt, b64s, timeoutMs){
           if(r.status === 400 && e && /API key|API_KEY/i.test(e.message || '')) lastReason = 'Gemini API 키가 올바르지 않아요';
           else if(r.status === 401 || r.status === 403) lastReason = 'Gemini API 키 권한이 없어요';
           else lastReason = r.status === 429 ? 'Gemini 오늘 무료 사용량을 다 썼어요' : r.status === 503 ? 'Gemini가 바빠요' : ('Gemini 오류 ' + r.status);
+          // 같은 키로 모델만 바꿔도 인증 오류는 해결되지 않습니다.
+          if(r.status === 401 || r.status === 403 || (r.status === 400 && e && /API key|API_KEY/i.test(e.message || ''))) break;
         }
         // 404(모델 없어짐)·429(한도)·503(바쁨)·500 → 다음 모델 시도
       }catch(e){ lastReason = (e && e.name === 'AbortError') ? 'Gemini 응답이 너무 늦어요' : ('Gemini 연결 실패: ' + (e.message || e)); }
@@ -4797,12 +4805,14 @@ async function callVisionAi(prompt, b64s, timeoutMs){
   }
   if(keys.grok){
     for(const model of GROK_MODELS){
+      const attemptTimeout = remainingTimeout();
+      if(!attemptTimeout) return { text: null, reason: lastReason || '사진 인식 시간이 초과됐어요' };
       try{
         const r = await aiHttpPost('https://api.x.ai/v1/chat/completions',
           { 'Authorization': 'Bearer ' + keys.grok, 'content-type': 'application/json' },
           { model, response_format: { type: 'json_object' }, temperature: 0, messages: [{ role: 'user', content: [
             ...b64s.map(d => ({ type: 'image_url', image_url: { url: 'data:image/jpeg;base64,' + d } })),
-            { type: 'text', text: prompt } ] }] }, timeoutMs);
+            { type: 'text', text: prompt } ] }] }, attemptTimeout);
         if(r.status >= 200 && r.status < 300){
           const text = r.data && r.data.choices && r.data.choices[0] && r.data.choices[0].message && r.data.choices[0].message.content;
           if(text) return { text, reason: '' };
@@ -4811,6 +4821,7 @@ async function callVisionAi(prompt, b64s, timeoutMs){
           const m = r.data && r.data.error && r.data.error.message;
           if(r.status === 401 || r.status === 403) lastReason = 'Grok API 키가 올바르지 않아요';
           else lastReason = r.status === 429 ? 'Grok 오늘 사용량을 다 썼어요' : (m || ('Grok 오류 ' + r.status));
+          if(r.status === 401 || r.status === 403) break;
         }
       }catch(e){ lastReason = (e && e.name === 'AbortError') ? 'Grok 응답이 너무 늦어요' : ('Grok 연결 실패: ' + (e.message || e)); }
     }
@@ -4856,6 +4867,21 @@ function matchVehicleByPlate(plate){
 //  · "9588 회수" + 계기판 사진 → 주행거리 인식 → 확인 → 회수 처리
 //  · "조완 보험 윤상" (번호 없이) + 차량 사진 → 번호판 인식 → 차량 확인 → 명령 적용
 //  · 글 없이 사진만 → 그냥 사진 메시지
+async function saveChatPhotos(photos, plate){
+  const ids = new Array(photos.length);
+  let next = 0, failure = null;
+  async function worker(){
+    while(!failure && next < photos.length){
+      const index = next++;
+      try{ ids[index] = await savePhoto(photos[index], plate); }
+      catch(error){ failure = error; }
+    }
+  }
+  // 저장 순서를 유지하며 두 장씩 전송합니다. 실패 시 진행 중인 저장도 끝난 뒤 반환합니다.
+  await Promise.all(Array.from({length: Math.min(2, photos.length)}, worker));
+  if(failure) throw failure;
+  return ids;
+}
 async function sendChatPhoto(text){
   const { ref, push, db } = window._fb;
   const user = window.CURRENT_USER;
@@ -4870,8 +4896,7 @@ async function sendChatPhoto(text){
   const recallWords = /(^|\s)(회수|ㅎㅅ)(\s|$)/.test(text || '');
 
   // 사진은 먼저 저장해서, 이후 과정에서 취소해도 사진은 남게 함
-  const photoIds = [];
-  for(const ph of photos) photoIds.push(await savePhoto(ph, veh ? veh.plate : null));
+  const photoIds = await saveChatPhotos(photos, veh ? veh.plate : null);
   const photoId = photoIds[0];
   await push(ref(db, P('chat')), {
     text: text || (photos.length > 1 ? `📷 사진 ${photos.length}장` : '📷 사진'),
