@@ -4,6 +4,9 @@ import android.content.Intent
 import android.graphics.Bitmap
 import androidx.core.content.FileProvider
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -143,20 +146,26 @@ import java.util.UUID
     WebSheet(close) {
         header()
         Column(Modifier.weight(1f, fill = false).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp)) {
-            Text(tab.getString("label"), fontSize = 18.sp)
             val radioDefinitions = tab.getJSONObject("radios")
-            radioDefinitions.keys().forEach { name ->
+            @Composable fun radioChoices(name: String) {
                 Row { val options = radioDefinitions.getJSONArray(name); (0 until options.length()).forEach { index ->
                     val option = options.getJSONObject(index); val value = option.getString("value")
-                    TextButton(onClick = { radios[name] = value }, enabled = editable) { Text("${if (radios[name] == value) "✓ " else ""}${option.getString("label")}", fontSize = 12.sp) }
+                    TextButton(onClick = { radios[name] = value }, enabled = editable) { Text("${if (radios[name] == value) "● " else "○ "}${option.getString("label")}", fontSize = 12.sp) }
                 } }
             }
+            val assignedRadios = definitions.flatMap { field -> field.optJSONArray("radioNames")?.let { names -> (0 until names.length()).map(names::getString) }.orEmpty() }.toSet()
+            radioDefinitions.keys().asSequence().filter { it !in assignedRadios }.forEach { radioChoices(it) }
             val business = radios[if (prefix == "c") "c_id_type" else "${prefix}_birth_type"] == "biz"
             definitions.filter { field ->
                 val id = field.getString("id")
                 !(id.endsWith("_birth") && business) && !((id.endsWith("_biznum") || id.endsWith("_corpnum") || id.endsWith("_ceo")) && !business)
-            }.forEach { field ->
+            }.groupBy { it.optString("section") }.forEach { (section, sectionFields) ->
+              Column(Modifier.fillMaxWidth().padding(bottom = 12.dp).background(WebPanel2, RoundedCornerShape(12.dp)).border(1.dp, WebLine, RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 14.dp)) {
+                if (section.isNotBlank()) Text(section, fontSize = 13.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = WebSub, modifier = Modifier.padding(bottom = 10.dp))
+                val shownRadios = mutableSetOf<String>()
+                sectionFields.forEach { field ->
                 val id = field.getString("id"); val label = field.getString("label"); val options = field.getJSONArray("options")
+                field.optJSONArray("radioNames")?.let { names -> (0 until names.length()).forEach { index -> val name = names.getString(index); if (shownRadios.add(name)) radioChoices(name) } }
                 if (id == "c_model") driverRows()
                 if (id == "st_tax_type") itemRows()
                 if (id == "n_maker") {
@@ -186,7 +195,11 @@ import java.util.UUID
                     Box { OutlinedButton(onClick = { expanded = true }, enabled = editable, modifier = Modifier.fillMaxWidth()) { Text(selected?.optString("label") ?: fields[id].orEmpty(), fontSize = 12.sp) }
                         DropdownMenu(expanded, { expanded = false }) { (0 until options.length()).forEach { index -> val option = options.getJSONObject(index); DropdownMenuItem(text = { Text(option.getString("label")) }, onClick = { change(id, option.getString("value")); expanded = false }) } }
                     }
-                } else WebField(label, fields[id].orEmpty(), { change(id, it) }, editable && !field.optBoolean("readonly"))
+                } else if (field.optString("type") == "date") WebField(label, fields[id].orEmpty(), { change(id, it) }, editable && !field.optBoolean("readonly"))
+                else {
+                    Text(label, color = WebSub, fontSize = 12.sp, modifier = Modifier.padding(top = 10.dp, bottom = 4.dp))
+                    WebInput(fields[id].orEmpty(), { change(id, it) }, editable && !field.optBoolean("readonly"), placeholder = field.optString("placeholder"), fontSize = 16.sp, minHeight = if (field.optString("kind") == "textarea") 84.dp else 46.dp, singleLine = field.optString("kind") != "textarea")
+                }
                 if (type == "newcar" && id.matches(Regex("n_p[123]_price"))) {
                     val option = id.substring(3, 4); val base = "n_p${option}_"
                     if (Calc.number(fields["n_carprice"]) > 0 && Calc.number(fields["n_period"]) > 0) {
@@ -195,6 +208,8 @@ import java.util.UUID
                     }
                     if (fields[base + "manual"] == "1") TextButton(onClick = { fields[base + "manual"] = ""; change("n_period", fields["n_period"].orEmpty()) }, enabled = editable) { Text("직접 입력 → 자동 계산으로") }
                 }
+                }
+              }
             }
             if (type in setOf("simple", "quote", "newcar")) TextButton(onClick = { toContract(record()) }, enabled = editable) { Text("이 견적으로 계약서 만들기") }
             if (error.isNotBlank()) Text(error, color = WebSub, fontSize = 12.sp)

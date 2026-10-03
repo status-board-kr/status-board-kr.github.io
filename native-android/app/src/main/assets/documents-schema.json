@@ -11,6 +11,10 @@
           "label": "고객명",
           "kind": "input",
           "type": "text",
+          "section": "고객 정보",
+          "cell": 197,
+          "radioNames": [],
+          "placeholder": "홍길동",
           "readonly": false,
           "options": [],
           "value": ""
@@ -20,15 +24,25 @@
           "label": "연락처",
           "kind": "input",
           "type": "tel",
+          "section": "고객 정보",
+          "cell": 303,
+          "radioNames": [],
+          "placeholder": "010-0000-0000",
           "readonly": false,
           "options": [],
           "value": ""
         },
         {
           "id": "s_birth",
-          "label": "법인",
+          "label": "생년월일 / 사업자번호",
           "kind": "input",
           "type": "text",
+          "section": "고객 정보",
+          "cell": 442,
+          "radioNames": [
+            "s_birth_type"
+          ],
+          "placeholder": "19900101",
           "readonly": false,
           "options": [],
           "value": ""
@@ -38,6 +52,12 @@
           "label": "사업자등록번호",
           "kind": "input",
           "type": "text",
+          "section": "고객 정보",
+          "cell": 442,
+          "radioNames": [
+            "s_birth_type"
+          ],
+          "placeholder": "사업자등록번호 000-00-00000",
           "readonly": false,
           "options": [],
           "value": ""
@@ -47,6 +67,12 @@
           "label": "법인등록번호",
           "kind": "input",
           "type": "text",
+          "section": "고객 정보",
+          "cell": 442,
+          "radioNames": [
+            "s_birth_type"
+          ],
+          "placeholder": "법인등록번호 000000-0000000 (선택)",
           "readonly": false,
           "options": [],
           "value": ""
@@ -56,6 +82,12 @@
           "label": "대표자 이름",
           "kind": "input",
           "type": "text",
+          "section": "고객 정보",
+          "cell": 442,
+          "radioNames": [
+            "s_birth_type"
+          ],
+          "placeholder": "대표자 이름 (선택)",
           "readonly": false,
           "options": [],
           "value": ""
@@ -65,6 +97,10 @@
           "label": "견적일자",
           "kind": "input",
           "type": "date",
+          "section": "고객 정보",
+          "cell": 1607,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [],
           "value": ""
@@ -74,6 +110,10 @@
           "label": "주소",
           "kind": "input",
           "type": "text",
+          "section": "고객 정보",
+          "cell": 1696,
+          "radioNames": [],
+          "placeholder": "주소를 입력하세요",
           "readonly": false,
           "options": [],
           "value": ""
@@ -83,6 +123,10 @@
           "label": "차량모델",
           "kind": "input",
           "type": "text",
+          "section": "차량 정보",
+          "cell": 1971,
+          "radioNames": [],
+          "placeholder": "아반떼 (G)",
           "readonly": false,
           "options": [],
           "value": ""
@@ -92,6 +136,10 @@
           "label": "차량번호",
           "kind": "input",
           "type": "text",
+          "section": "차량 정보",
+          "cell": 2083,
+          "radioNames": [],
+          "placeholder": "12가 3456",
           "readonly": false,
           "options": [],
           "value": ""
@@ -101,6 +149,10 @@
           "label": "연식",
           "kind": "input",
           "type": "text",
+          "section": "차량 정보",
+          "cell": 2197,
+          "radioNames": [],
+          "placeholder": "2024년식",
           "readonly": false,
           "options": [],
           "value": ""
@@ -110,6 +162,10 @@
           "label": "색상",
           "kind": "input",
           "type": "text",
+          "section": "차량 정보",
+          "cell": 2305,
+          "radioNames": [],
+          "placeholder": "아틀라스 화이트",
           "readonly": false,
           "options": [],
           "value": ""
@@ -119,6 +175,10 @@
           "label": "주행거리 (km)",
           "kind": "input",
           "type": "text",
+          "section": "차량 정보",
+          "cell": 2416,
+          "radioNames": [],
+          "placeholder": "69,498",
           "readonly": false,
           "options": [],
           "value": ""
@@ -128,6 +188,10 @@
           "label": "연료",
           "kind": "select",
           "type": "text",
+          "section": "차량 정보",
+          "cell": 2554,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -173,6 +237,10 @@
           "label": "대여 유형",
           "kind": "select",
           "type": "text",
+          "section": "견적 내용",
+          "cell": 2923,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -198,6 +266,10 @@
           "label": "기간 단위",
           "kind": "select",
           "type": "text",
+          "section": "견적 내용",
+          "cell": 3214,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -218,6 +290,10 @@
           "label": "대여 시작일",
           "kind": "input",
           "type": "date",
+          "section": "견적 내용",
+          "cell": 3485,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [],
           "value": ""
@@ -227,6 +303,10 @@
           "label": "대여 종료일",
           "kind": "input",
           "type": "date",
+          "section": "견적 내용",
+          "cell": 3605,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [],
           "value": ""
@@ -236,6 +316,10 @@
           "label": "대여 기간 (자동계산)",
           "kind": "input",
           "type": "text",
+          "section": "견적 내용",
+          "cell": 3737,
+          "radioNames": [],
+          "placeholder": "시작일·종료일 선택 시 자동계산",
           "readonly": true,
           "options": [],
           "value": ""
@@ -245,6 +329,10 @@
           "label": "렌트료 (일/24시간)",
           "kind": "input",
           "type": "text",
+          "section": "견적 내용",
+          "cell": 4010,
+          "radioNames": [],
+          "placeholder": "500,000",
           "readonly": false,
           "options": [],
           "value": ""
@@ -254,6 +342,10 @@
           "label": "할인율 (%)",
           "kind": "input",
           "type": "number",
+          "section": "견적 내용",
+          "cell": 4197,
+          "radioNames": [],
+          "placeholder": "예: 10",
           "readonly": false,
           "options": [],
           "value": ""
@@ -263,6 +355,10 @@
           "label": "할인 후 총 렌트료",
           "kind": "input",
           "type": "text",
+          "section": "견적 내용",
+          "cell": 4401,
+          "radioNames": [],
+          "placeholder": "자동계산",
           "readonly": true,
           "options": [],
           "value": ""
@@ -272,6 +368,10 @@
           "label": "산식 (자동생성)",
           "kind": "input",
           "type": "text",
+          "section": "견적 내용",
+          "cell": 4621,
+          "radioNames": [],
+          "placeholder": "일렌트료 × 할인율 × 일수 = 총액",
           "readonly": true,
           "options": [],
           "value": ""
@@ -281,15 +381,23 @@
           "label": "기타비용",
           "kind": "input",
           "type": "text",
+          "section": "견적 내용",
+          "cell": 4895,
+          "radioNames": [],
+          "placeholder": "없음",
           "readonly": false,
           "options": [],
           "value": ""
         },
         {
           "id": "s_special",
-          "label": "특이사항 (선택)",
+          "label": "특이사항",
           "kind": "textarea",
           "type": "text",
+          "section": "견적 내용",
+          "cell": 5014,
+          "radioNames": [],
+          "placeholder": "특이사항을 입력하세요 (없으면 비워두세요)",
           "readonly": false,
           "options": [],
           "value": ""
@@ -320,6 +428,10 @@
           "label": "상호(고객명)",
           "kind": "input",
           "type": "text",
+          "section": "공급받는자 정보",
+          "cell": 196,
+          "radioNames": [],
+          "placeholder": "홍길동 / (주)OO회사",
           "readonly": false,
           "options": [],
           "value": ""
@@ -329,15 +441,25 @@
           "label": "연락처",
           "kind": "input",
           "type": "tel",
+          "section": "공급받는자 정보",
+          "cell": 317,
+          "radioNames": [],
+          "placeholder": "010-0000-0000",
           "readonly": false,
           "options": [],
           "value": ""
         },
         {
           "id": "st_birth",
-          "label": "법인",
+          "label": "생년월일 / 사업자번호",
           "kind": "input",
           "type": "text",
+          "section": "공급받는자 정보",
+          "cell": 457,
+          "radioNames": [
+            "st_birth_type"
+          ],
+          "placeholder": "19900101",
           "readonly": false,
           "options": [],
           "value": ""
@@ -347,6 +469,12 @@
           "label": "사업자등록번호",
           "kind": "input",
           "type": "text",
+          "section": "공급받는자 정보",
+          "cell": 457,
+          "radioNames": [
+            "st_birth_type"
+          ],
+          "placeholder": "사업자등록번호 000-00-00000",
           "readonly": false,
           "options": [],
           "value": ""
@@ -356,6 +484,12 @@
           "label": "법인등록번호",
           "kind": "input",
           "type": "text",
+          "section": "공급받는자 정보",
+          "cell": 457,
+          "radioNames": [
+            "st_birth_type"
+          ],
+          "placeholder": "법인등록번호 000000-0000000 (선택)",
           "readonly": false,
           "options": [],
           "value": ""
@@ -365,6 +499,12 @@
           "label": "대표자 이름",
           "kind": "input",
           "type": "text",
+          "section": "공급받는자 정보",
+          "cell": 457,
+          "radioNames": [
+            "st_birth_type"
+          ],
+          "placeholder": "대표자 이름 (선택)",
           "readonly": false,
           "options": [],
           "value": ""
@@ -374,6 +514,10 @@
           "label": "발행일자",
           "kind": "input",
           "type": "date",
+          "section": "공급받는자 정보",
+          "cell": 1630,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [],
           "value": ""
@@ -383,6 +527,10 @@
           "label": "주소",
           "kind": "input",
           "type": "text",
+          "section": "공급받는자 정보",
+          "cell": 1720,
+          "radioNames": [],
+          "placeholder": "주소를 입력하세요",
           "readonly": false,
           "options": [],
           "value": ""
@@ -392,6 +540,10 @@
           "label": "차량모델",
           "kind": "input",
           "type": "text",
+          "section": "차량 정보 (선택)",
+          "cell": 2056,
+          "radioNames": [],
+          "placeholder": "아반떼 (G)",
           "readonly": false,
           "options": [],
           "value": ""
@@ -401,6 +553,10 @@
           "label": "차량번호",
           "kind": "input",
           "type": "text",
+          "section": "차량 정보 (선택)",
+          "cell": 2169,
+          "radioNames": [],
+          "placeholder": "12가 3456",
           "readonly": false,
           "options": [],
           "value": ""
@@ -410,6 +566,10 @@
           "label": "연식",
           "kind": "input",
           "type": "text",
+          "section": "차량 정보 (선택)",
+          "cell": 2284,
+          "radioNames": [],
+          "placeholder": "2024년식",
           "readonly": false,
           "options": [],
           "value": ""
@@ -419,6 +579,10 @@
           "label": "색상",
           "kind": "input",
           "type": "text",
+          "section": "차량 정보 (선택)",
+          "cell": 2393,
+          "radioNames": [],
+          "placeholder": "아틀라스 화이트",
           "readonly": false,
           "options": [],
           "value": ""
@@ -428,6 +592,10 @@
           "label": "주행거리 (km)",
           "kind": "input",
           "type": "text",
+          "section": "차량 정보 (선택)",
+          "cell": 2505,
+          "radioNames": [],
+          "placeholder": "69,498",
           "readonly": false,
           "options": [],
           "value": ""
@@ -437,6 +605,10 @@
           "label": "연료",
           "kind": "select",
           "type": "text",
+          "section": "차량 정보 (선택)",
+          "cell": 2644,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -482,6 +654,10 @@
           "label": "세금 구분",
           "kind": "select",
           "type": "text",
+          "section": "거래 내용",
+          "cell": 3374,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -507,15 +683,23 @@
           "label": "합계금액 (자동계산)",
           "kind": "input",
           "type": "text",
+          "section": "거래 내용",
+          "cell": 3709,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": true,
           "options": [],
           "value": ""
         },
         {
           "id": "st_note",
-          "label": "비고 (선택)",
+          "label": "비고",
           "kind": "textarea",
           "type": "text",
+          "section": "거래 내용",
+          "cell": 3912,
+          "radioNames": [],
+          "placeholder": "비고 사항을 입력하세요",
           "readonly": false,
           "options": [],
           "value": ""
@@ -546,6 +730,10 @@
           "label": "고객명 *",
           "kind": "input",
           "type": "text",
+          "section": "고객 정보",
+          "cell": 189,
+          "radioNames": [],
+          "placeholder": "홍길동",
           "readonly": false,
           "options": [],
           "value": ""
@@ -555,15 +743,25 @@
           "label": "연락처 *",
           "kind": "input",
           "type": "tel",
+          "section": "고객 정보",
+          "cell": 297,
+          "radioNames": [],
+          "placeholder": "010-0000-0000",
           "readonly": false,
           "options": [],
           "value": ""
         },
         {
           "id": "q_birth",
-          "label": "법인",
+          "label": "생년월일 / 사업자번호",
           "kind": "input",
           "type": "text",
+          "section": "고객 정보",
+          "cell": 438,
+          "radioNames": [
+            "q_birth_type"
+          ],
+          "placeholder": "19900101",
           "readonly": false,
           "options": [],
           "value": ""
@@ -573,6 +771,12 @@
           "label": "사업자등록번호",
           "kind": "input",
           "type": "text",
+          "section": "고객 정보",
+          "cell": 438,
+          "radioNames": [
+            "q_birth_type"
+          ],
+          "placeholder": "사업자등록번호 000-00-00000",
           "readonly": false,
           "options": [],
           "value": ""
@@ -582,6 +786,12 @@
           "label": "법인등록번호",
           "kind": "input",
           "type": "text",
+          "section": "고객 정보",
+          "cell": 438,
+          "radioNames": [
+            "q_birth_type"
+          ],
+          "placeholder": "법인등록번호 000000-0000000 (선택)",
           "readonly": false,
           "options": [],
           "value": ""
@@ -591,6 +801,12 @@
           "label": "대표자 이름",
           "kind": "input",
           "type": "text",
+          "section": "고객 정보",
+          "cell": 438,
+          "radioNames": [
+            "q_birth_type"
+          ],
+          "placeholder": "대표자 이름 (선택)",
           "readonly": false,
           "options": [],
           "value": ""
@@ -600,6 +816,10 @@
           "label": "견적일자",
           "kind": "input",
           "type": "date",
+          "section": "고객 정보",
+          "cell": 1603,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [],
           "value": ""
@@ -609,6 +829,10 @@
           "label": "주소",
           "kind": "input",
           "type": "text",
+          "section": "고객 정보",
+          "cell": 1692,
+          "radioNames": [],
+          "placeholder": "주소를 입력하세요",
           "readonly": false,
           "options": [],
           "value": ""
@@ -618,6 +842,10 @@
           "label": "차량모델 *",
           "kind": "input",
           "type": "text",
+          "section": "차량 정보",
+          "cell": 1967,
+          "radioNames": [],
+          "placeholder": "아반떼 (G)",
           "readonly": false,
           "options": [],
           "value": ""
@@ -627,6 +855,10 @@
           "label": "차량번호",
           "kind": "input",
           "type": "text",
+          "section": "차량 정보",
+          "cell": 2081,
+          "radioNames": [],
+          "placeholder": "12가 3456",
           "readonly": false,
           "options": [],
           "value": ""
@@ -636,6 +868,10 @@
           "label": "연식",
           "kind": "input",
           "type": "text",
+          "section": "차량 정보",
+          "cell": 2195,
+          "radioNames": [],
+          "placeholder": "2024년식",
           "readonly": false,
           "options": [],
           "value": ""
@@ -645,6 +881,10 @@
           "label": "색상",
           "kind": "input",
           "type": "text",
+          "section": "차량 정보",
+          "cell": 2303,
+          "radioNames": [],
+          "placeholder": "아틀라스 화이트",
           "readonly": false,
           "options": [],
           "value": ""
@@ -654,6 +894,10 @@
           "label": "주행거리 (km)",
           "kind": "input",
           "type": "text",
+          "section": "차량 정보",
+          "cell": 2414,
+          "radioNames": [],
+          "placeholder": "69,498",
           "readonly": false,
           "options": [],
           "value": ""
@@ -663,6 +907,10 @@
           "label": "연료",
           "kind": "select",
           "type": "text",
+          "section": "차량 정보",
+          "cell": 2552,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -708,6 +956,10 @@
           "label": "차종 등급",
           "kind": "select",
           "type": "text",
+          "section": "계약 조건",
+          "cell": 3018,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -743,6 +995,10 @@
           "label": "운전자 나이",
           "kind": "select",
           "type": "text",
+          "section": "계약 조건",
+          "cell": 3539,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -763,6 +1019,10 @@
           "label": "운전자 특약",
           "kind": "select",
           "type": "text",
+          "section": "계약 조건",
+          "cell": 3844,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -793,6 +1053,10 @@
           "label": "약정 주행거리",
           "kind": "select",
           "type": "text",
+          "section": "계약 조건",
+          "cell": 4235,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -823,6 +1087,10 @@
           "label": "자기차량손해(자차)",
           "kind": "select",
           "type": "text",
+          "section": "계약 조건",
+          "cell": 4683,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -843,6 +1111,10 @@
           "label": "정비 서비스",
           "kind": "select",
           "type": "text",
+          "section": "계약 조건",
+          "cell": 4974,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -858,6 +1130,10 @@
           "label": "계약기간 *",
           "kind": "select",
           "type": "text",
+          "section": "계약 조건",
+          "cell": 5289,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -908,6 +1184,10 @@
           "label": "계약 시작일",
           "kind": "input",
           "type": "date",
+          "section": "계약 조건",
+          "cell": 5800,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [],
           "value": ""
@@ -917,6 +1197,10 @@
           "label": "계약 종료일 (자동계산)",
           "kind": "input",
           "type": "date",
+          "section": "계약 조건",
+          "cell": 5960,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": true,
           "options": [],
           "value": ""
@@ -926,6 +1210,10 @@
           "label": "월렌트료 *",
           "kind": "input",
           "type": "text",
+          "section": "계약 조건",
+          "cell": 6148,
+          "radioNames": [],
+          "placeholder": "자동계산 또는 직접입력",
           "readonly": false,
           "options": [],
           "value": ""
@@ -935,6 +1223,10 @@
           "label": "할인율 (%)",
           "kind": "input",
           "type": "number",
+          "section": "계약 조건",
+          "cell": 6336,
+          "radioNames": [],
+          "placeholder": "예: 10",
           "readonly": false,
           "options": [],
           "value": ""
@@ -944,6 +1236,10 @@
           "label": "대물 배상",
           "kind": "select",
           "type": "text",
+          "section": "계약 조건",
+          "cell": 6537,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -969,6 +1265,10 @@
           "label": "보증금",
           "kind": "input",
           "type": "text",
+          "section": "계약 조건",
+          "cell": 6840,
+          "radioNames": [],
+          "placeholder": "없음",
           "readonly": false,
           "options": [],
           "value": ""
@@ -978,6 +1278,10 @@
           "label": "탁송비",
           "kind": "input",
           "type": "text",
+          "section": "계약 조건",
+          "cell": 6948,
+          "radioNames": [],
+          "placeholder": "없음",
           "readonly": false,
           "options": [],
           "value": ""
@@ -987,6 +1291,10 @@
           "label": "기타비용",
           "kind": "input",
           "type": "text",
+          "section": "계약 조건",
+          "cell": 7057,
+          "radioNames": [],
+          "placeholder": "없음",
           "readonly": false,
           "options": [],
           "value": ""
@@ -996,6 +1304,10 @@
           "label": "계약기간 총액 (자동계산)",
           "kind": "input",
           "type": "text",
+          "section": "계약 조건",
+          "cell": 7176,
+          "radioNames": [],
+          "placeholder": "기간 + 금액 입력 시 자동계산",
           "readonly": true,
           "options": [],
           "value": ""
@@ -1005,6 +1317,10 @@
           "label": "특약사항",
           "kind": "textarea",
           "type": "text",
+          "section": "계약 조건",
+          "cell": 7415,
+          "radioNames": [],
+          "placeholder": "특약사항을 입력하세요",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1035,6 +1351,10 @@
           "label": "고객명 *",
           "kind": "input",
           "type": "text",
+          "section": "고객 정보",
+          "cell": 190,
+          "radioNames": [],
+          "placeholder": "홍길동",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1044,15 +1364,25 @@
           "label": "연락처 *",
           "kind": "input",
           "type": "tel",
+          "section": "고객 정보",
+          "cell": 298,
+          "radioNames": [],
+          "placeholder": "010-0000-0000",
           "readonly": false,
           "options": [],
           "value": ""
         },
         {
           "id": "n_birth",
-          "label": "법인",
+          "label": "생년월일 / 사업자번호",
           "kind": "input",
           "type": "text",
+          "section": "고객 정보",
+          "cell": 439,
+          "radioNames": [
+            "n_birth_type"
+          ],
+          "placeholder": "19900101",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1062,6 +1392,12 @@
           "label": "사업자등록번호",
           "kind": "input",
           "type": "text",
+          "section": "고객 정보",
+          "cell": 439,
+          "radioNames": [
+            "n_birth_type"
+          ],
+          "placeholder": "사업자등록번호 000-00-00000",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1071,6 +1407,12 @@
           "label": "법인등록번호",
           "kind": "input",
           "type": "text",
+          "section": "고객 정보",
+          "cell": 439,
+          "radioNames": [
+            "n_birth_type"
+          ],
+          "placeholder": "법인등록번호 000000-0000000 (선택)",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1080,6 +1422,12 @@
           "label": "대표자 이름",
           "kind": "input",
           "type": "text",
+          "section": "고객 정보",
+          "cell": 439,
+          "radioNames": [
+            "n_birth_type"
+          ],
+          "placeholder": "대표자 이름 (선택)",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1089,6 +1437,10 @@
           "label": "견적일자",
           "kind": "input",
           "type": "date",
+          "section": "고객 정보",
+          "cell": 1604,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1098,6 +1450,10 @@
           "label": "주소",
           "kind": "input",
           "type": "text",
+          "section": "고객 정보",
+          "cell": 1693,
+          "radioNames": [],
+          "placeholder": "주소를 입력하세요",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1107,6 +1463,10 @@
           "label": "제조사",
           "kind": "input",
           "type": "text",
+          "section": "신차 정보",
+          "cell": 2051,
+          "radioNames": [],
+          "placeholder": "현대",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1116,6 +1476,10 @@
           "label": "차량모델 *",
           "kind": "input",
           "type": "text",
+          "section": "신차 정보",
+          "cell": 2157,
+          "radioNames": [],
+          "placeholder": "디 올 뉴 그랜저",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1125,6 +1489,10 @@
           "label": "트림",
           "kind": "input",
           "type": "text",
+          "section": "신차 정보",
+          "cell": 2273,
+          "radioNames": [],
+          "placeholder": "2.5 가솔린 익스클루시브",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1134,6 +1502,10 @@
           "label": "연료",
           "kind": "select",
           "type": "text",
+          "section": "신차 정보",
+          "cell": 2389,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -1179,6 +1551,10 @@
           "label": "외장 색상",
           "kind": "input",
           "type": "text",
+          "section": "신차 정보",
+          "cell": 2620,
+          "radioNames": [],
+          "placeholder": "어비스 블랙 펄",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1188,6 +1564,10 @@
           "label": "내장 색상",
           "kind": "input",
           "type": "text",
+          "section": "신차 정보",
+          "cell": 2734,
+          "radioNames": [],
+          "placeholder": "블랙",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1197,6 +1577,10 @@
           "label": "차량 가격 * (옵션 포함, 원)",
           "kind": "input",
           "type": "text",
+          "section": "신차 정보",
+          "cell": 2844,
+          "radioNames": [],
+          "placeholder": "45,000,000 — 넣으면 월 렌트료 자동 계산",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1206,6 +1590,10 @@
           "label": "출고 예정",
           "kind": "input",
           "type": "text",
+          "section": "신차 정보",
+          "cell": 3050,
+          "radioNames": [],
+          "placeholder": "계약 후 약 1개월",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1215,6 +1603,10 @@
           "label": "선택 옵션",
           "kind": "textarea",
           "type": "text",
+          "section": "신차 정보",
+          "cell": 3164,
+          "radioNames": [],
+          "placeholder": "파노라마 선루프, 빌트인 캠 …",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1224,6 +1616,10 @@
           "label": "계약기간 *",
           "kind": "select",
           "type": "text",
+          "section": "보증금별 월 렌트료 — 자동 계산 · 필요한 안만 채우세요",
+          "cell": 6948,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -1264,6 +1660,10 @@
           "label": "운전자 나이",
           "kind": "select",
           "type": "text",
+          "section": "공통 조건",
+          "cell": 7533,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -1284,6 +1684,10 @@
           "label": "운전자 범위",
           "kind": "select",
           "type": "text",
+          "section": "공통 조건",
+          "cell": 7765,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -1314,6 +1718,10 @@
           "label": "약정 주행거리",
           "kind": "select",
           "type": "text",
+          "section": "공통 조건",
+          "cell": 8127,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -1354,6 +1762,10 @@
           "label": "대물 배상",
           "kind": "select",
           "type": "text",
+          "section": "공통 조건",
+          "cell": 8464,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -1384,6 +1796,10 @@
           "label": "자차 (자기차량손해)",
           "kind": "select",
           "type": "text",
+          "section": "공통 조건",
+          "cell": 8738,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -1404,6 +1820,10 @@
           "label": "자차 면책금",
           "kind": "input",
           "type": "text",
+          "section": "공통 조건",
+          "cell": 8929,
+          "radioNames": [],
+          "placeholder": "예: 30만원",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1413,6 +1833,10 @@
           "label": "정비 서비스",
           "kind": "select",
           "type": "text",
+          "section": "공통 조건",
+          "cell": 9085,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -1428,6 +1852,10 @@
           "label": "월 렌트료 부가세",
           "kind": "select",
           "type": "text",
+          "section": "공통 조건",
+          "cell": 9258,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -1448,6 +1876,10 @@
           "label": "탁송",
           "kind": "input",
           "type": "text",
+          "section": "공통 조건",
+          "cell": 9456,
+          "radioNames": [],
+          "placeholder": "무료 (전국)",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1457,6 +1889,10 @@
           "label": "특약사항",
           "kind": "textarea",
           "type": "text",
+          "section": "공통 조건",
+          "cell": 9583,
+          "radioNames": [],
+          "placeholder": "특약사항을 입력하세요",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1559,6 +1995,10 @@
           "label": "고객명 *",
           "kind": "input",
           "type": "text",
+          "section": "고객 정보",
+          "cell": 192,
+          "radioNames": [],
+          "placeholder": "홍길동",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1568,15 +2008,25 @@
           "label": "연락처 *",
           "kind": "input",
           "type": "tel",
+          "section": "고객 정보",
+          "cell": 300,
+          "radioNames": [],
+          "placeholder": "010-0000-0000",
           "readonly": false,
           "options": [],
           "value": ""
         },
         {
           "id": "c_birth",
-          "label": "법인",
+          "label": "주민번호 / 사업자번호",
           "kind": "input",
           "type": "text",
+          "section": "고객 정보",
+          "cell": 441,
+          "radioNames": [
+            "c_id_type"
+          ],
+          "placeholder": "000000-0000000",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1586,6 +2036,12 @@
           "label": "사업자등록번호",
           "kind": "input",
           "type": "text",
+          "section": "고객 정보",
+          "cell": 441,
+          "radioNames": [
+            "c_id_type"
+          ],
+          "placeholder": "사업자등록번호 000-00-00000",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1595,6 +2051,12 @@
           "label": "법인등록번호",
           "kind": "input",
           "type": "text",
+          "section": "고객 정보",
+          "cell": 441,
+          "radioNames": [
+            "c_id_type"
+          ],
+          "placeholder": "법인등록번호 000000-0000000 (선택)",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1604,6 +2066,12 @@
           "label": "대표자 이름",
           "kind": "input",
           "type": "text",
+          "section": "고객 정보",
+          "cell": 441,
+          "radioNames": [
+            "c_id_type"
+          ],
+          "placeholder": "대표자 이름 (선택)",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1613,6 +2081,10 @@
           "label": "주소",
           "kind": "input",
           "type": "text",
+          "section": "고객 정보",
+          "cell": 1582,
+          "radioNames": [],
+          "placeholder": "기본주소 (검색 또는 직접 입력)",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1622,6 +2094,10 @@
           "label": "나머지 주소",
           "kind": "input",
           "type": "text",
+          "section": "고객 정보",
+          "cell": 1919,
+          "radioNames": [],
+          "placeholder": "동/호수, 상세주소 입력",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1631,6 +2107,10 @@
           "label": "차량모델 *",
           "kind": "input",
           "type": "text",
+          "section": "차량 정보",
+          "cell": 2678,
+          "radioNames": [],
+          "placeholder": "아반떼 (G)",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1640,6 +2120,10 @@
           "label": "차량번호",
           "kind": "input",
           "type": "text",
+          "section": "차량 정보",
+          "cell": 2792,
+          "radioNames": [],
+          "placeholder": "12가 3456",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1649,6 +2133,10 @@
           "label": "연식",
           "kind": "input",
           "type": "text",
+          "section": "차량 정보",
+          "cell": 2906,
+          "radioNames": [],
+          "placeholder": "2024년식",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1658,6 +2146,10 @@
           "label": "색상",
           "kind": "input",
           "type": "text",
+          "section": "차량 정보",
+          "cell": 3014,
+          "radioNames": [],
+          "placeholder": "아틀라스 화이트",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1667,6 +2159,10 @@
           "label": "주행거리 (km)",
           "kind": "input",
           "type": "text",
+          "section": "차량 정보",
+          "cell": 3125,
+          "radioNames": [],
+          "placeholder": "69,498",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1676,6 +2172,10 @@
           "label": "연료",
           "kind": "select",
           "type": "text",
+          "section": "차량 정보",
+          "cell": 3263,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -1721,6 +2221,10 @@
           "label": "차종 등급",
           "kind": "select",
           "type": "text",
+          "section": "계약 조건",
+          "cell": 3729,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -1756,6 +2260,10 @@
           "label": "운전자 나이",
           "kind": "select",
           "type": "text",
+          "section": "계약 조건",
+          "cell": 4250,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -1776,6 +2284,10 @@
           "label": "운전자 특약",
           "kind": "select",
           "type": "text",
+          "section": "계약 조건",
+          "cell": 4555,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -1806,6 +2318,10 @@
           "label": "약정 주행거리",
           "kind": "select",
           "type": "text",
+          "section": "계약 조건",
+          "cell": 4946,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -1836,6 +2352,10 @@
           "label": "자차",
           "kind": "select",
           "type": "text",
+          "section": "계약 조건",
+          "cell": 5394,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -1856,6 +2376,10 @@
           "label": "정비",
           "kind": "select",
           "type": "text",
+          "section": "계약 조건",
+          "cell": 5677,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -1871,6 +2395,10 @@
           "label": "계약시작일 *",
           "kind": "input",
           "type": "date",
+          "section": "계약 조건",
+          "cell": 5988,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1880,6 +2408,10 @@
           "label": "계약종료일 *",
           "kind": "input",
           "type": "date",
+          "section": "계약 조건",
+          "cell": 6106,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1889,6 +2421,10 @@
           "label": "계약기간",
           "kind": "select",
           "type": "text",
+          "section": "계약 조건",
+          "cell": 6197,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -1949,6 +2485,10 @@
           "label": "납입일",
           "kind": "input",
           "type": "text",
+          "section": "계약 조건",
+          "cell": 6784,
+          "radioNames": [],
+          "placeholder": "매월 25일",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1958,15 +2498,23 @@
           "label": "월렌트료 *",
           "kind": "input",
           "type": "text",
+          "section": "계약 조건",
+          "cell": 6895,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [],
           "value": ""
         },
         {
           "id": "c_bankinfo",
-          "label": "입금계좌 (월렌트료 옆에 표시)",
+          "label": "입금계좌",
           "kind": "input",
           "type": "text",
+          "section": "계약 조건",
+          "cell": 7016,
+          "radioNames": [],
+          "placeholder": "농협 301-0215-4589-81 (유)팡팡렌트카",
           "readonly": false,
           "options": [],
           "value": "농협 301-0215-4589-81 (유)팡팡렌트카"
@@ -1976,6 +2524,10 @@
           "label": "할인율 (%)",
           "kind": "input",
           "type": "number",
+          "section": "계약 조건",
+          "cell": 7283,
+          "radioNames": [],
+          "placeholder": "예: 10",
           "readonly": false,
           "options": [],
           "value": ""
@@ -1985,6 +2537,10 @@
           "label": "대물 배상",
           "kind": "select",
           "type": "text",
+          "section": "계약 조건",
+          "cell": 7444,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -2010,6 +2566,10 @@
           "label": "보증금",
           "kind": "input",
           "type": "text",
+          "section": "계약 조건",
+          "cell": 7738,
+          "radioNames": [],
+          "placeholder": "없음",
           "readonly": false,
           "options": [],
           "value": ""
@@ -2019,6 +2579,10 @@
           "label": "탁송비",
           "kind": "input",
           "type": "text",
+          "section": "계약 조건",
+          "cell": 7846,
+          "radioNames": [],
+          "placeholder": "없음",
           "readonly": false,
           "options": [],
           "value": ""
@@ -2028,6 +2592,10 @@
           "label": "기타비용",
           "kind": "input",
           "type": "text",
+          "section": "계약 조건",
+          "cell": 7955,
+          "radioNames": [],
+          "placeholder": "없음",
           "readonly": false,
           "options": [],
           "value": ""
@@ -2037,6 +2605,10 @@
           "label": "총액",
           "kind": "input",
           "type": "text",
+          "section": "계약 조건",
+          "cell": 8074,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": true,
           "options": [],
           "value": ""
@@ -2046,6 +2618,10 @@
           "label": "특약사항",
           "kind": "textarea",
           "type": "text",
+          "section": "계약 조건",
+          "cell": 8245,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [],
           "value": ""
@@ -2076,6 +2652,10 @@
           "label": "고객명",
           "kind": "input",
           "type": "text",
+          "section": "고객 정보",
+          "cell": 191,
+          "radioNames": [],
+          "placeholder": "홍길동",
           "readonly": false,
           "options": [],
           "value": ""
@@ -2085,15 +2665,25 @@
           "label": "연락처",
           "kind": "input",
           "type": "tel",
+          "section": "고객 정보",
+          "cell": 297,
+          "radioNames": [],
+          "placeholder": "010-0000-0000",
           "readonly": false,
           "options": [],
           "value": ""
         },
         {
           "id": "r_birth",
-          "label": "법인",
+          "label": "생년월일 / 사업자번호",
           "kind": "input",
           "type": "text",
+          "section": "고객 정보",
+          "cell": 436,
+          "radioNames": [
+            "r_birth_type"
+          ],
+          "placeholder": "19900101",
           "readonly": false,
           "options": [],
           "value": ""
@@ -2103,6 +2693,12 @@
           "label": "사업자등록번호",
           "kind": "input",
           "type": "text",
+          "section": "고객 정보",
+          "cell": 436,
+          "radioNames": [
+            "r_birth_type"
+          ],
+          "placeholder": "사업자등록번호 000-00-00000",
           "readonly": false,
           "options": [],
           "value": ""
@@ -2112,6 +2708,12 @@
           "label": "법인등록번호",
           "kind": "input",
           "type": "text",
+          "section": "고객 정보",
+          "cell": 436,
+          "radioNames": [
+            "r_birth_type"
+          ],
+          "placeholder": "법인등록번호 000000-0000000 (선택)",
           "readonly": false,
           "options": [],
           "value": ""
@@ -2121,6 +2723,12 @@
           "label": "대표자 이름",
           "kind": "input",
           "type": "text",
+          "section": "고객 정보",
+          "cell": 436,
+          "radioNames": [
+            "r_birth_type"
+          ],
+          "placeholder": "대표자 이름 (선택)",
           "readonly": false,
           "options": [],
           "value": ""
@@ -2130,15 +2738,23 @@
           "label": "발행일자",
           "kind": "input",
           "type": "date",
+          "section": "고객 정보",
+          "cell": 1661,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [],
           "value": ""
         },
         {
           "id": "r_addr",
-          "label": "주소 (선택)",
+          "label": "주소",
           "kind": "input",
           "type": "text",
+          "section": "고객 정보",
+          "cell": 1750,
+          "radioNames": [],
+          "placeholder": "주소를 입력하세요",
           "readonly": false,
           "options": [],
           "value": ""
@@ -2148,6 +2764,10 @@
           "label": "차량모델",
           "kind": "input",
           "type": "text",
+          "section": "고객 차량 정보 (고객정보란에 표시)",
+          "cell": 2153,
+          "radioNames": [],
+          "placeholder": "아반떼 (G)",
           "readonly": false,
           "options": [],
           "value": ""
@@ -2157,6 +2777,10 @@
           "label": "차량번호",
           "kind": "input",
           "type": "text",
+          "section": "고객 차량 정보 (고객정보란에 표시)",
+          "cell": 2270,
+          "radioNames": [],
+          "placeholder": "12가 3456",
           "readonly": false,
           "options": [],
           "value": ""
@@ -2166,6 +2790,10 @@
           "label": "차량모델",
           "kind": "input",
           "type": "text",
+          "section": "대여 차량 (대여차량란에 표시)",
+          "cell": 2592,
+          "radioNames": [],
+          "placeholder": "아반떼 (G)",
           "readonly": false,
           "options": [],
           "value": ""
@@ -2175,6 +2803,10 @@
           "label": "차량번호",
           "kind": "input",
           "type": "text",
+          "section": "대여 차량 (대여차량란에 표시)",
+          "cell": 2704,
+          "radioNames": [],
+          "placeholder": "12가 3456",
           "readonly": false,
           "options": [],
           "value": ""
@@ -2184,6 +2816,10 @@
           "label": "대여 유형",
           "kind": "select",
           "type": "text",
+          "section": "결제 내용",
+          "cell": 2954,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -2209,6 +2845,10 @@
           "label": "기간 단위",
           "kind": "select",
           "type": "text",
+          "section": "결제 내용",
+          "cell": 3245,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -2229,6 +2869,10 @@
           "label": "대여 시작일",
           "kind": "input",
           "type": "date",
+          "section": "결제 내용",
+          "cell": 3517,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [],
           "value": ""
@@ -2238,6 +2882,10 @@
           "label": "대여 종료일",
           "kind": "input",
           "type": "date",
+          "section": "결제 내용",
+          "cell": 3638,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [],
           "value": ""
@@ -2247,6 +2895,10 @@
           "label": "대여 기간 (자동계산)",
           "kind": "input",
           "type": "text",
+          "section": "결제 내용",
+          "cell": 3757,
+          "radioNames": [],
+          "placeholder": "자동계산",
           "readonly": true,
           "options": [],
           "value": ""
@@ -2256,6 +2908,10 @@
           "label": "결제 금액",
           "kind": "input",
           "type": "text",
+          "section": "결제 내용",
+          "cell": 3966,
+          "radioNames": [],
+          "placeholder": "450,000",
           "readonly": false,
           "options": [],
           "value": ""
@@ -2265,6 +2921,10 @@
           "label": "결제 수단",
           "kind": "select",
           "type": "text",
+          "section": "결제 내용",
+          "cell": 4147,
+          "radioNames": [],
+          "placeholder": "",
           "readonly": false,
           "options": [
             {
@@ -2287,9 +2947,13 @@
         },
         {
           "id": "r_note",
-          "label": "특이사항 (선택)",
+          "label": "특이사항",
           "kind": "textarea",
           "type": "text",
+          "section": "결제 내용",
+          "cell": 4443,
+          "radioNames": [],
+          "placeholder": "특이사항을 입력하세요",
           "readonly": false,
           "options": [],
           "value": ""

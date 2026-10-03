@@ -52,6 +52,16 @@ class NativeVerificationTest {
             capture(screen)
         }
     }
+    @Test fun documentTabsKeepOriginalCustomerSectionsAndLabels() {
+        compose.runOnUiThread { compose.activity.screen = "documents" }
+        compose.onNodeWithText("고객 정보").assertIsDisplayed()
+        compose.onNodeWithText("생년월일 / 사업자번호").assertExists()
+        for (title in listOf("거래명세서", "장기 견적서", "신차 렌트 견적서", "계약서", "영수증")) {
+            compose.onNodeWithText(title, substring = false).performClick()
+            compose.onNodeWithText("닫기").assertIsDisplayed()
+            capture("document-" + title)
+        }
+    }
     @Test fun nativeFusedGpsReceivesInjectedJangseongLocation() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         assertTrue("System GPS is disabled", FleetLocation.enabled(context))

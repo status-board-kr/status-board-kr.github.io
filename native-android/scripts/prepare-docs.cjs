@@ -13,6 +13,24 @@ const schema = Object.entries(tabs).map(([key,[label,prefix]]) => {
   if (index < 0) throw new Error('Missing tab: '+key);
   const body = html.slice(starts[index].index, starts[index+1]?.index ?? html.length);
   const fields=[]; const radios={};
+  // Keep the original enclosing card/field, including labels containing nested radio labels.
+  const layout = new Map(), stack = [];
+  for (const token of body.matchAll(/<!--[\s\S]*?-->|<\/?([a-z][\w:-]*)\b[^>]*>/gi)) {
+    if (!token[1]) continue;
+    const name = token[1].toLowerCase(), tag = token[0];
+    if (tag.startsWith('</')) { const at = stack.map(x => x.name).lastIndexOf(name); if (at >= 0) stack.splice(at); continue; }
+    const classes = (attr(tag, 'class') || '').split(/\s+/);
+    const node = {name, index:token.index, end:token.index+tag.length, classes};
+    const parents = [...stack, node];
+    const card = parents.findLast(x => x.classes.includes('acard'));
+    const cell = parents.findLast(x => x.classes.includes('afield'));
+    const section = card ? text((body.slice(card.end).match(/<div[^>]*class="acard-title"[^>]*>([\s\S]*?)<\/div>/) || [])[1] || '') : '';
+    const cellBody = cell ? body.slice(cell.end) : '';
+    const mainLabel = (cellBody.match(/<label\b[^>]*>([\s\S]*?)(?:<span\b|<input\b|<\/label>)/) || [])[1];
+    const radioNames = cell ? [...cellBody.slice(0, cellBody.indexOf('</div>')).matchAll(/<input\b[^>]*type="radio"[^>]*>/g)].map(x=>attr(x[0],'name')).filter(Boolean) : [];
+    layout.set(token.index, {section, cell:cell?.index, label:mainLabel ? text(mainLabel) : '', radioNames:[...new Set(radioNames)]});
+    if (!/\/\s*>$/.test(tag) && !['input','img','br','hr','meta','link','source','wbr','area','base','embed','param'].includes(name)) stack.push(node);
+  }
   const pattern=/<(input|select|textarea)\b([^>]*)(?:>([\s\S]*?)<\/\1>)?/g;
   for (const match of body.matchAll(pattern)) {
     const tag=match[0], attrs=match[2], kind=match[1]; const id=attr(attrs,'id'), type=attr(attrs,'type') || 'text';
@@ -23,10 +41,11 @@ const schema = Object.entries(tabs).map(([key,[label,prefix]]) => {
     }
     if(!id || !id.startsWith(prefix+'_') || type==='hidden')continue;
     const before=body.slice(0,match.index); const labels=[...before.matchAll(/<label[^>]*>([\s\S]*?)<\/label>/g)];
-    let title=text(labels.at(-1)?.[1] || attr(attrs,'placeholder') || id);
+    const place = layout.get(match.index) || {};
+    let title=place.label || text(labels.at(-1)?.[1] || attr(attrs,'placeholder') || id);
     if(id.endsWith('_biznum'))title='사업자등록번호'; if(id.endsWith('_corpnum'))title='법인등록번호'; if(id.endsWith('_ceo'))title='대표자 이름';
     const options=kind==='select'?[...(match[3]||'').matchAll(/<option\b([^>]*)>([\s\S]*?)<\/option>/g)].map(x=>({value:attr(x[1],'value')??text(x[2]),label:text(x[2]),selected:/\bselected\b/.test(x[1])})):[];
-    fields.push({id,label:title,kind,type,readonly:/\breadonly\b/.test(attrs),options,value:attr(attrs,'value')??(kind==='textarea'?text(match[3]||''):(options.find(x=>x.selected)||options[0])?.value||'')});
+    fields.push({id,label:title,kind,type,section:place.section||'',cell:place.cell,radioNames:place.radioNames||[],placeholder:attr(attrs,'placeholder')||'',readonly:/\breadonly\b/.test(attrs),options,value:attr(attrs,'value')??(kind==='textarea'?text(match[3]||''):(options.find(x=>x.selected)||options[0])?.value||'')});
   }
   if(key==='newcar')for(let option=1;option<=3;option++) for(const [name,title] of [['deposit','보증금 (%)'],['prepay','선납금 (%)'],['price','월 렌트료 (원)']]) fields.push({id:`n_p${option}_${name}`,label:`조건 ${option} · ${title}`,kind:'input',type:'text',options:[],value:''});
   return {key,label,prefix,fields,radios};

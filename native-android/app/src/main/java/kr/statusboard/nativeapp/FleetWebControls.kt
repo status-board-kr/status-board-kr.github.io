@@ -80,12 +80,13 @@ import androidx.compose.ui.unit.sp
     }
 }
 @Composable internal fun WebInput(value: String, change: (String) -> Unit, enabled: Boolean = true,
-    placeholder: String = "", visualTransformation: VisualTransformation = VisualTransformation.None, modifier: Modifier = Modifier) {
-    BasicTextField(value, change, enabled = enabled, singleLine = true,
+    placeholder: String = "", visualTransformation: VisualTransformation = VisualTransformation.None, modifier: Modifier = Modifier,
+    fontSize: androidx.compose.ui.unit.TextUnit = 14.sp, minHeight: androidx.compose.ui.unit.Dp = 40.dp, singleLine: Boolean = true) {
+    BasicTextField(value, change, enabled = enabled, singleLine = singleLine,
         visualTransformation = visualTransformation,
-        textStyle = TextStyle(color = if (enabled) FleetAppearance.text else WebSub, fontSize = 14.sp),
+        textStyle = TextStyle(color = if (enabled) FleetAppearance.text else WebSub, fontSize = fontSize),
         cursorBrush = SolidColor(WebAmber),
         modifier = modifier.fillMaxWidth().background(WebPanel2, RoundedCornerShape(9.dp)).border(1.dp, WebLine, RoundedCornerShape(9.dp))
-            .heightIn(min = 40.dp).padding(horizontal = 12.dp, vertical = 10.dp),
-        decorationBox = { field -> Box { if (value.isEmpty()) Text(placeholder, color = WebSub, fontSize = 14.sp); field() } })
+            .heightIn(min = minHeight).padding(horizontal = 12.dp, vertical = 10.dp),
+        decorationBox = { field -> Box { if (value.isEmpty()) Text(placeholder, color = WebSub, fontSize = fontSize); field() } })
 }
