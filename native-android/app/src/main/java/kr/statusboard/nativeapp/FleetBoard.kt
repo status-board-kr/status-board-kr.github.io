@@ -77,7 +77,7 @@ private fun palette(type: String): Pair<Color, Color> {
             Column(Modifier.fillMaxWidth().border(1.dp, WebLine).padding(horizontal = 14.dp, vertical = 8.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        HeaderIcon(R.drawable.menu_history, "새로고침") { open("새로고침") }
+                        HeaderIcon(R.drawable.menu_refresh, "새로고침") { open("새로고침") }
                         HeaderIcon(R.drawable.menu_settings, "설정") { open("내 앱 설정") }
                     }
                     Column(Modifier.weight(2f), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -163,7 +163,7 @@ private fun palette(type: String): Pair<Color, Color> {
                     item { Row(Modifier.padding(top = 3.dp)) { Text(branch, color = WebSub, fontSize = 13.sp, modifier = Modifier.weight(1f)); Text("${vehicles.size}대", color = WebSub, fontSize = 11.sp) } }
                     items(vehicles, key = { "${it.sourceIndex}:${it.plate}" }) { vehicle -> VehicleCard(vehicle, state.longBranch, today, !state.sending && !state.cached, { model.quickIdle(vehicle, java.util.UUID.randomUUID().toString()) }) { selected = vehicle } }
                 }
-                item { TextButton(onClick = { open("로그아웃") }, modifier = Modifier.fillMaxWidth()) { Text("로그아웃", color = WebSub) } }
+                item { OutlinedButton(onClick = { open("로그아웃") }, modifier = Modifier.fillMaxWidth().background(WebPanel2, RoundedCornerShape(10.dp))) { Text("🚪 로그아웃", color = WebSub, fontSize = 12.sp) } }
             }
         }
         FloatingActionButton(onClick = { open("차량 등록") }, containerColor = WebAmber, contentColor = if (FleetAppearance.dark) Color(0xFF0F172A) else Color.White,
@@ -215,9 +215,10 @@ private fun palette(type: String): Pair<Color, Color> {
                 vehicle.type?.takeIf(String::isNotBlank)?.let { label -> val ink = palette(if (label == longBranch) "장기" else label).second
                     Text(label, fontSize = 11.sp, color = ink, modifier = Modifier.background(ink.copy(alpha = .12f), RoundedCornerShape(6.dp)).padding(horizontal = 5.dp, vertical = 2.dp)) }
                 val idleStatus = vehicle.status == "대기"
-                val statusInk = if (idleStatus) Color(0xFF9BE1B6) else Color(0xFFB4D6FC)
-                Text(statusLabel(vehicle, today), fontSize = 10.sp, color = if (FleetAppearance.dark) statusInk else palette(if (idleStatus) "대기" else "보험").second,
-                    modifier = Modifier.background(if (FleetAppearance.dark) (if (idleStatus) Color(0xFF23543E) else Color(0xFF294A70)) else WebPanel2, RoundedCornerShape(6.dp)).padding(horizontal = 5.dp, vertical = 2.dp))
+                val preparing = vehicle.status == "준비중"
+                val statusInk = when { idleStatus -> Color(0xFF9BE1B6); preparing -> Color(0xFFCBD5E1); else -> Color(0xFFB4D6FC) }
+                Text(statusLabel(vehicle, today), fontSize = 10.sp, color = if (FleetAppearance.dark) statusInk else palette(if (idleStatus) "대기" else if (preparing) "준비중" else "보험").second,
+                    modifier = Modifier.background(if (FleetAppearance.dark) (if (idleStatus) Color(0xFF23543E) else if (preparing) Color(0xFF3B414A) else Color(0xFF294A70)) else WebPanel2, RoundedCornerShape(6.dp)).padding(horizontal = 5.dp, vertical = 2.dp))
                 @Composable fun badge(label: String, ink: Color, flash: Boolean = false) { Text(label, fontSize = 10.sp, color = ink, modifier = Modifier.background(ink.copy(alpha = .18f), RoundedCornerShape(6.dp)).padding(5.dp, 2.dp).alpha(if (flash) opacity else 1f)) }
                 val returnDays = FleetPresentation.date(vehicle.returnDate)?.let { ChronoUnit.DAYS.between(today, it) }
                 if (due) badge("⏰ 반납일 도래", warning, true) else if (returnDays == 1L) badge("🔔 반납임박", WebAmber)

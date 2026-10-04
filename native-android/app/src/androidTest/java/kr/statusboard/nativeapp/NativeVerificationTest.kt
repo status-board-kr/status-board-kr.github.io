@@ -51,7 +51,7 @@ class NativeVerificationTest {
     }
     @Test fun workflowScreensRenderWithoutDuplicateNavigationOrClippedFooters() {
         val titles = mapOf("login" to "차량 현황판", "chat" to "💬 직원 메신저", "schedule" to "📅 일정 관리", "vehicle" to "예시1234",
-            "location" to "📍 직원 위치", "staff" to "👥 직원 관리", "registration" to "차량 추가", "settings" to "회사 설정")
+            "location" to "📍 직원 위치", "staff" to "👥 직원 관리", "registration" to "차량 추가", "settings" to "📱 처음 한 번 설정해주세요")
         for ((screen, title) in titles) {
             compose.runOnUiThread { compose.activity.screen = screen }
             compose.onNodeWithText(title, useUnmergedTree = true).assertIsDisplayed()

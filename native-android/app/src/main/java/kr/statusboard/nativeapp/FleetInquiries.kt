@@ -23,9 +23,9 @@ import java.time.format.DateTimeFormatter
         .filter { !pendingOnly || !it.second.optBoolean("contacted") }.sortedByDescending { it.second.optString("createdAt") }.toList()
     fun time(raw: String): String = runCatching { Instant.parse(raw).atZone(ZoneId.of("Asia/Seoul")).format(DateTimeFormatter.ofPattern("MM-dd HH:mm")) }.getOrDefault(raw)
     WebSheet(close) {
-        Row(Modifier.padding(16.dp)) { Text("상담 신청", fontSize = 18.sp, modifier = Modifier.weight(1f))
+        Row(Modifier.padding(16.dp)) { Text("상담 신청", fontSize = 16.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, modifier = Modifier.weight(1f))
             Checkbox(pendingOnly, { pendingOnly = it }); Text("미연락만", fontSize = 12.sp) }
-        LazyColumn(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        LazyColumn(Modifier.weight(1f, fill = false).fillMaxWidth().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (list.isEmpty()) item { Text(if (pendingOnly) "연락 안 한 상담 신청이 없어요." else "아직 상담 신청이 없어요.", color = WebSub) }
             items(list, key = { it.first }) { (key, record) ->
                 var talk by rememberSaveable(key) { mutableStateOf(false) }

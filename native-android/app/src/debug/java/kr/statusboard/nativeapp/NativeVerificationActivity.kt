@@ -42,7 +42,7 @@ class NativeVerificationActivity : ComponentActivity() {
                         "staff" -> FleetStaffDialog(fixture, model) {}
                         "payments" -> FleetPaymentDialog(fixture, model) {}
                         "documents" -> FleetDocuments(fixture, model) {}
-                        "settings" -> FleetCompanySettings(fixture, model) {}
+                        "settings" -> FleetAppSettings(fixture, model) {}
                         "registration" -> FleetRegistration(fixture, model) {}
                         "inquiries" -> FleetInquiries(fixture, model) {}
                         else -> FleetBoard(fixture, model) {}

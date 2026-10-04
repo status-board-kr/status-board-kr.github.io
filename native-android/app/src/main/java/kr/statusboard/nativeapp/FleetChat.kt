@@ -46,9 +46,10 @@ internal val WebAmber get() = FleetAppearance.amber
     Dialog(onDismissRequest = close, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         MaterialTheme(colorScheme = FleetAppearance.scheme()) {
         BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+            Box(Modifier.matchParentSize().clickable(onClick = close))
             Column(Modifier.widthIn(max = 480.dp).fillMaxWidth().heightIn(max = maxHeight * .94f)
                 .background(WebPanel, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-                .border(1.dp, WebLine, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)).imePadding(), content = content)
+                .border(1.dp, WebLine, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)).clickable { }.imePadding(), content = content)
         }
         }
     }
@@ -81,8 +82,7 @@ internal val WebAmber get() = FleetAppearance.amber
     val messages = source.keys().asSequence().mapNotNull { key -> source.optJSONObject(key)?.let { key to it } }
         .sortedBy { it.second.optString("at") }.toList()
     LaunchedEffect(messages.lastOrNull()?.first, state.session?.cacheKey) { if (state.chatHistory == null) model.markChatRead() }
-    val visible = searchHits?.let { result -> result.keys().asSequence().mapNotNull { key -> result.optJSONObject(key)?.let { key to it } }.sortedByDescending { it.second.optString("at") }.toList() }
-        ?: if (query.isBlank()) messages else messages.filter { it.second.optString("text").contains(query, true) }
+    val visible = messages
     val list = rememberLazyListState()
     LaunchedEffect(messages.lastOrNull()?.first) { if (visible.isNotEmpty() && query.isBlank() && state.chatHistory == null && searchHits == null) list.animateScrollToItem(visible.size + 1) }
     LaunchedEffect(jumpTarget, state.chatHistory) { if (state.chatHistory != null) jumpTarget?.let { id ->
@@ -102,7 +102,7 @@ internal val WebAmber get() = FleetAppearance.amber
             Text("최근 50개를 보여줘요 · 위로 올리면 더 불러와요 · 대화는 2년간 보관 (🔍검색·💾백업)", color = WebSub, fontSize = 12.sp)
         } }
             item {
-                if (state.chatHistory != null || searchHits != null) TextButton(onClick = { model.recentChat(); searchHits = null; query = ""; jumpTarget = null }, modifier = Modifier.fillMaxWidth()) { Text("최근 대화로 돌아가기") }
+                if (state.chatHistory != null) TextButton(onClick = { model.recentChat(); searchHits = null; query = ""; jumpTarget = null }, modifier = Modifier.fillMaxWidth()) { Text("최근 대화로 돌아가기") }
                 else if (!state.noOlder) TextButton(onClick = model::loadOlderChat, enabled = !state.loadingOlder, modifier = Modifier.fillMaxWidth()) {
                     Text(if (state.loadingOlder) "불러오는 중…" else "이전 대화 더 보기", fontSize = 12.sp)
                 }
@@ -124,7 +124,6 @@ internal val WebAmber get() = FleetAppearance.amber
                             row.forEach { id -> FleetChatPhoto(state, id, (if (ids.size == 1) Modifier.width(180.dp).heightIn(min = 60.dp) else Modifier.size(88.dp)).clickable { openedPhoto = id }, naturalHeight = ids.size == 1) }
                         } }
                         Text(message.optString("text"), fontSize = if (system) 13.sp else 14.sp)
-                        if (searchHits != null) TextButton(onClick = { model.jumpChat(key) { ok -> if (ok) { searchHits = null; searchOpen = false; query = ""; jumpTarget = key } } }, enabled = !state.sending) { Text("그때 대화 보기", fontSize = 11.sp) }
                     }
                     if (mine || state.session?.isAdmin == true) TextButton(onClick = { deleting = key }, enabled = !state.sending,
                         contentPadding = PaddingValues(2.dp)) { Text("삭제", color = androidx.compose.ui.graphics.Color(0xFFF87171), fontSize = 11.sp) }
@@ -138,6 +137,19 @@ internal val WebAmber get() = FleetAppearance.amber
                     OutlinedButton(onClick = { model.searchChat(query) { if (it != null) searchHits = it } }, enabled = query.isNotBlank() && !state.sending && !state.cached) { Text("찾기") }
                 }
                 searchHits?.let { Text("검색 ${it.length()}건${if (it.length() == 100) " · 최근 100건 표시" else ""}", color = WebSub, fontSize = 11.sp) }
+                searchHits?.let { result ->
+                    val hits = result.keys().asSequence().mapNotNull { key -> result.optJSONObject(key)?.let { key to it } }.sortedByDescending { it.second.optString("at") }.toList()
+                    LazyColumn(Modifier.fillMaxWidth().heightIn(max = (androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp * .4f).dp)) {
+                        items(hits, key = { it.first }) { (key, message) ->
+                            Column(Modifier.fillMaxWidth().clickable { model.jumpChat(key) { ok -> if (ok) { searchHits = null; searchOpen = false; query = ""; jumpTarget = key } } }.padding(horizontal = 10.dp, vertical = 8.dp)) {
+                                Text("${message.optString("at")} · ${state.members.optJSONObject(message.optString("uid"))?.optString("name").orEmpty().ifBlank { message.optString("email") }}", color = WebSub, fontSize = 11.sp)
+                                Text(message.optString("text"), fontSize = 13.sp)
+                                Text("그때 대화 보기 ›", color = WebAmber, fontSize = 11.sp)
+                            }
+                            HorizontalDivider(color = WebLine)
+                        }
+                    }
+                }
             }
             if (photos.isNotEmpty()) Column(Modifier.fillMaxWidth().background(WebPanel2).padding(8.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
