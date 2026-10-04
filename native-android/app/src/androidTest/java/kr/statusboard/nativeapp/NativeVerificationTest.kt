@@ -60,6 +60,7 @@ class NativeVerificationTest {
                 try { compose.waitUntil(30_000) { compose.onAllNodesWithText("근처", substring = true).fetchSemanticsNodes().isNotEmpty() } }
                 catch (failure: AssertionError) { capture("location-failure"); throw failure }
                 compose.onNodeWithText(title, useUnmergedTree = true).assertIsDisplayed()
+                compose.waitUntil(30_000) { compose.onAllNodesWithContentDescription("직원 위치 지도", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
             }
             if (screen in setOf("chat", "schedule", "location", "staff")) compose.onAllNodesWithText("닫기").assertCountEquals(1).onFirst().assertIsDisplayed()
             capture(screen)

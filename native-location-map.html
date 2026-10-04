@@ -4,6 +4,9 @@
 <script>
 'use strict';
 let map, kakaoReady=false, entries=[], selected='', fitted=false; const markers=new Map(), addresses=new Map();
+window.fleetMapRendered=()=>Array.from(document.querySelectorAll('#map img')).filter(i=>i.complete&&i.naturalWidth>=200&&i.naturalHeight>=200).length>=2;
+function relayout(){if(!map)return;const center=map.getCenter();map.relayout();map.setCenter(center)}
+new ResizeObserver(()=>requestAnimationFrame(relayout)).observe(document.getElementById('map'));
 window.fleetMapAddresses=()=>Object.fromEntries(entries.map(e=>[e.uid,addresses.get(e.lat.toFixed(4)+','+e.lng.toFixed(4))||'']));
 const escapeHtml=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function timeAgo(at){const mins=Math.max(0,Math.floor((Date.now()-Date.parse(at))/60000));return !Number.isFinite(mins)?'시간 미확인':mins<1?'방금 전':mins<60?mins+'분 전':Math.round(mins/60)+'시간 전'}
@@ -24,6 +27,7 @@ function draw(){
   const e=entries.find(e=>e.uid===selected);if(e){if(map.getLevel()>4)map.setLevel(4);map.panTo(new kakao.maps.LatLng(e.lat,e.lng));for(const [uid,m]of markers)if(uid!==selected)m.info.close();const m=markers.get(selected);if(m)m.info.open(map,m.marker);selected=''}
 }
 window.fleetMapUpdate=(points,uid)=>{entries=Array.isArray(points)?points:[];selected=uid||'';draw()};
+window.fleetMapRelayout=relayout;
 function failed(){document.getElementById('map').innerHTML='<div class="error">지도를 불러올 수 없어요. 아래 목록으로 위치를 확인하세요.</div>';console.error('FLEET_MAP_ERROR')}
 const script=document.createElement('script');script.src='https://dapi.kakao.com/v2/maps/sdk.js?appkey=f41df3bf1a6d192adb070ca02219d9f4&autoload=false&libraries=services';script.onerror=failed;
 script.onload=()=>{if(!window.kakao?.maps){failed();return}kakao.maps.load(()=>{map=new kakao.maps.Map(document.getElementById('map'),{center:new kakao.maps.LatLng(35.3016,126.7867),level:7});kakaoReady=true;draw()})};document.head.appendChild(script);

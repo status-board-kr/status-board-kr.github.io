@@ -6,6 +6,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.viewinterop.AndroidView
 import org.json.JSONArray
 import org.json.JSONObject
@@ -20,6 +23,7 @@ internal data class FleetStaffPoint(val uid: String, val name: String, val lat: 
     val report = rememberUpdatedState(error)
     val showAddresses = rememberUpdatedState(addresses)
     var ready by remember { mutableStateOf(false) }
+    var rendered by remember { mutableStateOf(false) }
     val view = remember {
         WebView(context).apply {
             setBackgroundColor(android.graphics.Color.rgb(28, 42, 66))
@@ -45,7 +49,9 @@ internal data class FleetStaffPoint(val uid: String, val name: String, val lat: 
             loadUrl("https://status-board-kr.github.io/native-location-map.html")
         }
     }
-    AndroidView(factory = { view }, modifier = modifier.clipToBounds())
+    AndroidView(factory = { view }, modifier = modifier.clipToBounds().onSizeChanged {
+        view.post { view.evaluateJavascript("window.fleetMapRelayout && window.fleetMapRelayout();", null) }
+    }.semantics { contentDescription = if (rendered) "직원 위치 지도" else "직원 위치 지도 불러오는 중" })
     val payload = JSONArray(points.map { point -> JSONObject().put("uid", point.uid).put("name", point.name)
         .put("lat", point.lat).put("lng", point.lng).put("at", point.at) }).toString()
     LaunchedEffect(ready, payload, selected, selectionRevision) {
@@ -55,6 +61,11 @@ internal data class FleetStaffPoint(val uid: String, val name: String, val lat: 
             // This reads local map state only; it does not poll Firebase or request another geocode.
             while (true) {
                 kotlinx.coroutines.delay(2000)
+                view.evaluateJavascript("window.fleetMapRendered ? window.fleetMapRendered() : false;", { result ->
+                    if (result == "true") view.postVisualStateCallback(0, object : WebView.VisualStateCallback() {
+                        override fun onComplete(requestId: Long) { rendered = true }
+                    })
+                })
                 view.evaluateJavascript("JSON.stringify(window.fleetMapAddresses ? window.fleetMapAddresses() : {});", { result ->
                     runCatching {
                         val text = org.json.JSONTokener(result).nextValue() as? String ?: return@runCatching
