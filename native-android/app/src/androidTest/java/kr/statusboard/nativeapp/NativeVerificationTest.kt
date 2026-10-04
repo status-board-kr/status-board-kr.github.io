@@ -72,7 +72,11 @@ class NativeVerificationTest {
                 screenBitmap.recycle()
                 assertTrue("Map tiles loaded but the Android map is still blank", colors.size > 20)
             }
-            if (screen in setOf("chat", "schedule", "location", "staff")) compose.onAllNodesWithText("닫기").assertCountEquals(1).onFirst().assertIsDisplayed()
+            if (screen in setOf("chat", "schedule", "location", "staff", "settings")) compose.onAllNodesWithText("닫기").assertCountEquals(1).onFirst().assertIsDisplayed()
+            if (screen == "registration") {
+                compose.onNodeWithText("취소", substring = false).assertIsDisplayed()
+                compose.onNodeWithText("추가", substring = false).assertIsDisplayed()
+            }
             capture(screen)
         }
         for (screen in listOf("payments", "documents", "inquiries")) {

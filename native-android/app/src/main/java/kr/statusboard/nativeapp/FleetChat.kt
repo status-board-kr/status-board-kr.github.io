@@ -45,7 +45,7 @@ internal val WebAmber get() = FleetAppearance.amber
 @Composable internal fun WebSheet(close: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     Dialog(onDismissRequest = close, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         MaterialTheme(colorScheme = FleetAppearance.scheme()) {
-        BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+        BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing), contentAlignment = Alignment.BottomCenter) {
             Box(Modifier.matchParentSize().clickable(onClick = close))
             Column(Modifier.widthIn(max = 480.dp).fillMaxWidth().heightIn(max = maxHeight * .94f)
                 .background(WebPanel, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
