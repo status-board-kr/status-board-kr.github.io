@@ -61,6 +61,16 @@ class NativeVerificationTest {
                 catch (failure: AssertionError) { capture("location-failure"); throw failure }
                 compose.onNodeWithText(title, useUnmergedTree = true).assertIsDisplayed()
                 compose.waitUntil(30_000) { compose.onAllNodesWithContentDescription("직원 위치 지도", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+                capture("location-rendered")
+                val mapBounds = compose.onNodeWithContentDescription("직원 위치 지도", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+                val screenBitmap = InstrumentationRegistry.getInstrumentation().uiAutomation.takeScreenshot()
+                val colors = mutableSetOf<Int>()
+                // Sample the middle half, safely inside the map despite status-bar inset.
+                for (x in (mapBounds.left + mapBounds.width * .25f).toInt() until (mapBounds.left + mapBounds.width * .75f).toInt() step 8)
+                    for (y in (mapBounds.top + mapBounds.height * .25f).toInt() until (mapBounds.top + mapBounds.height * .75f).toInt() step 8)
+                        colors += screenBitmap.getPixel(x.coerceIn(0, screenBitmap.width - 1), y.coerceIn(0, screenBitmap.height - 1))
+                screenBitmap.recycle()
+                assertTrue("Map tiles loaded but the Android map is still blank", colors.size > 20)
             }
             if (screen in setOf("chat", "schedule", "location", "staff")) compose.onAllNodesWithText("닫기").assertCountEquals(1).onFirst().assertIsDisplayed()
             capture(screen)

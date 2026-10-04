@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.webkit.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.semantics
@@ -26,6 +25,10 @@ internal data class FleetStaffPoint(val uid: String, val name: String, val lat: 
     var rendered by remember { mutableStateOf(false) }
     val view = remember {
         WebView(context).apply {
+            // The map uses ordinary image tiles. Software rendering keeps them inside
+            // the Compose dialog instead of losing the WebView's GPU surface on clipping.
+            setLayerType(android.view.View.LAYER_TYPE_SOFTWARE, null)
+            layoutParams = android.widget.FrameLayout.LayoutParams(android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT)
             setBackgroundColor(android.graphics.Color.rgb(28, 42, 66))
             settings.javaScriptEnabled = true
             settings.allowFileAccess = false
@@ -49,7 +52,9 @@ internal data class FleetStaffPoint(val uid: String, val name: String, val lat: 
             loadUrl("https://status-board-kr.github.io/native-location-map.html")
         }
     }
-    AndroidView(factory = { view }, modifier = modifier.clipToBounds().onSizeChanged {
+    AndroidView(factory = { android.widget.FrameLayout(context).apply {
+        clipChildren = true; clipToPadding = true; addView(view)
+    } }, modifier = modifier.onSizeChanged {
         view.post { view.evaluateJavascript("window.fleetMapRelayout && window.fleetMapRelayout();", null) }
     }.semantics { contentDescription = if (rendered) "직원 위치 지도" else "직원 위치 지도 불러오는 중" })
     val payload = JSONArray(points.map { point -> JSONObject().put("uid", point.uid).put("name", point.name)
